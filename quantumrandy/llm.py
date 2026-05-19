@@ -308,10 +308,11 @@ def _extract_json(content: str) -> dict[str, Any]:
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        match = re.search(r"\{.*\}", text, flags=re.DOTALL)
-        if not match:
+        idx = text.find("{")
+        if idx < 0:
             raise
-        return json.loads(match.group(0))
+        obj, _ = json.JSONDecoder().raw_decode(text[idx:])
+        return obj
 
 
 def _load_env_file() -> None:

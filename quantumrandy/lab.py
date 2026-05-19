@@ -54,7 +54,7 @@ def run_brutal_filter(
 
     pred_pass = (
         train_metrics["rank_ic"] >= thresholds.min_rank_ic
-        or train_metrics["directional_win_rate"] >= thresholds.min_directional_win_rate
+        and train_metrics["directional_win_rate"] >= thresholds.min_directional_win_rate
     )
     max_corr = max_factor_corr(factor, train_data, accepted_formulas, self_formula=formula)
     homo_pass = max_corr < thresholds.max_corr
@@ -67,7 +67,7 @@ def run_brutal_filter(
             "pass": pred_pass,
             "rank_ic": train_metrics["rank_ic"],
             "directional_win_rate": train_metrics["directional_win_rate"],
-            "rule": f"rank_ic >= {thresholds.min_rank_ic} OR directional_win_rate >= {thresholds.min_directional_win_rate}",
+            "rule": f"rank_ic >= {thresholds.min_rank_ic} AND directional_win_rate >= {thresholds.min_directional_win_rate}",
         },
         "homogeneity": {
             "pass": homo_pass,

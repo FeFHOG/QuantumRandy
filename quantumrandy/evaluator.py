@@ -8,7 +8,7 @@ import pandas as pd
 
 from .backtest import run_formula_backtest, summarize_ledger
 from .config import CostConfig, ExecutionConfig
-from .expression import formula_complexity, formula_depth, parse_formula
+from .expression import evaluate_formula, formula_complexity, formula_depth, parse_formula
 
 
 @dataclass(frozen=True)
@@ -39,11 +39,12 @@ def evaluate_alpha(
     ledger = run_formula_backtest(data, canonical, costs, execution)
     metrics = summarize_ledger(ledger, bar_hours)
     zoo = zoo or []
+    factor = ledger["factor"].replace([np.inf, -np.inf], np.nan)
     dimensions = {
         "effectiveness": _percentile(metrics["rank_ic"], [a.metrics.get("rank_ic", a.metrics["ic"]) for a in zoo], higher_is_better=True),
         "stability": _stability_score(ledger["r_net"]),
         "turnover": _turnover_score(metrics["turnover"]),
-        "diversity": _diversity_score(canonical, [a.formula for a in zoo]),
+        "diversity": _diversity_score(factor, data, [a.formula for a in zoo]),
         "overfit_risk": _overfit_proxy(canonical, metrics),
     }
     raw_score = float(np.mean(list(dimensions.values())))
@@ -82,16 +83,19 @@ def _turnover_score(turnover: float) -> float:
     return float(np.clip(1.0 - turnover * 3.0, 0.0, 1.0))
 
 
-def _diversity_score(formula: str, prior: list[str]) -> float:
-    if not prior:
+def _diversity_score(factor: pd.Series, data: pd.DataFrame, prior_formulas: list[str]) -> float:
+    if not prior_formulas:
         return 1.0
-    tokens = set(_tokens(formula))
-    sims = []
-    for other in prior:
-        other_tokens = set(_tokens(other))
-        union = tokens | other_tokens
-        sims.append(len(tokens & other_tokens) / max(len(union), 1))
-    return float(np.clip(1.0 - max(sims), 0.0, 1.0))
+    max_corr = 0.0
+    for other in prior_formulas:
+        try:
+            other_factor = evaluate_formula(other, data).reindex(factor.index)
+            corr = abs(float(factor.corr(other_factor)))
+            if not np.isnan(corr):
+                max_corr = max(max_corr, corr)
+        except Exception:
+            continue
+    return float(np.clip(1.0 - max_corr, 0.0, 1.0))
 
 
 def _overfit_proxy(formula: str, metrics: dict[str, float]) -> float:
@@ -101,7 +105,3 @@ def _overfit_proxy(formula: str, metrics: dict[str, float]) -> float:
     return float(0.65 * complexity_score + 0.35 * drawdown_score)
 
 
-def _tokens(formula: str) -> list[str]:
-    for char in "(),":
-        formula = formula.replace(char, " ")
-    return [x for x in formula.split() if x]

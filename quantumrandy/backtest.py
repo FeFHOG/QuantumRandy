@@ -29,7 +29,7 @@ def run_formula_backtest(
     close = data["close"].astype(float)
     r_mkt = close.pct_change().fillna(0.0)
     r_raw = exposure * r_mkt
-    delta = exposure.diff().fillna(exposure)
+    delta = exposure.diff().fillna(0.0)
     turnover = delta.abs()
     c_fee = turnover * costs.taker_bps / 10_000.0
     c_slip = turnover * costs.slippage_bps / 10_000.0
@@ -64,12 +64,13 @@ def max_drawdown(returns: pd.Series) -> float:
     return float(-dd.min())
 
 
-def sharpe(returns: pd.Series, bars_per_year: float) -> float:
+def sharpe(returns: pd.Series, bars_per_year: float, risk_free_rate: float = 0.03) -> float:
     r = returns.fillna(0.0)
-    std = float(r.std(ddof=0))
+    excess = r - risk_free_rate / bars_per_year
+    std = float(excess.std(ddof=0))
     if std == 0:
         return 0.0
-    return float(r.mean() / std * np.sqrt(bars_per_year))
+    return float(excess.mean() / std * np.sqrt(bars_per_year))
 
 
 def cagr(returns: pd.Series, bars_per_year: float) -> float:
@@ -78,7 +79,7 @@ def cagr(returns: pd.Series, bars_per_year: float) -> float:
     total = float((1.0 + returns.fillna(0.0)).prod())
     years = len(returns) / bars_per_year
     if years <= 0 or total <= 0:
-        return -1.0
+        return -0.9999
     return total ** (1.0 / years) - 1.0
 
 

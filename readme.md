@@ -100,7 +100,7 @@ Every candidate factor passes through four gates:
 
 | Gate | Criterion | Threshold |
 |------|-----------|-----------|
-| Predictive power | Rank IC or directional win rate | IC ≥ 0.01 or win rate ≥ 0.49 |
+| Predictive power | Rank IC AND directional win rate | IC ≥ 0.01 AND win rate ≥ 0.49 |
 | Homogeneity | Max correlation to library | < 0.70 |
 | Friction audit | Sharpe after taker fees + slippage + funding | ≥ 0.30 |
 | Lifespan | Validation Sharpe + IC half-life | Sharpe ≥ 0, halflife ≥ 1 bar |
@@ -113,6 +113,28 @@ All thresholds are configurable in `configs/btcusdt.yaml` → `filter`.
 - **Forced explanation**: LLM must output ≥60 char economic rationale with finance keywords (momentum, reversal, volatility, etc.).
 - **Occam's razor**: exponential operator penalty — when two formulas backtest similarly, the simpler one wins.
 - **API cooldown**: minimum 30s between DeepSeek calls to control cost (~$1-2 per 8h night run).
+
+## Blind Validation (2026 Out-of-Sample)
+
+The dashboard includes a one-click blind validation feature. Download fresh data and test any factor:
+
+```powershell
+# Download 2026 blind data
+cd ../AutoQuant
+python scripts/fetch_binance.py --start 2026-01-01 --end 2026-05-01 --file-prefix BTCUSDT_2026 --outdir data
+
+# Start dashboard, click any factor → "一键验证(2026盲测)"
+cd ../QuantumRandy  
+python scripts/dashboard.py --config configs/btcusdt.yaml --out reports/research_live --port 8765
+```
+
+The validation popup shows:
+- 12 metrics (Sharpe, CAGR, maxDD, IC, Rank IC, win rate, turnover, trades, etc.)
+- Equity curve + drawdown chart (Chart.js)
+- Trade-by-trade ledger with PnL
+- SURVIVED / WEAK / DEAD verdict with color coding
+
+Results are also batch-saved to `reports/research_live/blind_2026_validation.json`.
 
 ## Extending to Other Coins
 

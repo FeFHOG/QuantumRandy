@@ -157,7 +157,10 @@ class AlphaMCTS:
         while current is not None:
             node = self.nodes[current]
             node.visits += 1
-            node.value = max(node.value, reward)
+            if self.config.backup_strategy == "average":
+                node.value += (reward - node.value) / node.visits
+            else:
+                node.value = max(node.value, reward)
             current = node.parent
 
     def _maybe_add_to_zoo(self, result: AlphaResult) -> None:

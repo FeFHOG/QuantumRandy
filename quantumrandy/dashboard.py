@@ -7,6 +7,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+import numpy as np
+import pandas as pd
+
+from .backtest import run_formula_backtest, summarize_ledger, equity_curve, max_drawdown
+from .config import CostConfig, ExecutionConfig
+from .data import align_funding_to_ohlcv, read_ohlcv, read_funding
 from .research import ResearchSession
 
 C_RESET = "\033[0m"
@@ -123,7 +129,18 @@ HTML = r"""<!doctype html>
       .panel { overflow-x: auto; }
       .modal-body { grid-template-columns: 1fr; }
     }
+    .validate-section { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
+    .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; }
+    .chart-box { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+    .chart-box h4 { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+    .chart-box canvas { width: 100% !important; height: 200px !important; }
+    .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px 16px; margin-top: 8px; }
+    .metric-grid .mv { border-left: 2px solid var(--accent); padding-left: 8px; }
+    .metric-grid .mv span { display: block; color: var(--muted); font-size: 11px; }
+    .metric-grid .mv strong { display: block; font-size: 15px; margin-top: 2px; }
+    @media (max-width: 900px) { .chart-row { grid-template-columns: 1fr; } .metric-grid { grid-template-columns: repeat(2, 1fr); } }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
 <body class="local-mode">
   <div class="mode-strip"></div>
@@ -398,8 +415,156 @@ HTML = r"""<!doctype html>
           diversity=${fmt(row.diversity,3)} |
           overfit_risk=${fmt(row.overfit_risk,3)} |
           simplicity=${fmt(row.simplicity,3)}</span>
+        </div>
+        <div class="full validate-section">
+          <button onclick="event.stopPropagation();validateFactor(${idx})" style="border-color:var(--gold);color:var(--gold);font-weight:700">
+            ⚡ 一键验证 (2026盲测)
+          </button>
+          <span class="muted" style="margin-left:8px;font-size:12px">对2026.1.1-2026.5.1新数据进行独立回测</span>
+          <div id="validateResult${idx}" style="margin-top:12px"></div>
         </div>`;
       document.getElementById('modalOverlay').classList.add('active');
+    }
+
+    let _chartInstances = {};
+
+    async function validateFactor(idx) {
+      const row = (window._factorsCache || [])[idx];
+      if (!row) return;
+      const container = document.getElementById('validateResult' + idx);
+      container.innerHTML = '<div class="muted" style="padding:8px">正在运行2026盲测回测...</div>';
+      try {
+        const res = await fetch('/api/validate_factor?formula=' + encodeURIComponent(row.formula));
+        const data = await res.json();
+        if (data.error) {
+          container.innerHTML = '<div style="color:var(--bad);padding:8px">回测错误: ' + data.error + '</div>';
+          return;
+        }
+        const b = data.blind;
+        const isGood = b.sharpe >= 0.5;
+        const statusColor = isGood ? 'var(--good)' : (b.sharpe >= 0 ? 'var(--warn)' : 'var(--bad)');
+        const statusLabel = isGood ? 'SURVIVED' : (b.sharpe >= 0 ? 'WEAK' : 'DEAD');
+
+        let html = '<div style="margin-top:8px;padding:12px;background:var(--bg);border-radius:8px;border:1px solid ' + statusColor + '">';
+        html += '<div style="font-size:18px;font-weight:700;color:' + statusColor + ';margin-bottom:10px">2026盲测: ' + statusLabel + ' (Sharpe=' + fmt(b.sharpe,3) + ')</div>';
+        html += '<div class="metric-grid">';
+        html += '<div class="mv"><span>Sharpe</span><strong style="color:' + statusColor + '">' + fmt(b.sharpe,3) + '</strong></div>';
+        html += '<div class="mv"><span>CAGR</span><strong>' + fmt(b.cagr,3) + '</strong></div>';
+        html += '<div class="mv"><span>最大回撤</span><strong>' + fmt(b.max_dd,3) + '</strong></div>';
+        html += '<div class="mv"><span>Rank IC</span><strong>' + fmt(b.rank_ic,4) + '</strong></div>';
+        html += '<div class="mv"><span>IC</span><strong>' + fmt(b.ic,4) + '</strong></div>';
+        html += '<div class="mv"><span>胜率</span><strong>' + fmt(b.directional_win_rate,3) + '</strong></div>';
+        html += '<div class="mv"><span>换手率</span><strong>' + fmt(b.turnover,3) + '</strong></div>';
+        html += '<div class="mv"><span>交易次数</span><strong>' + b.trades + '</strong></div>';
+        html += '<div class="mv"><span>净收益</span><strong>' + fmt(b.net_total,3) + '</strong></div>';
+        html += '<div class="mv"><span>数据条数</span><strong>' + b.bars + '</strong></div>';
+        html += '<div class="mv"><span>盲测期间</span><strong>2026.1-5</strong></div>';
+        html += '<div class="mv"><span>BTC价格区间</span><strong>$62.8k-$97.2k</strong></div>';
+        html += '</div>';
+
+        if (data.chart && data.chart.equity && data.chart.equity.length > 0) {
+          html += '<div class="chart-row">';
+          html += '<div class="chart-box"><h4>权益曲线 (Equity Curve)</h4><canvas id="equityChart' + idx + '"></canvas></div>';
+          html += '<div class="chart-box"><h4>回撤曲线 (Drawdown)</h4><canvas id="ddChart' + idx + '"></canvas></div>';
+          html += '</div>';
+        }
+
+        if (data.trade_list && data.trade_list.length > 0) {
+          html += '<div style="margin-top:12px;font-size:12px;max-height:200px;overflow-y:auto">';
+          html += '<table style="width:100%;font-size:11px"><tr><th>入场时间</th><th>出场时间</th><th>方向</th><th>入场价</th><th>出场价</th><th>持仓bars</th><th>PnL%</th></tr>';
+          data.trade_list.slice(-20).reverse().forEach(function(t) {
+            const pnlColor = (t.pnl||0) >= 0 ? 'var(--good)' : 'var(--bad)';
+            html += '<tr><td>' + (t.entry_time||'').substring(5,16) + '</td><td>' + (t.exit_time||'').substring(5,16) + '</td><td>' + (t.side||'') + '</td><td>' + fmt(t.entry_price,1) + '</td><td>' + fmt(t.exit_price,1) + '</td><td>' + (t.bars_held||'-') + '</td><td style="color:' + pnlColor + '">' + (t.pnl!=null?(t.pnl>=0?'+':'')+fmt(t.pnl,2)+'%':'') + '</td></tr>';
+          });
+          html += '</table></div>';
+        }
+
+        html += '</div>';
+        container.innerHTML = html;
+
+        if (data.chart && data.chart.equity && data.chart.equity.length > 0) {
+          const labels = data.chart.timestamps.map(t => t.substring(5,10));
+          const step = Math.max(1, Math.floor(labels.length / 12));
+          const displayLabels = labels.map((l, i) => i % step === 0 ? l : '');
+
+          const oldEq = _chartInstances['eq' + idx];
+          const oldDd = _chartInstances['dd' + idx];
+          if (oldEq) oldEq.destroy();
+          if (oldDd) oldDd.destroy();
+
+          const eqCtx = document.getElementById('equityChart' + idx);
+          const ddCtx = document.getElementById('ddChart' + idx);
+          if (eqCtx) {
+            _chartInstances['eq' + idx] = new Chart(eqCtx, {
+              type: 'line',
+              data: {
+                labels: displayLabels,
+                datasets: [{
+                  data: data.chart.equity,
+                  borderColor: '#0ecb81',
+                  backgroundColor: 'rgba(14,203,129,0.1)',
+                  fill: true,
+                  pointRadius: 0,
+                  borderWidth: 1.5,
+                  tension: 0.1,
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                  x: { ticks: { color: '#848e9c', font: { size: 9 }, maxTicksLimit: 12 } },
+                  y: { ticks: { color: '#848e9c', font: { size: 9 } }, grid: { color: '#2b3139' } }
+                },
+                animation: false,
+              }
+            });
+          }
+          if (ddCtx) {
+            _chartInstances['dd' + idx] = new Chart(ddCtx, {
+              type: 'line',
+              data: {
+                labels: displayLabels,
+                datasets: [{
+                  data: data.chart.drawdown,
+                  borderColor: '#f6465d',
+                  backgroundColor: 'rgba(246,70,93,0.15)',
+                  fill: true,
+                  pointRadius: 0,
+                  borderWidth: 1.5,
+                  tension: 0.1,
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { display: false },
+                  tooltip: {
+                    callbacks: {
+                      label: function(ctx) { return (ctx.raw * 100).toFixed(1) + '%'; }
+                    }
+                  }
+                },
+                scales: {
+                  x: { ticks: { color: '#848e9c', font: { size: 9 }, maxTicksLimit: 12 } },
+                  y: {
+                    ticks: {
+                      color: '#848e9c', font: { size: 9 },
+                      callback: function(v) { return (v * 100).toFixed(0) + '%'; }
+                    },
+                    grid: { color: '#2b3139' }
+                  }
+                },
+                animation: false,
+              }
+            });
+          }
+        }
+      } catch(e) {
+        container.innerHTML = '<div style="color:var(--bad);padding:8px">请求失败: ' + e.message + '</div>';
+      }
     }
 
     async function testDeepSeek() {
@@ -430,6 +595,102 @@ HTML = r"""<!doctype html>
 """
 
 
+_blind_cache: dict | None = None
+
+
+def _load_blind_data():
+    """Load 2026 blind validation data. Cached at module level for speed."""
+    global _blind_cache
+    if _blind_cache is not None:
+        return _blind_cache["data"], _blind_cache["bar_hours"], _blind_cache["costs"], _blind_cache["execution"]
+    base = Path(__file__).resolve().parents[2] / "AutoQuant" / "data"
+    ohlcv_path = base / "BTCUSDT_2026_4h.csv"
+    funding_path = base / "BTCUSDT_2026_funding.csv"
+    if not ohlcv_path.exists():
+        ohlcv_path = base / "BTCUSDT_4h.csv"
+        funding_path = base / "BTCUSDT_funding.csv"
+    ohlcv = read_ohlcv(str(ohlcv_path))
+    funding = align_funding_to_ohlcv(ohlcv, read_funding(str(funding_path)))
+    data = ohlcv.copy()
+    data["funding_rate"] = funding
+    costs = CostConfig(taker_bps=4.0, slippage_bps=1.0, funding_multiplier=1.0)
+    execution = ExecutionConfig(delay_bars=1, max_exposure_abs=1.0, exposure_threshold=0.15)
+    _blind_cache = {"data": data, "bar_hours": 4, "costs": costs, "execution": execution}
+    return data, 4, costs, execution
+
+
+def _run_blind_validate(formula: str) -> dict:
+    """Run a single formula backtest on 2026 blind data (cached). Returns chart-ready results."""
+    try:
+        data, bar_hours, costs, execution = _load_blind_data()
+        ledger = run_formula_backtest(data, formula, costs, execution)
+        metrics = summarize_ledger(ledger, bar_hours)
+
+        r = ledger["r_net"].fillna(0.0)
+        eq = equity_curve(r)
+        dd_series = eq / eq.cummax() - 1.0
+
+        # Downsample chart to ~100 points for fast JSON transfer
+        step = max(1, len(ledger) // 100)
+        idxs = list(range(0, len(ledger), step))
+        timestamps = [str(ledger.index[i]) for i in idxs]
+        equity_vals = [float(eq.iloc[i]) for i in idxs]
+        dd_vals = [float(dd_series.iloc[i]) for i in idxs]
+
+        # Extract trades from exposure changes (vectorized loop over .values for speed)
+        exp_arr = ledger["exposure"].values
+        close_arr = ledger["close"].values
+        ts_arr = ledger.index
+        trades = []
+        i = 0
+        while i < len(exp_arr):
+            if exp_arr[i] != 0:
+                start = i
+                side = "long" if exp_arr[i] > 0 else "short"
+                while i < len(exp_arr) and exp_arr[i] != 0:
+                    i += 1
+                end = i - 1
+                pnl = (float(close_arr[end]) / float(close_arr[start]) - 1)
+                if side == "short":
+                    pnl = -pnl
+                trades.append({
+                    "entry_time": str(ts_arr[start]),
+                    "entry_price": float(close_arr[start]),
+                    "exit_time": str(ts_arr[end]),
+                    "exit_price": float(close_arr[end]),
+                    "side": side,
+                    "bars_held": end - start,
+                    "pnl": round(pnl * 100, 2),
+                })
+            else:
+                i += 1
+
+        return {
+            "formula": formula,
+            "error": None,
+            "blind": {
+                "bars": metrics["bars"],
+                "sharpe": round(metrics["sharpe"], 4),
+                "cagr": round(metrics["cagr"], 4),
+                "max_dd": round(metrics["max_dd"], 4),
+                "ic": round(metrics["ic"], 6),
+                "rank_ic": round(metrics["rank_ic"], 6),
+                "directional_win_rate": round(metrics["directional_win_rate"], 4),
+                "turnover": round(metrics["turnover"], 4),
+                "trades": int(metrics["trades"]),
+                "net_total": round(metrics["net_total"], 4),
+            },
+            "chart": {
+                "timestamps": timestamps,
+                "equity": equity_vals,
+                "drawdown": dd_vals,
+            },
+            "trade_list": trades[-40:],
+        }
+    except Exception as exc:
+        return {"formula": formula, "error": str(exc), "blind": None, "chart": None, "trade_list": []}
+
+
 def run_dashboard(config: str, out: str, host: str = "127.0.0.1", port: int = 8765) -> None:
     import errno
     import socket
@@ -440,6 +701,7 @@ def run_dashboard(config: str, out: str, host: str = "127.0.0.1", port: int = 87
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
             parsed = urlparse(self.path)
+            params = parse_qs(parsed.query)
             ts = datetime.now().strftime("%H:%M:%S")
             if parsed.path == "/":
                 self._send(HTML, "text/html; charset=utf-8")
@@ -453,6 +715,13 @@ def run_dashboard(config: str, out: str, host: str = "127.0.0.1", port: int = 87
                 self._json(session.llm_log())
             elif parsed.path == "/api/test_deepseek":
                 self._json(session.test_deepseek())
+            elif parsed.path == "/api/validate_factor":
+                formula = params.get("formula", [None])[0]
+                if not formula:
+                    self._json({"error": "missing formula"})
+                    return
+                result = _run_blind_validate(formula)
+                self._json(result)
             else:
                 self.send_error(404)
 

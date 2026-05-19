@@ -37,9 +37,10 @@ class MCTSConfig:
     eval_workers: int = 4
     max_formula_depth: int = 3
     max_formula_operators: int = 6
-    complexity_penalty: float = 0.02
+    complexity_penalty: float = 0.05
     fsa_top_k: int = 8
     api_cooldown_seconds: float = 30.0
+    backup_strategy: str = "average"
     seed_formulas: list[str] = field(default_factory=lambda: ["neg(zscore(funding_rate,42))"])
 
 
