@@ -20,7 +20,7 @@ REM Auto-detect changed files
 for /f "delims=" %%d in ('powershell -NoProfile -Command "Get-Date -Format 'yyyy-MM-dd HH:mm'"') do set NOW=%%d
 
 echo [%NOW%] Staging files...
-git add quantumrandy\*.py scripts\*.py tests\*.py configs\*.yaml pyproject.toml requirements.txt .gitignore .env.example readme.md PROJECT_LOG.md upload_to_github.bat
+git add quantumrandy\*.py scripts\*.py tests\*.py configs\*.yaml pyproject.toml requirements.txt .gitignore .env.example readme.md docs\PROJECT_LOG.md docs\AUDIT_REPORT_20260519.md upload_to_github.bat
 
 echo.
 echo Staged:
