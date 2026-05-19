@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.env
+
+reports/
+backups/
+data/
+*.log
+*.lnk
+arXiv-2505.11122v3/
+PROJECT_LOG.md
