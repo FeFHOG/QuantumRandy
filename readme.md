@@ -42,24 +42,26 @@ QuantumRandy/
     expression.py           # Formula DSL parser & evaluator
     backtest.py             # 4h perpetual strict backtest
     evaluator.py            # Multi-dim factor scoring
-    mcts.py                 # MCTS search with UCT
+    mcts.py                 # MCTS search with UCT + zoo cap
     fsa.py                  # Frequent subtree avoidance
     llm.py                  # DeepSeek API + local fallback
-    proposals.py            # Template-based formula generator
-    lab.py                  # 4-gate brutal filter
-    research.py             # Background research session
-    dashboard.py            # HTTP dashboard backend
+    proposals.py            # Template engine (46% funding_rate coverage)
+    lab.py                  # 4-gate brutal filter + kill diagnosis
+    research.py             # Background research session + auto-purge
+    dashboard.py            # HTTP dashboard backend + kill breakdown
     config.py               # YAML config reader
     data.py                 # OHLCV/funding data loader
     io_utils.py             # File I/O utilities
   scripts/
     mine.py                 # Batch alpha mining
     eval_formula.py         # Evaluate a single formula
+    backtest_all.py         # One-click backtest ALL factors
     run_btc.py              # One-command BTC mining
     dashboard.py            # Launch research dashboard
     check_deepseek.py       # Verify DeepSeek connectivity
   tests/
     test_smoke.py
+  CHANGELOG.md              # Version history
 ```
 
 ## Formula DSL
@@ -113,6 +115,9 @@ All thresholds are configurable in `configs/btcusdt.yaml` → `filter`.
 - **Forced explanation**: LLM must output ≥60 char economic rationale with finance keywords (momentum, reversal, volatility, etc.).
 - **Occam's razor**: exponential operator penalty — when two formulas backtest similarly, the simpler one wins.
 - **API cooldown**: minimum 30s between DeepSeek calls to control cost (~$1-2 per 8h night run).
+- **Funding rate focus**: local templates weight funding_rate at 35% (up from 20%) — it has the highest pass rate through the brutal filter.
+- **FSA whitelist**: funding_rate patterns are exempt from subtree bans — effective structures shouldn't be blocked.
+- **Auto-purge**: killed non-seed factors removed from zoo each iteration to prevent homogeneity drift.
 
 ## Blind Validation (2026 Out-of-Sample)
 
@@ -135,6 +140,37 @@ The validation popup shows:
 - SURVIVED / WEAK / DEAD verdict with color coding
 
 Results are also batch-saved to `reports/research_live/blind_2026_validation.json`.
+
+## One-Click Backtest All Factors
+
+Backtest every factor in a leaderboard at once:
+
+```powershell
+python scripts/backtest_all.py --leaderboard reports/research_live/leaderboard.json --config configs/btcusdt.yaml --out reports/backtest_all
+
+# With 2026 blind out-of-sample validation
+python scripts/backtest_all.py --leaderboard reports/research_live/leaderboard.json --blind
+```
+
+Outputs `all_factors_backtest.csv` + `.json` with train/val/blind metrics, pass/kill status, and kill reasons.
+
+## Kill Diagnosis
+
+The dashboard shows a **Kill Breakdown** panel — which of the 4 brutal-filter gates kills the most factors. Hover any KILL badge to see the specific gates that failed. Click a factor row for a detail modal with per-gate actual values vs thresholds.
+
+Kill reasons are stored in `leaderboard.json` → `kill_reasons` field (e.g. `["predictive_power", "autoquant_audit"]`).
+
+## v0.7 "Funding Rate Renaissance" (2026-05-20)
+
+Key improvements after diagnosing the 74% kill rate:
+
+- **Proposal templates**: funding_rate presence 14% → 46%. Fields split into price (close/high/low) for ret/delta/rsi and any-field for sma/ema/zscore/corr.
+- **FSA whitelist**: funding_rate subtree patterns can no longer be banned.
+- **Auto-purge**: killed non-seed factors are automatically removed from zoo each iteration.
+- **Zoo cap**: max 50 non-seed entries to prevent homogeneity gate inflation.
+- **Kill diagnosis**: `lab.kill_reasons()` returns which gates killed a factor.
+
+See `CHANGELOG.md` for full details.
 
 ## Extending to Other Coins
 

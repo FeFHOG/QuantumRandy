@@ -65,20 +65,37 @@ class ResearchSession:
         with self.lock:
             if self.thread and self.thread.is_alive():
                 return self.snapshot()
+            # Preserve previous state if resuming
+            prev_leaderboard = self.output_dir / "leaderboard.json"
+            prev_state = self.output_dir / "state.json"
+            prev_iter = 0
+            if prev_leaderboard.exists():
+                try:
+                    prev = json.loads(prev_leaderboard.read_text(encoding="utf-8"))
+                    prev_iter = max(p.get("iterations_done", 0) for p in [self._load_prev_state(), {"iterations_done": 0}])
+                except Exception:
+                    prev_iter = 0
             self.state = ResearchState(
                 status="running",
                 started_at=_now(),
                 updated_at=_now(),
+                iterations_done=prev_iter,
                 target_seconds=hours * 3600.0,
                 use_llm=use_llm,
                 output_dir=str(self.output_dir),
-                message="Research started.",
+                message="Resuming from previous session." if prev_iter > 0 else "Research started.",
             )
             self.output_dir.mkdir(parents=True, exist_ok=True)
             self._write_state_locked()
             self.thread = threading.Thread(target=self._run_loop, daemon=True)
             self.thread.start()
             return self.snapshot()
+
+    def _load_prev_state(self) -> dict:
+        path = self.output_dir / "state.json"
+        if path.exists():
+            return json.loads(path.read_text(encoding="utf-8"))
+        return {}
 
     def request_stop(self) -> dict:
         with self.lock:
@@ -188,6 +205,7 @@ class ResearchSession:
                     self._write_state_locked()
                 t0 = time.time()
                 self._audit_new_alphas()
+                self._auto_purge_killed()
                 audit_dur = time.time() - t0
                 with self.lock:
                     self.state.iterations_done += 1
@@ -229,13 +247,15 @@ class ResearchSession:
         train = slice_window(data, cfg.windows.training_start, cfg.windows.training_end)
         validation = slice_window(data, cfg.windows.validation_start, cfg.windows.validation_end)
         if self.state.use_llm:
-            _os.environ["DEEPSEEK_TIMEOUT_SECONDS"] = "120"
-            _os.environ["DEEPSEEK_MAX_RETRIES"] = "1"
+            # Respect .env settings if present, otherwise use faster defaults
+            _os.environ.setdefault("DEEPSEEK_TIMEOUT_SECONDS", "60")
+            _os.environ.setdefault("DEEPSEEK_MAX_RETRIES", "1")
         generator = FormulaGenerator(
             use_llm=self.state.use_llm,
             max_formula_depth=cfg.mcts.max_formula_depth,
             max_formula_operators=cfg.mcts.max_formula_operators,
             prompt_config=cfg.prompt,
+            llm_config=cfg.llm,
         )
         self.cfg = cfg
         self.train_data = train
@@ -243,11 +263,70 @@ class ResearchSession:
         self.mcts = AlphaMCTS(train, cfg.costs, cfg.execution, cfg.bar_hours, cfg.mcts, generator)
         with self.lock:
             self.state.phase = "initializing"
-            self.state.message = "Initializing seed factors and first audit."
+            self.state.message = "Checking for previous session..."
             self.state.updated_at = _now()
             self._write_state_locked()
-        self.mcts.initialize()
-        self._audit_new_alphas()
+
+        # Check for existing zoo to resume from
+        zoo_path = self.output_dir / "zoo.json"
+        leaderboard_path = self.output_dir / "leaderboard.json"
+        resumed = False
+        if zoo_path.exists():
+            try:
+                saved_zoo = json.loads(zoo_path.read_text(encoding="utf-8"))
+                for item in saved_zoo:
+                    alpha = AlphaResult(
+                        formula=item["formula"],
+                        score=item.get("score", 0),
+                        dimensions=item.get("dimensions", {}),
+                        metrics=item.get("metrics", {}),
+                        description=item.get("description", ""),
+                        depth=item.get("depth", 0),
+                        operators=item.get("operators", 0),
+                        generated_at=item.get("generated_at", _now()),
+                    )
+                    self.mcts.zoo.append(alpha)
+                _log(f"Resumed {len(self.mcts.zoo)} zoo entries from previous session.", C_GREEN)
+                resumed = True
+            except Exception as exc:
+                _log(f"Failed to load zoo, starting fresh: {exc}", C_YELLOW)
+
+        # Restore brutal_results from leaderboard
+        if leaderboard_path.exists() and resumed:
+            try:
+                prev_lb = json.loads(leaderboard_path.read_text(encoding="utf-8"))
+                for row in prev_lb:
+                    formula = row.get("formula", "")
+                    if "passed" in row:
+                        self.brutal_results[formula] = {
+                            "formula": formula,
+                            "passed": row.get("passed", False),
+                            "brutal_score": row.get("brutal_score", 0),
+                            "gates": {
+                                "predictive_power": {"pass": row.get("gate_predictive_power", False), "rank_ic": row.get("rank_ic", 0), "directional_win_rate": row.get("directional_win_rate", 0)},
+                                "homogeneity": {"pass": row.get("gate_homogeneity", False), "max_corr_to_library": row.get("max_corr_to_library", 0)},
+                                "autoquant_audit": {"pass": row.get("gate_autoquant_audit", False), "cost_sharpe": row.get("sharpe", 0)},
+                                "lifetime": {"pass": row.get("gate_lifetime", False), "halflife_bars": row.get("halflife_bars", 0), "validation_sharpe": row.get("validation_sharpe", 0)},
+                            },
+                            "train": {"rank_ic": row.get("rank_ic", 0), "sharpe": row.get("sharpe", 0), "cagr": row.get("cagr", 0), "max_dd": row.get("max_dd", 0)},
+                            "validation": {"sharpe": row.get("validation_sharpe", 0), "rank_ic": row.get("validation_rank_ic", 0)},
+                        }
+                _log(f"Restored {len(self.brutal_results)} brutal filter results.", C_GREEN)
+            except Exception as exc:
+                _log(f"Failed to load brutal results: {exc}", C_YELLOW)
+
+        # Seed if starting fresh OR if zoo is empty (all factors killed/purged)
+        if not resumed or len(self.mcts.zoo) == 0:
+            with self.lock:
+                self.state.message = "Initializing seed factors and first audit."
+                self._write_state_locked()
+            self.mcts.initialize()
+            self._audit_new_alphas()
+        else:
+            with self.lock:
+                self.state.message = "Resumed from previous session."
+                accepted = sum(1 for v in self.brutal_results.values() if v.get("passed"))
+
         with self.lock:
             self.state.symbol = cfg.symbol
             self.state.candidate_count = len(self.mcts.zoo)
@@ -256,8 +335,11 @@ class ResearchSession:
             if best:
                 self.state.best_formula = best.get("formula")
                 self.state.best_score = best.get("brutal_score", best.get("mcts_score"))
+            if resumed:
+                accepted = sum(1 for v in self.brutal_results.values() if v.get("passed"))
+                self.state.accepted_count = accepted
             self.state.phase = "running"
-            self.state.message = "Seed factors initialized. Research loop is running."
+            self.state.message = "Resumed from previous session." if resumed else "Seed factors initialized. Research loop is running."
             self._save_outputs_locked()
 
     def _audit_new_alphas(self) -> None:
@@ -338,17 +420,30 @@ class ResearchSession:
 
     def purge_killed(self) -> dict:
         with self.lock:
-            killed = [f for f, r in self.brutal_results.items() if not r.get("passed")]
-            for formula in killed:
-                self.brutal_results.pop(formula, None)
-                if self.mcts:
-                    self.mcts.zoo = [a for a in self.mcts.zoo if a.formula not in killed]
-                    self.mcts.nodes = [n for n in self.mcts.nodes if n.formula not in killed]
-            self.state.message = f"Purged {len(killed)} killed factors."
+            killed_count = self._purge_killed_locked()
+            self.state.message = f"Purged {killed_count} killed factors."
             self._write_state_locked()
             self._save_outputs_locked()
-            _log(f"Purged {len(killed)} killed factors from zoo", C_YELLOW)
+            _log(f"Purged {killed_count} killed factors from zoo (seeds preserved)", C_YELLOW)
             return self.snapshot()
+
+    def _auto_purge_killed(self) -> int:
+        """Auto-purge killed non-seed factors from zoo after each brutal filter pass.
+        This prevents zoo bloat from making the homogeneity gate impossibly strict."""
+        with self.lock:
+            return self._purge_killed_locked()
+
+    def _purge_killed_locked(self) -> int:
+        seed_formulas = set(self.cfg.mcts.seed_formulas) if self.cfg else set()
+        killed = [f for f, r in self.brutal_results.items() if not r.get("passed") and f not in seed_formulas]
+        for formula in killed:
+            self.brutal_results.pop(formula, None)
+            if self.mcts:
+                self.mcts.zoo = [a for a in self.mcts.zoo if a.formula not in killed]
+                self.mcts.nodes = [n for n in self.mcts.nodes if n.formula not in killed]
+        if killed:
+            _log(f"Auto-purged {len(killed)} killed factors from zoo", C_YELLOW)
+        return len(killed)
 
     def test_deepseek(self) -> dict:
         import os as _os
@@ -356,7 +451,9 @@ class ResearchSession:
         _load_env_file()
         api_key = _os.getenv("DEEPSEEK_API_KEY")
         if not api_key:
-            return {"ok": False, "message": "DEEPSEEK_API_KEY not set in .env. Check QuantumRandy/.env has DEEPSEEK_API_KEY=sk-..."}
+            result = {"ok": False, "message": "DEEPSEEK_API_KEY not set in .env. Check QuantumRandy/.env has DEEPSEEK_API_KEY=sk-..."}
+            self._log_llm_event("deepseek_test", result)
+            return result
         settings = LLMSettings(
             base_url=_os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
             model=_os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
@@ -373,10 +470,25 @@ class ResearchSession:
                 temperature=0.0,
             )
             dur = time.time() - t0
-            return {"ok": True, "message": f"OK ({dur:.1f}s) — {content[:80].strip()}"}
+            result = {"ok": True, "message": f"OK ({dur:.1f}s) — {content[:80].strip()}"}
+            self._log_llm_event("deepseek_test", result)
+            return result
         except Exception as exc:
             dur = time.time() - t0
-            return {"ok": False, "message": f"Failed after {dur:.1f}s: {exc}"}
+            result = {"ok": False, "message": f"Failed after {dur:.1f}s: {exc}"}
+            self._log_llm_event("deepseek_test", result)
+            return result
+
+    def _log_llm_event(self, source: str, detail: dict) -> None:
+        if self.mcts is not None:
+            self.mcts.generator.events.append({
+                "source": source,
+                "accepted": 0,
+                "requested": 0,
+                "error": detail.get("message", "") if not detail.get("ok") else "",
+                "llm_response_snippet": detail.get("message", "")[:200],
+                "llm_duration_s": 0,
+            })
 
     def llm_log(self) -> list[dict[str, Any]]:
         if self.mcts is None:

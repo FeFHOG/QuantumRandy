@@ -24,7 +24,7 @@ C_CYAN = "\033[36m"
 
 
 HTML = r"""<!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -153,53 +153,58 @@ HTML = r"""<!doctype html>
   </header>
   <main>
     <section class="toolbar">
-      <label>小时 <input id="hours" type="number" min="0.05" step="0.25" value="24"></label>
-      <label><input id="useLlm" type="checkbox"> 使用 DeepSeek</label>
-      <button class="primary" onclick="post('/api/start', {hours: Number(hours.value), use_llm: useLlm.checked})">开始 / 继续研究</button>
-      <button onclick="testDeepSeek()" style="border-color:var(--gold);color:var(--gold)">测试 DeepSeek 连通性</button>
-      <button class="warn" onclick="post('/api/stop', {})">跑完当前轮保存停止</button>
-      <button onclick="post('/api/save', {})">立即保存并备份</button>
-      <button class="danger" onclick="post('/api/emergency', {})">急停</button>
-      <button class="warn" onclick="post('/api/purge', {})">清理被杀因子</button>
-      <button onclick="refresh()">读取之前因子</button>
+      <label>Hours <input id="hours" type="number" min="0.05" step="0.25" value="24"></label>
+      <label><input id="useLlm" type="checkbox"> Use DeepSeek</label>
+      <button class="primary" onclick="post('/api/start', {hours: Number(hours.value), use_llm: useLlm.checked})">Start / Resume Research</button>
+      <button onclick="testDeepSeek()" style="border-color:var(--gold);color:var(--gold)">Test DeepSeek Connection</button>
+      <button class="warn" onclick="post('/api/stop', {})">Stop After Current Iteration</button>
+      <button onclick="post('/api/save', {})">Save &amp; Backup Now</button>
+      <button class="danger" onclick="post('/api/emergency', {})">Emergency Stop</button>
+      <button class="warn" onclick="post('/api/purge', {})">Purge Killed Factors</button>
+      <button onclick="refresh()">Refresh Factors</button>
     </section>
     <section class="metrics">
-      <div class="metric"><span>状态</span><strong id="status">-</strong></div>
-      <div class="metric"><span>已跑轮数</span><strong id="iterations">0</strong></div>
-      <div class="metric"><span>候选因子</span><strong id="candidates">0</strong></div>
-      <div class="metric"><span>通过四关</span><strong id="accepted">0</strong></div>
-      <div class="metric"><span>最佳分</span><strong id="bestScore">-</strong></div>
-      <div class="metric"><span>已耗时</span><strong id="elapsed">0m</strong></div>
-      <div class="metric"><span>阶段</span><strong id="phase">-</strong></div>
-      <div class="metric"><span>DS状态</span><strong id="llmStatus" style="font-size:14px">-</strong></div>
+      <div class="metric"><span>Status</span><strong id="status">-</strong></div>
+      <div class="metric"><span>Iterations</span><strong id="iterations">0</strong></div>
+      <div class="metric"><span>Candidates</span><strong id="candidates">0</strong></div>
+      <div class="metric"><span>Passed</span><strong id="accepted" style="color:var(--good)">0</strong></div>
+      <div class="metric"><span>Killed</span><strong id="killedCount" style="color:var(--bad)">0</strong></div>
+      <div class="metric"><span>Best Score</span><strong id="bestScore">-</strong></div>
+      <div class="metric"><span>Elapsed</span><strong id="elapsed">0m</strong></div>
+      <div class="metric"><span>Phase</span><strong id="phase">-</strong></div>
+      <div class="metric"><span>DS Status</span><strong id="llmStatus" style="font-size:14px">-</strong></div>
+    </section>
+    <section class="panel" id="killPanel" style="display:none">
+      <h2>Kill Breakdown <span class="muted" style="font-size:12px;font-weight:400">(Why factors are killed in the brutal filter)</span></h2>
+      <div id="killBreakdown" style="padding:10px 14px;display:flex;gap:16px;flex-wrap:wrap;font-size:13px"></div>
     </section>
     <section class="panel">
-      <h2>因子天梯 <span class="muted" style="font-size:12px;font-weight:400">(点击行查看详情 · 点击列头排序)</span></h2>
+      <h2>Factor Leaderboard <span class="muted" style="font-size:12px;font-weight:400">(Click row for details · Click header to sort)</span></h2>
       <table>
         <thead>
           <tr>
             <th>#</th>
-            <th class="sortable" onclick="sortTable('passed')">生死 <span class="sort-arrow">&#9650;</span></th>
-            <th class="sortable" onclick="sortTable('brutal_score')">残酷分 <span class="sort-arrow">&#9650;</span></th>
+            <th class="sortable" onclick="sortTable('passed')">Status <span class="sort-arrow">&#9650;</span></th>
+            <th class="sortable" onclick="sortTable('brutal_score')">Brutal Score <span class="sort-arrow">&#9650;</span></th>
             <th class="sortable" onclick="sortTable('rank_ic')">Rank IC <span class="sort-arrow">&#9650;</span></th>
             <th class="sortable" onclick="sortTable('sharpe')">Sharpe <span class="sort-arrow">&#9650;</span></th>
-            <th class="sortable" onclick="sortTable('max_dd')">回撤 <span class="sort-arrow">&#9650;</span></th>
-            <th class="sortable" onclick="sortTable('max_corr_to_library')">相关 <span class="sort-arrow">&#9650;</span></th>
-            <th class="sortable" onclick="sortTable('halflife_bars')">半衰 <span class="sort-arrow">&#9650;</span></th>
-            <th class="sortable" onclick="sortTable('depth')">深 <span class="sort-arrow">&#9650;</span></th>
-            <th class="sortable" onclick="sortTable('operators')">算 <span class="sort-arrow">&#9650;</span></th>
-            <th class="sortable" onclick="sortTable('generated_at')">生成时间 <span class="sort-arrow">&#9650;</span></th>
-            <th class="sortable" onclick="sortTable('formula')">公式 <span class="sort-arrow">&#9650;</span></th>
-            <th>逻辑解释</th>
+            <th class="sortable" onclick="sortTable('max_dd')">Max DD <span class="sort-arrow">&#9650;</span></th>
+            <th class="sortable" onclick="sortTable('max_corr_to_library')">Max Corr <span class="sort-arrow">&#9650;</span></th>
+            <th class="sortable" onclick="sortTable('halflife_bars')">Half-life <span class="sort-arrow">&#9650;</span></th>
+            <th class="sortable" onclick="sortTable('depth')">Depth <span class="sort-arrow">&#9650;</span></th>
+            <th class="sortable" onclick="sortTable('operators')">Ops <span class="sort-arrow">&#9650;</span></th>
+            <th class="sortable" onclick="sortTable('generated_at')">Generated <span class="sort-arrow">&#9650;</span></th>
+            <th class="sortable" onclick="sortTable('formula')">Formula <span class="sort-arrow">&#9650;</span></th>
+            <th>Rationale</th>
           </tr>
         </thead>
         <tbody id="leaderboard"></tbody>
       </table>
     </section>
     <section class="panel" id="llmLogPanel">
-      <h2>DeepSeek 调用日志</h2>
+      <h2>DeepSeek Call Log</h2>
       <div id="llmLog" style="padding:8px 14px;max-height:200px;overflow-y:auto;font-family:Consolas,monospace;font-size:12px">
-        <span class="muted">暂无记录</span>
+        <span class="muted">No records yet</span>
       </div>
     </section>
   </main>
@@ -207,7 +212,7 @@ HTML = r"""<!doctype html>
   <div id="modalOverlay" class="modal-overlay" onclick="if(event.target===this)closeModal()">
     <div class="modal-box">
       <div class="modal-header">
-        <h2 id="modalTitle">因子详情</h2>
+        <h2 id="modalTitle">Factor Detail</h2>
         <button class="modal-close" onclick="closeModal()">&times;</button>
       </div>
       <div class="modal-body" id="modalBody"></div>
@@ -287,9 +292,9 @@ HTML = r"""<!doctype html>
       leaderboard.innerHTML = indices.slice(0, 100).map((idx) => {
         const row = factors[idx];
         return `
-        <tr onclick="showDetail(${idx})" title="点击查看完整信息">
+        <tr onclick="showDetail(${idx})" title="Click to view full details">
           <td>${idx + 1}</td>
-          <td class="${row.passed ? 'pass' : 'fail'}">${row.passed ? 'PASS' : 'KILL'}</td>
+          <td class="${row.passed ? 'pass' : 'fail'}" title="${row.passed ? '' : (row.kill_reasons||[]).join(', ')}">${row.passed ? 'PASS' : 'KILL'}</td>
           <td>${fmt(row.brutal_score, 2)}</td>
           <td>${fmt(row.rank_ic, 4)}</td>
           <td>${fmt(row.sharpe, 2)}</td>
@@ -298,7 +303,7 @@ HTML = r"""<!doctype html>
           <td>${row.halflife_bars ?? '-'}</td>
           <td>${row.depth ?? '-'}</td>
           <td>${row.operators ?? '-'}</td>
-          <td class="muted" style="font-size:11px">${(row.generated_at || '').substring(11, 19) || '-'}</td>
+          <td class="muted" style="font-size:11px">${row.generated_at ? row.generated_at.substring(5,10) + ' ' + row.generated_at.substring(11,16) : '-'}</td>
           <td class="formula">${row.formula}</td>
           <td class="muted" style="max-width:280px;font-size:12px">${(row.description || '').substring(0, 100)}${(row.description || '').length > 100 ? '...' : ''}</td>
         </tr>`;
@@ -347,6 +352,40 @@ HTML = r"""<!doctype html>
         _defaultOrder = null;
         renderTable();
       }
+      const totalFactors = (window._factorsCache || []).length;
+      const killedFactors = (window._factorsCache || []).filter(function(r){return !r.passed && r.kill_reasons;});
+      const killCount = killedFactors.length;
+      const passedCount = (window._factorsCache || []).filter(function(r){return r.passed;}).length;
+      killedCount.textContent = killCount;
+      if (killCount > 0) {
+        const reasonCounts = {};
+        killedFactors.forEach(function(r){
+          (r.kill_reasons||[]).forEach(function(reason){
+            reasonCounts[reason] = (reasonCounts[reason]||0) + 1;
+          });
+        });
+        const labels = {
+          predictive_power: 'Predictive Power',
+          homogeneity: 'Homogeneity',
+          autoquant_audit: 'Friction Audit',
+          lifetime: 'Lifetime'
+        };
+        const rules = {
+          predictive_power: 'rank_ic>=0.01 & win_rate>=0.49',
+          homogeneity: 'max_corr<0.70',
+          autoquant_audit: 'cost_sharpe>=0.30',
+          lifetime: 'val_sharpe>=0 & halflife>=1'
+        };
+        document.getElementById('killPanel').style.display = '';
+        document.getElementById('killBreakdown').innerHTML = Object.keys(reasonCounts).sort(function(a,b){return reasonCounts[b]-reasonCounts[a];}).map(function(reason){
+          const pct = (reasonCounts[reason] / killCount * 100).toFixed(0);
+          return '<div style="flex:1;min-width:160px;padding:10px 14px;background:var(--bg);border-radius:6px;border-left:3px solid var(--bad)">' +
+            '<div style="font-weight:700;color:var(--bad);margin-bottom:4px">' + (labels[reason]||reason) + ': ' + reasonCounts[reason] + ' (' + pct + '%)</div>' +
+            '<div class="muted" style="font-size:11px">Rule: ' + (rules[reason]||'') + '</div></div>';
+        }).join('');
+      } else {
+        document.getElementById('killPanel').style.display = 'none';
+      }
       if (llmLog && llmLog.length > 0) {
         document.getElementById('llmLog').innerHTML = llmLog.slice(-12).reverse().map(e => {
           const color = e.source === 'deepseek' ? 'var(--good)' : e.source === 'fallback' ? 'var(--bad)' : 'var(--muted)';
@@ -357,58 +396,60 @@ HTML = r"""<!doctype html>
           return `<div style="color:${color};margin-bottom:2px">[${e.source.toUpperCase()}]${acc}${dur}${chars}${err ? ' err=' + err.substring(0,100) : ''}</div>`;
         }).join('');
       } else {
-        document.getElementById('llmLog').innerHTML = '<span class="muted">暂无记录 (勾选DeepSeek并开始研究后出现)</span>';
+        document.getElementById('llmLog').innerHTML = '<span class="muted">No records (enable DeepSeek and start research)</span>';
       }
     }
 
     function showDetail(idx) {
       const row = (window._factorsCache || [])[idx];
       if (!row) return;
-      document.getElementById('modalTitle').innerHTML = '因子详情 <span class="muted" style="font-size:13px;font-weight:400">#' + (idx+1) + '</span>';
+      document.getElementById('modalTitle').innerHTML = 'Factor Detail <span class="muted" style="font-size:13px;font-weight:400">#' + (idx+1) + '</span>';
+      const killReasons = row.kill_reasons || [];
       const gates = [];
-      if (row.gate_predictive_power !== undefined) gates.push(['预测力', row.gate_predictive_power, 'Rank IC >= 0.01 或 胜率 >= 0.49']);
-      if (row.gate_homogeneity !== undefined) gates.push(['同质化', row.gate_homogeneity, 'max_corr < 0.70']);
-      if (row.gate_autoquant_audit !== undefined) gates.push(['摩擦成本', row.gate_autoquant_audit, 'cost_sharpe >= 0.30']);
-      if (row.gate_lifetime !== undefined) gates.push(['寿命', row.gate_lifetime, 'val_sharpe >= 0, halflife >= 1']);
+      if (row.gate_predictive_power !== undefined) gates.push(['Predictive Power', row.gate_predictive_power, 'Rank IC >= 0.01 AND Win Rate >= 0.49', 'rank_ic=' + fmt(row.rank_ic,4) + ' win_rate=' + fmt(row.directional_win_rate,3)]);
+      if (row.gate_homogeneity !== undefined) gates.push(['Homogeneity', row.gate_homogeneity, 'max_corr < 0.70', 'max_corr=' + fmt(row.max_corr_to_library,3)]);
+      if (row.gate_autoquant_audit !== undefined) gates.push(['Friction Audit', row.gate_autoquant_audit, 'cost_sharpe >= 0.30', 'cost_sharpe=' + fmt(row.sharpe,2)]);
+      if (row.gate_lifetime !== undefined) gates.push(['Lifespan', row.gate_lifetime, 'val_sharpe >= 0, halflife >= 1', 'val_sharpe=' + fmt(row.validation_sharpe,2) + ' halflife=' + (row.halflife_bars||'-')]);
       document.getElementById('modalBody').innerHTML = `
         <div class="full">
-          <div class="muted" style="margin-bottom:4px">公式</div>
+          <div class="muted" style="margin-bottom:4px">Formula</div>
           <div style="font-family:Consolas,monospace;color:var(--gold);font-size:16px;word-break:break-all;margin-bottom:12px">${row.formula}</div>
         </div>
         <div class="full">
-          <div class="muted" style="margin-bottom:4px">逻辑解释</div>
-          <div style="line-height:1.7;margin-bottom:12px;font-size:14px">${row.description || '<span class="muted">无</span>'}</div>
+          <div class="muted" style="margin-bottom:4px">Rationale</div>
+          <div style="line-height:1.7;margin-bottom:12px;font-size:14px">${row.description || '<span class="muted">None</span>'}</div>
         </div>
         <div>
-          <div class="muted" style="margin-bottom:4px">残酷分</div>
+          <div class="muted" style="margin-bottom:4px">Brutal Score</div>
           <div style="font-size:20px;font-weight:700;color:${(row.brutal_score||0) >= 50 ? 'var(--good)' : 'var(--warn)'}">${fmt(row.brutal_score, 2)}</div>
         </div>
         <div>
-          <div class="muted" style="margin-bottom:4px">MCTS分</div>
+          <div class="muted" style="margin-bottom:4px">MCTS Score</div>
           <div style="font-size:20px;font-weight:700">${fmt(row.mcts_score, 4)}</div>
         </div>
+        ${!row.passed && killReasons.length > 0 ? '<div class="full" style="padding:10px 14px;background:rgba(246,70,93,.1);border:1px solid var(--bad);border-radius:8px;margin-bottom:4px"><span style="color:var(--bad);font-weight:700">KILLED by: ' + killReasons.map(function(r){return ({predictive_power:'Predictive Power',homogeneity:'Homogeneity',autoquant_audit:'Friction Audit',lifetime:'Lifetime'})[r]||r;}).join(', ') + '</span></div>' : ''}
         <div><span class="muted">Rank IC</span> <strong>${fmt(row.rank_ic, 6)}</strong></div>
         <div><span class="muted">IC</span> <strong>${fmt(row.ic, 6)}</strong></div>
         <div><span class="muted">Sharpe</span> <strong>${fmt(row.sharpe, 2)}</strong></div>
         <div><span class="muted">CAGR</span> <strong>${fmt(row.cagr, 3)}</strong></div>
-        <div><span class="muted">最大回撤</span> <strong>${fmt(row.max_dd, 3)}</strong></div>
-        <div><span class="muted">胜率</span> <strong>${fmt(row.directional_win_rate, 3)}</strong></div>
-        <div><span class="muted">换手率</span> <strong>${fmt(row.turnover, 3)}</strong></div>
-        <div><span class="muted">交易次数</span> <strong>${row.trades ?? '-'}</strong></div>
-        <div><span class="muted">最大相关</span> <strong>${fmt(row.max_corr_to_library, 3)}</strong></div>
-        <div><span class="muted">半衰期(bars)</span> <strong>${row.halflife_bars ?? '-'}</strong></div>
-        <div><span class="muted">验证Sharpe</span> <strong>${fmt(row.validation_sharpe, 2)}</strong></div>
-        <div><span class="muted">验证Rank IC</span> <strong>${fmt(row.validation_rank_ic, 6)}</strong></div>
-        <div><span class="muted">算子数</span> <strong>${row.operators ?? '-'}</strong></div>
-        <div><span class="muted">深度</span> <strong>${row.depth ?? '-'}</strong></div>
-        <div><span class="muted">生成时间</span> <strong>${row.generated_at || '-'}</strong></div>
+        <div><span class="muted">Max Drawdown</span> <strong>${fmt(row.max_dd, 3)}</strong></div>
+        <div><span class="muted">Win Rate</span> <strong>${fmt(row.directional_win_rate, 3)}</strong></div>
+        <div><span class="muted">Turnover</span> <strong>${fmt(row.turnover, 3)}</strong></div>
+        <div><span class="muted">Trades</span> <strong>${row.trades ?? '-'}</strong></div>
+        <div><span class="muted">Max Corr</span> <strong>${fmt(row.max_corr_to_library, 3)}</strong></div>
+        <div><span class="muted">Half-life (bars)</span> <strong>${row.halflife_bars ?? '-'}</strong></div>
+        <div><span class="muted">Val Sharpe</span> <strong>${fmt(row.validation_sharpe, 2)}</strong></div>
+        <div><span class="muted">Val Rank IC</span> <strong>${fmt(row.validation_rank_ic, 6)}</strong></div>
+        <div><span class="muted">Operators</span> <strong>${row.operators ?? '-'}</strong></div>
+        <div><span class="muted">Depth</span> <strong>${row.depth ?? '-'}</strong></div>
+        <div><span class="muted">Generated</span> <strong>${row.generated_at || '-'}</strong></div>
         <div></div>
         <div class="full" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
-          ${gates.map(g => '<span style="padding:4px 12px;border-radius:4px;font-size:12px;font-weight:600;' + (g[1] ? 'background:rgba(14,203,129,.15);color:var(--good)' : 'background:rgba(246,70,93,.15);color:var(--bad)') + '">' + (g[1] ? 'PASS' : 'KILL') + ': ' + g[0] + ' <span class="muted" style="font-weight:400">(' + g[2] + ')</span></span>').join('')}
-          ${gates.length === 0 ? '<span class="muted">未审计</span>' : ''}
+          ${gates.map(g => '<span style="padding:4px 12px;border-radius:4px;font-size:12px;font-weight:600;' + (g[1] ? 'background:rgba(14,203,129,.15);color:var(--good)' : 'background:rgba(246,70,93,.15);color:var(--bad)') + '">' + (g[1] ? 'PASS' : 'KILL') + ': ' + g[0] + ' <span class="muted" style="font-weight:400">(' + g[2] + ' | ' + g[3] + ')</span></span>').join('')}
+          ${gates.length === 0 ? '<span class="muted">Not audited</span>' : ''}
         </div>
         <div class="full" style="font-size:12px;margin-top:4px">
-          <span class="muted"><strong>维度分:</strong>
+          <span class="muted"><strong>Dimension Scores:</strong>
           effectiveness=${fmt(row.effectiveness,3)} |
           stability=${fmt(row.stability,3)} |
           turnover=${fmt(row.turnover,3)} |
@@ -418,9 +459,9 @@ HTML = r"""<!doctype html>
         </div>
         <div class="full validate-section">
           <button onclick="event.stopPropagation();validateFactor(${idx})" style="border-color:var(--gold);color:var(--gold);font-weight:700">
-            ⚡ 一键验证 (2026盲测)
+            Validate (2026 Blind)
           </button>
-          <span class="muted" style="margin-left:8px;font-size:12px">对2026.1.1-2026.5.1新数据进行独立回测</span>
+          <span class="muted" style="margin-left:8px;font-size:12px">Independent backtest on 2026.1.1-2026.5.1 unseen data</span>
           <div id="validateResult${idx}" style="margin-top:12px"></div>
         </div>`;
       document.getElementById('modalOverlay').classList.add('active');
@@ -432,12 +473,12 @@ HTML = r"""<!doctype html>
       const row = (window._factorsCache || [])[idx];
       if (!row) return;
       const container = document.getElementById('validateResult' + idx);
-      container.innerHTML = '<div class="muted" style="padding:8px">正在运行2026盲测回测...</div>';
+      container.innerHTML = '<div class="muted" style="padding:8px">Running 2026 blind backtest...</div>';
       try {
         const res = await fetch('/api/validate_factor?formula=' + encodeURIComponent(row.formula));
         const data = await res.json();
         if (data.error) {
-          container.innerHTML = '<div style="color:var(--bad);padding:8px">回测错误: ' + data.error + '</div>';
+          container.innerHTML = '<div style="color:var(--bad);padding:8px">Backtest error: ' + data.error + '</div>';
           return;
         }
         const b = data.blind;
@@ -446,32 +487,32 @@ HTML = r"""<!doctype html>
         const statusLabel = isGood ? 'SURVIVED' : (b.sharpe >= 0 ? 'WEAK' : 'DEAD');
 
         let html = '<div style="margin-top:8px;padding:12px;background:var(--bg);border-radius:8px;border:1px solid ' + statusColor + '">';
-        html += '<div style="font-size:18px;font-weight:700;color:' + statusColor + ';margin-bottom:10px">2026盲测: ' + statusLabel + ' (Sharpe=' + fmt(b.sharpe,3) + ')</div>';
+        html += '<div style="font-size:18px;font-weight:700;color:' + statusColor + ';margin-bottom:10px">2026 Blind: ' + statusLabel + ' (Sharpe=' + fmt(b.sharpe,3) + ')</div>';
         html += '<div class="metric-grid">';
         html += '<div class="mv"><span>Sharpe</span><strong style="color:' + statusColor + '">' + fmt(b.sharpe,3) + '</strong></div>';
         html += '<div class="mv"><span>CAGR</span><strong>' + fmt(b.cagr,3) + '</strong></div>';
-        html += '<div class="mv"><span>最大回撤</span><strong>' + fmt(b.max_dd,3) + '</strong></div>';
+        html += '<div class="mv"><span>Max DD</span><strong>' + fmt(b.max_dd,3) + '</strong></div>';
         html += '<div class="mv"><span>Rank IC</span><strong>' + fmt(b.rank_ic,4) + '</strong></div>';
         html += '<div class="mv"><span>IC</span><strong>' + fmt(b.ic,4) + '</strong></div>';
-        html += '<div class="mv"><span>胜率</span><strong>' + fmt(b.directional_win_rate,3) + '</strong></div>';
-        html += '<div class="mv"><span>换手率</span><strong>' + fmt(b.turnover,3) + '</strong></div>';
-        html += '<div class="mv"><span>交易次数</span><strong>' + b.trades + '</strong></div>';
-        html += '<div class="mv"><span>净收益</span><strong>' + fmt(b.net_total,3) + '</strong></div>';
-        html += '<div class="mv"><span>数据条数</span><strong>' + b.bars + '</strong></div>';
-        html += '<div class="mv"><span>盲测期间</span><strong>2026.1-5</strong></div>';
-        html += '<div class="mv"><span>BTC价格区间</span><strong>$62.8k-$97.2k</strong></div>';
+        html += '<div class="mv"><span>Win Rate</span><strong>' + fmt(b.directional_win_rate,3) + '</strong></div>';
+        html += '<div class="mv"><span>Turnover</span><strong>' + fmt(b.turnover,3) + '</strong></div>';
+        html += '<div class="mv"><span>Trades</span><strong>' + b.trades + '</strong></div>';
+        html += '<div class="mv"><span>Net Return</span><strong>' + fmt(b.net_total,3) + '</strong></div>';
+        html += '<div class="mv"><span>Bars</span><strong>' + b.bars + '</strong></div>';
+        html += '<div class="mv"><span>Blind Period</span><strong>2026.1-5</strong></div>';
+        html += '<div class="mv"><span>BTC Range</span><strong>$62.8k-$97.2k</strong></div>';
         html += '</div>';
 
         if (data.chart && data.chart.equity && data.chart.equity.length > 0) {
           html += '<div class="chart-row">';
-          html += '<div class="chart-box"><h4>权益曲线 (Equity Curve)</h4><canvas id="equityChart' + idx + '"></canvas></div>';
-          html += '<div class="chart-box"><h4>回撤曲线 (Drawdown)</h4><canvas id="ddChart' + idx + '"></canvas></div>';
+          html += '<div class="chart-box"><h4>Equity Curve</h4><canvas id="equityChart' + idx + '"></canvas></div>';
+          html += '<div class="chart-box"><h4>Drawdown</h4><canvas id="ddChart' + idx + '"></canvas></div>';
           html += '</div>';
         }
 
         if (data.trade_list && data.trade_list.length > 0) {
           html += '<div style="margin-top:12px;font-size:12px;max-height:200px;overflow-y:auto">';
-          html += '<table style="width:100%;font-size:11px"><tr><th>入场时间</th><th>出场时间</th><th>方向</th><th>入场价</th><th>出场价</th><th>持仓bars</th><th>PnL%</th></tr>';
+          html += '<table style="width:100%;font-size:11px"><tr><th>Entry</th><th>Exit</th><th>Side</th><th>Entry Price</th><th>Exit Price</th><th>Bars Held</th><th>PnL%</th></tr>';
           data.trade_list.slice(-20).reverse().forEach(function(t) {
             const pnlColor = (t.pnl||0) >= 0 ? 'var(--good)' : 'var(--bad)';
             html += '<tr><td>' + (t.entry_time||'').substring(5,16) + '</td><td>' + (t.exit_time||'').substring(5,16) + '</td><td>' + (t.side||'') + '</td><td>' + fmt(t.entry_price,1) + '</td><td>' + fmt(t.exit_price,1) + '</td><td>' + (t.bars_held||'-') + '</td><td style="color:' + pnlColor + '">' + (t.pnl!=null?(t.pnl>=0?'+':'')+fmt(t.pnl,2)+'%':'') + '</td></tr>';
@@ -563,7 +604,7 @@ HTML = r"""<!doctype html>
           }
         }
       } catch(e) {
-        container.innerHTML = '<div style="color:var(--bad);padding:8px">请求失败: ' + e.message + '</div>';
+        container.innerHTML = '<div style="color:var(--bad);padding:8px">Request failed: ' + e.message + '</div>';
       }
     }
 
@@ -577,6 +618,7 @@ HTML = r"""<!doctype html>
         } else {
           message.innerHTML = '<span style="color:var(--bad)">DeepSeek FAIL: ' + data.message + '</span>';
         }
+        refresh();
       } catch(e) {
         message.innerHTML = '<span style="color:var(--bad)">DeepSeek test error: ' + e.message + '</span>';
       }

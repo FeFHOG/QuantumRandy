@@ -43,6 +43,7 @@ def mine_main() -> None:
             use_llm=args.use_llm,
             max_formula_depth=cfg.mcts.max_formula_depth,
             max_formula_operators=cfg.mcts.max_formula_operators,
+            llm_config=cfg.llm,
         ),
     )
     out = Path(args.out)
