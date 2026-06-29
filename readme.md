@@ -42,28 +42,24 @@ QuantumRandy/
     expression.py           # Formula DSL parser & evaluator
     backtest.py             # 4h perpetual strict backtest
     evaluator.py            # Multi-dim factor scoring
-    mcts.py                 # MCTS search with UCT + zoo cap
+    mcts.py                 # MCTS search with UCT
     fsa.py                  # Frequent subtree avoidance
     llm.py                  # DeepSeek API + local fallback
-    proposals.py            # Template engine (46% funding_rate coverage)
-    lab.py                  # 4-gate brutal filter + kill diagnosis
-    research.py             # Background research session + auto-purge
-    dashboard.py            # HTTP dashboard backend + kill breakdown
-    walk_forward.py         # Rolling train/validation/test survival validation
+    proposals.py            # Template-based formula generator
+    lab.py                  # 4-gate brutal filter
+    research.py             # Background research session
+    dashboard.py            # HTTP dashboard backend
     config.py               # YAML config reader
     data.py                 # OHLCV/funding data loader
     io_utils.py             # File I/O utilities
   scripts/
     mine.py                 # Batch alpha mining
     eval_formula.py         # Evaluate a single formula
-    backtest_all.py         # One-click backtest ALL factors
-    walk_forward.py         # Walk-forward validation for fixed formulas
     run_btc.py              # One-command BTC mining
     dashboard.py            # Launch research dashboard
     check_deepseek.py       # Verify DeepSeek connectivity
   tests/
     test_smoke.py
-  CHANGELOG.md              # Version history
 ```
 
 ## Formula DSL
@@ -98,15 +94,6 @@ python scripts\dashboard.py --config configs\btcusdt.yaml --out reports\research
 
 Open `http://127.0.0.1:8765` — controls for start/stop/backup/emergency-stop.
 
-## Deterministic Runtime Server
-
-An isolated Ubuntu-compatible HTTP service can execute approved single-factor and weighted multi-factor paper
-strategies against pushed market bars. It has no intelligence or exchange order integration. Simulated starting capital
-is hard-capped at USD 1,000 per strategy, with configurable latency, slippage jitter, adverse slippage, signal noise, and
-missed fills. Factor and strategy manifests support atomic, generation-guarded hot updates.
-
-See [docs/RUNTIME_SERVER.md](docs/RUNTIME_SERVER.md) for the API and local startup instructions.
-
 ## 4-Gate Brutal Filter
 
 Every candidate factor passes through four gates:
@@ -126,9 +113,6 @@ All thresholds are configurable in `configs/btcusdt.yaml` → `filter`.
 - **Forced explanation**: LLM must output ≥60 char economic rationale with finance keywords (momentum, reversal, volatility, etc.).
 - **Occam's razor**: exponential operator penalty — when two formulas backtest similarly, the simpler one wins.
 - **API cooldown**: minimum 30s between DeepSeek calls to control cost (~$1-2 per 8h night run).
-- **Funding rate focus**: local templates weight funding_rate at 35% (up from 20%) — it has the highest pass rate through the brutal filter.
-- **FSA whitelist**: funding_rate patterns are exempt from subtree bans — effective structures shouldn't be blocked.
-- **Auto-purge**: killed non-seed factors removed from zoo each iteration to prevent homogeneity drift.
 
 ## Blind Validation (2026 Out-of-Sample)
 
@@ -152,69 +136,6 @@ The validation popup shows:
 
 Results are also batch-saved to `reports/research_live/blind_2026_validation.json`.
 
-## One-Click Backtest All Factors
-
-Backtest every factor in a leaderboard at once:
-
-```powershell
-python scripts/backtest_all.py --leaderboard reports/research_live/leaderboard.json --config configs/btcusdt.yaml --out reports/backtest_all
-
-# With 2026 blind out-of-sample validation
-python scripts/backtest_all.py --leaderboard reports/research_live/leaderboard.json --blind
-```
-
-Outputs `all_factors_backtest.csv` + `.json` with train/val/blind metrics, pass/kill status, and kill reasons.
-
-## Walk-Forward Validation
-
-Validate fixed formulas across rolling train/validation/test windows:
-
-```powershell
-python scripts\walk_forward.py `
-  --leaderboard reports\research_live\leaderboard.json `
-  --config configs\btcusdt.yaml `
-  --passed-only `
-  --out reports\walk_forward
-```
-
-You can also validate ad hoc formulas:
-
-```powershell
-python scripts\walk_forward.py `
-  --formula "neg(zscore(funding_rate,42))" `
-  --formula "zscore(sub(sma(close,12),sma(close,48)),48)" `
-  --out reports\walk_forward_probe
-```
-
-Default windows are `18m train / 6m validation / 3m test`, stepped every 3 months. A segment passes when
-`rank_ic >= filter.min_rank_ic`, `directional_win_rate >= filter.min_directional_win_rate`, and
-`sharpe >= filter.min_validation_sharpe`. A window survives only when both validation and test pass.
-
-Outputs:
-
-- `walk_forward_details.csv`: formula x window x segment metrics.
-- `walk_forward_summary.csv`: formula-level survival ranking.
-- `walk_forward_windows.json`: exact date boundaries.
-- `WALK_FORWARD_REPORT.md`: concise human-readable report.
-
-## Kill Diagnosis
-
-The dashboard shows a **Kill Breakdown** panel — which of the 4 brutal-filter gates kills the most factors. Hover any KILL badge to see the specific gates that failed. Click a factor row for a detail modal with per-gate actual values vs thresholds.
-
-Kill reasons are stored in `leaderboard.json` → `kill_reasons` field (e.g. `["predictive_power", "autoquant_audit"]`).
-
-## v0.7 "Funding Rate Renaissance" (2026-05-20)
-
-Key improvements after diagnosing the 74% kill rate:
-
-- **Proposal templates**: funding_rate presence 14% → 46%. Fields split into price (close/high/low) for ret/delta/rsi and any-field for sma/ema/zscore/corr.
-- **FSA whitelist**: funding_rate subtree patterns can no longer be banned.
-- **Auto-purge**: killed non-seed factors are automatically removed from zoo each iteration.
-- **Zoo cap**: max 50 non-seed entries to prevent homogeneity gate inflation.
-- **Kill diagnosis**: `lab.kill_reasons()` returns which gates killed a factor.
-
-See `CHANGELOG.md` for full details.
-
 ## Extending to Other Coins
 
 ```powershell
@@ -230,7 +151,7 @@ python scripts\mine.py --config configs\ethusdt.yaml --iterations 50 --out repor
 
 - Research/backtest framework only — not a live trading system.
 - Currently default data is BTCUSDT 4h only.
-- No multi-asset portfolio or alpha combination yet.
+- No multi-asset portfolio, walk-forward validation, or alpha combination yet.
 
 ## Configuration
 

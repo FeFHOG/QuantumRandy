@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-import math
 from dataclasses import dataclass
 
 import numpy as np
@@ -23,22 +22,6 @@ OPERATORS = {
     "corr",
     *ROLLING_OPERATORS,
 }
-
-OPERATOR_ARITY = {
-    "add": 2,
-    "sub": 2,
-    "mul": 2,
-    "div": 2,
-    "neg": 1,
-    "abs": 1,
-    "log": 1,
-    "sqrt": 1,
-    "sign": 1,
-    "corr": 3,
-    **{name: 2 for name in ROLLING_OPERATORS},
-}
-WINDOW_ARGUMENT = {name: 1 for name in ROLLING_OPERATORS}
-WINDOW_ARGUMENT["corr"] = 2
 
 
 @dataclass(frozen=True)
@@ -91,11 +74,7 @@ def _abstract_arg(arg: ExprNode | float | int | str) -> str:
 
 def parse_formula(formula: str) -> ExprNode:
     tree = ast.parse(formula.strip(), mode="eval")
-    node = _convert(tree.body)
-    if not isinstance(node, ExprNode):
-        raise ValueError("A formula must evaluate to a field or operator expression")
-    _validate_semantics(node)
-    return node
+    return _convert(tree.body)
 
 
 def formula_depth(formula: str) -> int:
@@ -140,34 +119,7 @@ def _convert(node: ast.AST) -> ExprNode | int | float | str:
 def evaluate_formula(formula: str, data: pd.DataFrame) -> pd.Series:
     node = parse_formula(formula)
     result = _eval(node, data)
-    return result.replace([np.inf, -np.inf], np.nan).astype(float)
-
-
-def _validate_semantics(node: ExprNode) -> None:
-    if node.name in FIELDS:
-        if node.args:
-            raise ValueError(f"Field {node.name} does not accept arguments")
-        return
-
-    expected = OPERATOR_ARITY[node.name]
-    if len(node.args) != expected:
-        raise ValueError(f"Operator {node.name} expects {expected} arguments, got {len(node.args)}")
-
-    window_index = WINDOW_ARGUMENT.get(node.name)
-    if window_index is not None:
-        window = node.args[window_index]
-        if (
-            not isinstance(window, (int, float))
-            or isinstance(window, bool)
-            or not math.isfinite(float(window))
-            or float(window) != int(window)
-            or int(window) < 2
-        ):
-            raise ValueError(f"Operator {node.name} requires an integer window >= 2")
-
-    for arg in node.args:
-        if isinstance(arg, ExprNode):
-            _validate_semantics(arg)
+    return result.replace([np.inf, -np.inf], np.nan).fillna(0.0).astype(float)
 
 
 def _eval(value: ExprNode | float | int | str, data: pd.DataFrame) -> pd.Series | float:

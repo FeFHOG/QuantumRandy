@@ -15,9 +15,8 @@ from .fsa import violates_forbidden
 from .proposals import LocalProposalEngine
 
 try:
-    from .config import LLMConfig, PromptConfig
+    from .config import PromptConfig
 except ImportError:
-    LLMConfig = None  # type: ignore[assignment]
     PromptConfig = None  # type: ignore[assignment]
 
 DESCRIPTION_MIN_LENGTH = 60
@@ -48,11 +47,8 @@ class FormulaGenerator:
         max_formula_depth: int = 4,
         max_formula_operators: int = 8,
         prompt_config: "PromptConfig | None" = None,
-        llm_config: "LLMConfig | None" = None,
     ) -> None:
         _load_env_file()
-        if llm_config is not None and llm_config.use_proxy:
-            os.environ.setdefault("DEEPSEEK_PROXY", f"http://{llm_config.proxy_host}:{llm_config.proxy_port}")
         self.use_llm = use_llm
         self.settings = settings or LLMSettings(
             base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
@@ -260,10 +256,6 @@ def call_deepseek(messages: list[dict[str, str]], settings: LLMSettings | None =
     )
     connect_timeout = 15.0
     read_timeout = float(settings.timeout_seconds)
-
-    proxy_url = os.getenv("DEEPSEEK_PROXY") or os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY")
-    proxies = {"http": proxy_url, "https": proxy_url} if proxy_url else None
-
     last_error: Exception | None = None
     last_error_detail: str = ""
     for attempt in range(settings.max_retries + 1):
@@ -280,7 +272,6 @@ def call_deepseek(messages: list[dict[str, str]], settings: LLMSettings | None =
                     "temperature": temperature,
                 },
                 timeout=(connect_timeout, read_timeout),
-                proxies=proxies,
             )
             try:
                 resp.raise_for_status()

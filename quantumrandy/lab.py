@@ -50,7 +50,7 @@ def run_brutal_filter(
     validation_ledger = run_formula_backtest(validation_data, formula, costs, execution)
     train_metrics = summarize_ledger(train_ledger, bar_hours)
     validation_metrics = summarize_ledger(validation_ledger, bar_hours)
-    factor = train_ledger["factor"].replace([np.inf, -np.inf], np.nan)
+    factor = train_ledger["factor"].replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
     pred_pass = (
         train_metrics["rank_ic"] >= thresholds.min_rank_ic
@@ -143,15 +143,6 @@ def estimate_halflife_bars(factor: pd.Series, returns: pd.Series, max_horizon: i
     return max_horizon
 
 
-def kill_reasons(gates: dict) -> list[str]:
-    """Return list of gate names that failed."""
-    failed = []
-    for name in ["predictive_power", "homogeneity", "autoquant_audit", "lifetime"]:
-        if not gates.get(name, {}).get("pass", False):
-            failed.append(name)
-    return failed
-
-
 def row_from_alpha(alpha: AlphaResult, brutal: dict | None = None) -> dict:
     row = {
         "formula": alpha.formula,
@@ -164,12 +155,10 @@ def row_from_alpha(alpha: AlphaResult, brutal: dict | None = None) -> dict:
         **alpha.metrics,
     }
     if brutal:
-        reasons = kill_reasons(brutal["gates"])
         row.update(
             {
                 "brutal_score": brutal["brutal_score"],
                 "passed": brutal["passed"],
-                "kill_reasons": reasons,
                 "gate_predictive_power": brutal["gates"]["predictive_power"]["pass"],
                 "gate_homogeneity": brutal["gates"]["homogeneity"]["pass"],
                 "gate_autoquant_audit": brutal["gates"]["autoquant_audit"]["pass"],

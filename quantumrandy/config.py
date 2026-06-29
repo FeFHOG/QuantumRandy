@@ -55,13 +55,6 @@ class FilterConfig:
 
 
 @dataclass(frozen=True)
-class LLMConfig:
-    use_proxy: bool = False
-    proxy_host: str = "127.0.0.1"
-    proxy_port: int = 7890
-
-
-@dataclass(frozen=True)
 class PromptConfig:
     temperature: float = 0.75
     system_prompt: str = (
@@ -85,7 +78,6 @@ class ProjectConfig:
     mcts: MCTSConfig
     filter: FilterConfig = field(default_factory=FilterConfig)
     prompt: PromptConfig = field(default_factory=PromptConfig)
-    llm: LLMConfig = field(default_factory=LLMConfig)
 
 
 def _resolve_path(base: Path, value: str) -> Path:
@@ -110,5 +102,4 @@ def load_config(path: str | Path) -> ProjectConfig:
         mcts=MCTSConfig(**(raw.get("mcts") or {})),
         filter=FilterConfig(**(raw.get("filter") or {})),
         prompt=PromptConfig(**(raw.get("prompt") or {})),
-        llm=LLMConfig(**(raw.get("llm") or {})),
     )
