@@ -49,6 +49,7 @@ QuantumRandy/
     lab.py                  # 4-gate brutal filter + kill diagnosis
     research.py             # Background research session + auto-purge
     dashboard.py            # HTTP dashboard backend + kill breakdown
+    walk_forward.py         # Rolling train/validation/test survival validation
     config.py               # YAML config reader
     data.py                 # OHLCV/funding data loader
     io_utils.py             # File I/O utilities
@@ -56,6 +57,7 @@ QuantumRandy/
     mine.py                 # Batch alpha mining
     eval_formula.py         # Evaluate a single formula
     backtest_all.py         # One-click backtest ALL factors
+    walk_forward.py         # Walk-forward validation for fixed formulas
     run_btc.py              # One-command BTC mining
     dashboard.py            # Launch research dashboard
     check_deepseek.py       # Verify DeepSeek connectivity
@@ -163,6 +165,38 @@ python scripts/backtest_all.py --leaderboard reports/research_live/leaderboard.j
 
 Outputs `all_factors_backtest.csv` + `.json` with train/val/blind metrics, pass/kill status, and kill reasons.
 
+## Walk-Forward Validation
+
+Validate fixed formulas across rolling train/validation/test windows:
+
+```powershell
+python scripts\walk_forward.py `
+  --leaderboard reports\research_live\leaderboard.json `
+  --config configs\btcusdt.yaml `
+  --passed-only `
+  --out reports\walk_forward
+```
+
+You can also validate ad hoc formulas:
+
+```powershell
+python scripts\walk_forward.py `
+  --formula "neg(zscore(funding_rate,42))" `
+  --formula "zscore(sub(sma(close,12),sma(close,48)),48)" `
+  --out reports\walk_forward_probe
+```
+
+Default windows are `18m train / 6m validation / 3m test`, stepped every 3 months. A segment passes when
+`rank_ic >= filter.min_rank_ic`, `directional_win_rate >= filter.min_directional_win_rate`, and
+`sharpe >= filter.min_validation_sharpe`. A window survives only when both validation and test pass.
+
+Outputs:
+
+- `walk_forward_details.csv`: formula x window x segment metrics.
+- `walk_forward_summary.csv`: formula-level survival ranking.
+- `walk_forward_windows.json`: exact date boundaries.
+- `WALK_FORWARD_REPORT.md`: concise human-readable report.
+
 ## Kill Diagnosis
 
 The dashboard shows a **Kill Breakdown** panel — which of the 4 brutal-filter gates kills the most factors. Hover any KILL badge to see the specific gates that failed. Click a factor row for a detail modal with per-gate actual values vs thresholds.
@@ -196,7 +230,7 @@ python scripts\mine.py --config configs\ethusdt.yaml --iterations 50 --out repor
 
 - Research/backtest framework only — not a live trading system.
 - Currently default data is BTCUSDT 4h only.
-- No multi-asset portfolio, walk-forward validation, or alpha combination yet.
+- No multi-asset portfolio or alpha combination yet.
 
 ## Configuration
 
