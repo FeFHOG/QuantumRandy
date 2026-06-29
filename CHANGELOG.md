@@ -11,6 +11,14 @@
 - Replace the uncentered raw RSI seed with a rolling z-scored RSI factor.
 - Add regression tests for warm-up handling, formula validation, predictive samples, and MCTS purge integrity.
 
+### Deterministic runtime server
+
+- Add a Linux-compatible, standard-library HTTP service for approved factor execution without any research or trading capability.
+- Support push-based market ingestion, single-factor strategies, weighted multi-factor strategies, and atomic hot updates.
+- Hard-cap simulated initial capital at USD 1,000 per strategy.
+- Simulate deterministic latency, slippage jitter, adverse slippage, signal noise, missed fills, fees, and funding costs.
+- Report current signals, simulated exposure, equity, PnL, costs, drawdown, Sharpe, turnover, and predictive metrics.
+
 ## 2026-05-20 — v0.7 "Funding Rate Renaissance"
 
 ### Problem

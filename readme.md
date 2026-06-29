@@ -96,6 +96,15 @@ python scripts\dashboard.py --config configs\btcusdt.yaml --out reports\research
 
 Open `http://127.0.0.1:8765` — controls for start/stop/backup/emergency-stop.
 
+## Deterministic Runtime Server
+
+An isolated Ubuntu-compatible HTTP service can execute approved single-factor and weighted multi-factor paper
+strategies against pushed market bars. It has no intelligence or exchange order integration. Simulated starting capital
+is hard-capped at USD 1,000 per strategy, with configurable latency, slippage jitter, adverse slippage, signal noise, and
+missed fills. Factor and strategy manifests support atomic, generation-guarded hot updates.
+
+See [docs/RUNTIME_SERVER.md](docs/RUNTIME_SERVER.md) for the API and local startup instructions.
+
 ## 4-Gate Brutal Filter
 
 Every candidate factor passes through four gates:

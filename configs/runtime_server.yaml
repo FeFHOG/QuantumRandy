@@ -1,0 +1,19 @@
+server:
+  host: "127.0.0.1"
+  port: 8787
+  admin_token_env: "QUANTUMRANDY_ADMIN_TOKEN"
+  ingest_token_env: "QUANTUMRANDY_INGEST_TOKEN"
+
+factors_file: "runtime_factors.json"
+bar_hours: 4
+max_bars: 5000
+
+costs:
+  taker_bps: 4.0
+  slippage_bps: 1.0
+  funding_multiplier: 1.0
+
+execution:
+  delay_bars: 1
+  max_exposure_abs: 1.0
+  exposure_threshold: 0.15
