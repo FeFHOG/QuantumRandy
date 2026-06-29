@@ -89,7 +89,7 @@ Priority: P0.
 
 ### 2. Multi-Asset Robustness
 
-Status: not started.
+Status: first implementation complete in `QuantumRandy/quantumrandy/universe.py` and `QuantumRandy/scripts/eval_universe.py`.
 
 Why it matters:
 
@@ -116,7 +116,7 @@ Candidate universe:
 
 Deliverable:
 
-- `UniverseEvaluator`
+- `run_universe_evaluation`
 - `scripts/eval_universe.py`
 - dashboard symbol breakdown for each factor
 
@@ -344,7 +344,7 @@ Recommended path:
 
 1. Write research docs and organize papers. Status: complete.
 2. Implement walk-forward validation. Status: first version complete.
-3. Implement multi-asset evaluator. Status: not started.
+3. Implement multi-asset evaluator. Status: first version complete.
 4. Implement alpha portfolio layer. Status: not started.
 5. Upgrade LLM proposal schema and failure-aware rewrite loop. Status: not started.
 6. Add failure memory library. Status: not started.
@@ -353,7 +353,7 @@ Recommended path:
 
 Minimum viable next milestone:
 
-- Multi-asset evaluator for applying the same formula set to BTC/ETH/SOL/BNB/AVAX configs.
+- Add dashboard symbol breakdown and run the multi-asset evaluator on BTC/ETH/SOL/BNB/AVAX configs once those config/data files are present.
 
 Expected value:
 
@@ -377,6 +377,11 @@ Expected value:
   - added tests in `QuantumRandy/tests/test_walk_forward.py`;
   - outputs detail CSV, summary CSV, window JSON, config JSON, and markdown report;
   - smoke-tested two seed formulas over 9 rolling windows in `reports/walk_forward_smoke`.
+- Implemented first-version multi-asset robustness evaluation:
+  - added `QuantumRandy/quantumrandy/universe.py`;
+  - added `QuantumRandy/scripts/eval_universe.py`;
+  - added tests in `QuantumRandy/tests/test_universe.py`;
+  - outputs detail CSV, summary CSV, JSON report, and markdown report.
 
 ## Next Session Prompt
 

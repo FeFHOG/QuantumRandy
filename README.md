@@ -50,6 +50,7 @@ QuantumRandy/
     research.py             # Background research session + auto-purge
     dashboard.py            # HTTP dashboard backend + kill breakdown
     walk_forward.py         # Rolling train/validation/test survival validation
+    universe.py             # Multi-asset robustness evaluation
     config.py               # YAML config reader
     data.py                 # OHLCV/funding data loader
     io_utils.py             # File I/O utilities
@@ -58,6 +59,7 @@ QuantumRandy/
     eval_formula.py         # Evaluate a single formula
     backtest_all.py         # One-click backtest ALL factors
     walk_forward.py         # Walk-forward validation for fixed formulas
+    eval_universe.py        # Evaluate fixed formulas across repeated asset configs
     run_btc.py              # One-command BTC mining
     dashboard.py            # Launch research dashboard
     check_deepseek.py       # Verify DeepSeek connectivity
@@ -197,6 +199,37 @@ Outputs:
 - `walk_forward_windows.json`: exact date boundaries.
 - `WALK_FORWARD_REPORT.md`: concise human-readable report.
 
+## Multi-Asset Robustness
+
+Evaluate the same formula set across repeated asset configs:
+
+```powershell
+python scripts\eval_universe.py `
+  --config configs\btcusdt.yaml `
+  --config configs\ethusdt.yaml `
+  --config configs\solusdt.yaml `
+  --leaderboard reports\research_live\leaderboard.json `
+  --passed-only `
+  --out reports\universe_eval
+```
+
+You can also probe ad hoc formulas:
+
+```powershell
+python scripts\eval_universe.py `
+  --config configs\btcusdt.yaml `
+  --formula "neg(zscore(funding_rate,42))" `
+  --formula "zscore(sub(sma(close,12),sma(close,48)),48)" `
+  --out reports\universe_probe
+```
+
+Outputs:
+
+- `universe_details.csv`: every formula x asset metric row.
+- `universe_summary.csv`: formula-level robustness ranking.
+- `universe_report.json`: run metadata plus machine-readable ranking.
+- `UNIVERSE_REPORT.md`: concise human-readable report.
+
 ## Kill Diagnosis
 
 The dashboard shows a **Kill Breakdown** panel — which of the 4 brutal-filter gates kills the most factors. Hover any KILL badge to see the specific gates that failed. Click a factor row for a detail modal with per-gate actual values vs thresholds.
@@ -229,7 +262,7 @@ python scripts\mine.py --config configs\ethusdt.yaml --iterations 50 --out repor
 ## Limitations
 
 - Research/backtest framework only — not a live trading system.
-- Currently default data is BTCUSDT 4h only.
+- Currently default data is BTCUSDT 4h only; multi-asset evaluation requires additional asset configs/data files.
 - No multi-asset portfolio or alpha combination yet.
 
 ## Configuration

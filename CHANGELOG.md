@@ -19,6 +19,11 @@
 - Simulate deterministic latency, slippage jitter, adverse slippage, signal noise, missed fills, fees, and funding costs.
 - Report current signals, simulated exposure, equity, PnL, costs, drawdown, Sharpe, turnover, and predictive metrics.
 
+### Research validation
+
+- Add walk-forward validation for fixed formulas with rolling train/validation/test windows and CSV/JSON/Markdown outputs.
+- Add multi-asset robustness evaluation for applying the same formula set across repeated asset configs.
+
 ## 2026-05-20 — v0.7 "Funding Rate Renaissance"
 
 ### Problem
