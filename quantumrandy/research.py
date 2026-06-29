@@ -438,9 +438,11 @@ class ResearchSession:
         killed = [f for f, r in self.brutal_results.items() if not r.get("passed") and f not in seed_formulas]
         for formula in killed:
             self.brutal_results.pop(formula, None)
-            if self.mcts:
-                self.mcts.zoo = [a for a in self.mcts.zoo if a.formula not in killed]
-                self.mcts.nodes = [n for n in self.mcts.nodes if n.formula not in killed]
+        if self.mcts:
+            self.mcts.zoo = [a for a in self.mcts.zoo if a.formula not in killed]
+            # Nodes use positional parent/child indexes. Keep the search tree intact;
+            # removing arbitrary nodes would corrupt those indexes. The zoo is the
+            # only collection used by the homogeneity gate.
         if killed:
             _log(f"Auto-purged {len(killed)} killed factors from zoo", C_YELLOW)
         return len(killed)

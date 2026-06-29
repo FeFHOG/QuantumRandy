@@ -115,6 +115,8 @@ class AlphaMCTS:
             self._maybe_add_to_zoo(result)
 
     def _evaluate_proposals(self, proposals: list[str]) -> list[AlphaResult]:
+        known_formulas = {node.formula for node in self.nodes}
+        proposals = list(dict.fromkeys(formula for formula in proposals if formula not in known_formulas))
         if not proposals:
             return []
         workers = max(int(self.config.eval_workers), 1)

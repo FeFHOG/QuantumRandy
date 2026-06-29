@@ -35,7 +35,7 @@ mcts:
     - "neg(zscore(funding_rate,42))"
     - "ret(close,24)"
     - "corr(close,volume,48)"
-    - "rsi(close,14)"
+    - "zscore(rsi(close,14),48)"
     - "div(close,sma(close,48))"
     - "delta(volume,24)"
     - "zscore(sub(high,low),48)"

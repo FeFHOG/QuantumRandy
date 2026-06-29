@@ -1,5 +1,16 @@
 # QuantumRandy Changelog
 
+## Unreleased
+
+### Factor-mining correctness
+
+- Preserve rolling warm-up values as missing observations instead of replacing them with zero.
+- Compute IC, rank IC, and directional win rate only from valid factor/forward-return pairs, and report `predictive_observations` for auditability.
+- Validate operator arity and rolling-window semantics before an LLM proposal reaches the backtester.
+- Preserve MCTS node indexes when purging rejected factors from the zoo and skip proposals already present in the search tree.
+- Replace the uncentered raw RSI seed with a rolling z-scored RSI factor.
+- Add regression tests for warm-up handling, formula validation, predictive samples, and MCTS purge integrity.
+
 ## 2026-05-20 — v0.7 "Funding Rate Renaissance"
 
 ### Problem

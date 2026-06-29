@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
+import pytest
 
+from quantumrandy.backtest import summarize_ledger
 from quantumrandy.config import CostConfig, ExecutionConfig
 from quantumrandy.evaluator import evaluate_alpha
 from quantumrandy.expression import evaluate_formula, parse_formula
@@ -29,5 +32,37 @@ def test_formula_evaluation_and_scoring_smoke() -> None:
     )
     factor = evaluate_formula("zscore(ret(close,6),48)", data)
     assert len(factor) == len(data)
+    assert factor.iloc[:53].isna().all()
+    assert factor.iloc[53:].notna().all()
     result = evaluate_alpha("zscore(ret(close,6),48)", data, CostConfig(), ExecutionConfig(), 4)
     assert 0.0 <= result.score <= 1.0
+
+
+@pytest.mark.parametrize(
+    "formula, message",
+    [
+        ("sma(close)", "expects 2 arguments"),
+        ("corr(close,volume)", "expects 3 arguments"),
+        ("zscore(close,1)", "integer window >= 2"),
+        ("ret(close,2.5)", "integer window >= 2"),
+    ],
+)
+def test_formula_parser_rejects_invalid_operator_signatures(formula: str, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        parse_formula(formula)
+
+
+def test_predictive_metrics_exclude_warmup_rows() -> None:
+    idx = pd.date_range("2024-01-01", periods=5, freq="4h", tz="UTC")
+    ledger = pd.DataFrame(
+        {
+            "factor": [np.nan, np.nan, 1.0, -1.0, 1.0],
+            "r_mkt": [0.0, 0.0, 0.01, 0.02, -0.03],
+            "r_net": 0.0,
+            "delta_exposure": 0.0,
+        },
+        index=idx,
+    )
+    metrics = summarize_ledger(ledger, bar_hours=4)
+    assert metrics["predictive_observations"] == 2.0
+    assert metrics["directional_win_rate"] == 1.0

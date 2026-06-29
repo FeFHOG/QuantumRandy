@@ -50,7 +50,7 @@ def run_brutal_filter(
     validation_ledger = run_formula_backtest(validation_data, formula, costs, execution)
     train_metrics = summarize_ledger(train_ledger, bar_hours)
     validation_metrics = summarize_ledger(validation_ledger, bar_hours)
-    factor = train_ledger["factor"].replace([np.inf, -np.inf], np.nan).fillna(0.0)
+    factor = train_ledger["factor"].replace([np.inf, -np.inf], np.nan)
 
     pred_pass = (
         train_metrics["rank_ic"] >= thresholds.min_rank_ic
