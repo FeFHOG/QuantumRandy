@@ -33,6 +33,12 @@ mcts:
   seed_formulas:
     - "zscore(sub(sma(close,12),sma(close,48)),48)"
     - "neg(zscore(funding_rate,42))"
+    - "ret(close,24)"
+    - "corr(close,volume,48)"
+    - "zscore(rsi(close,14),48)"
+    - "div(close,sma(close,48))"
+    - "delta(volume,24)"
+    - "zscore(sub(high,low),48)"
 
 filter:
   min_rank_ic: 0.01
@@ -75,3 +81,8 @@ prompt:
     windows (24-120 bars). zscore() wrapping is your friend — it creates mean-reversion
     signals that generalize well.
   description_min_length: 60
+
+llm:
+  use_proxy: true
+  proxy_host: "127.0.0.1"
+  proxy_port: 7897

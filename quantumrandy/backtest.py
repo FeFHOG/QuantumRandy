@@ -88,14 +88,23 @@ def summarize_ledger(ledger: pd.DataFrame, bar_hours: int) -> dict[str, float]:
     r = ledger["r_net"]
     future = ledger["r_mkt"].shift(-1)
     factor = ledger["factor"].replace([np.inf, -np.inf], np.nan)
-    ic = float(factor.corr(future)) if factor.std(ddof=0) > 0 else 0.0
-    rank_ic = float(factor.corr(future, method="spearman")) if factor.std(ddof=0) > 0 else 0.0
-    directional_win_rate = float(((factor * future) > 0).mean())
+    valid = factor.notna() & future.notna()
+    predictive_factor = factor[valid]
+    predictive_return = future[valid]
+    has_variation = len(predictive_factor) > 1 and predictive_factor.std(ddof=0) > 0
+    ic = float(predictive_factor.corr(predictive_return)) if has_variation else 0.0
+    rank_ic = float(predictive_factor.corr(predictive_return, method="spearman")) if has_variation else 0.0
+    directional_win_rate = (
+        float(((predictive_factor * predictive_return) > 0).mean())
+        if len(predictive_factor)
+        else 0.0
+    )
     return {
         "bars": float(len(ledger)),
         "ic": 0.0 if np.isnan(ic) else ic,
         "rank_ic": 0.0 if np.isnan(rank_ic) else rank_ic,
         "directional_win_rate": 0.0 if np.isnan(directional_win_rate) else directional_win_rate,
+        "predictive_observations": float(len(predictive_factor)),
         "sharpe": sharpe(r, bars_per_year),
         "cagr": cagr(r, bars_per_year),
         "max_dd": max_drawdown(r),

@@ -94,6 +94,8 @@ class AlphaMCTS:
     def _expand(self, idx: int) -> None:
         node = self.nodes[idx]
         forbidden = frequent_subtrees([a.formula for a in self.zoo], self.config.fsa_top_k)
+        # Whitelist funding_rate patterns — they are effective, don't ban them.
+        forbidden = [p for p in forbidden if "funding_rate" not in p]
         dimension = self._sample_weak_dimension(node.result.dimensions)
         proposals = self.generator.propose(node.formula, dimension, self.config.proposal_count, forbidden)
         results = self._evaluate_proposals(proposals)
@@ -113,6 +115,8 @@ class AlphaMCTS:
             self._maybe_add_to_zoo(result)
 
     def _evaluate_proposals(self, proposals: list[str]) -> list[AlphaResult]:
+        known_formulas = {node.formula for node in self.nodes}
+        proposals = list(dict.fromkeys(formula for formula in proposals if formula not in known_formulas))
         if not proposals:
             return []
         workers = max(int(self.config.eval_workers), 1)
@@ -166,8 +170,17 @@ class AlphaMCTS:
     def _maybe_add_to_zoo(self, result: AlphaResult) -> None:
         if any(existing.formula == result.formula for existing in self.zoo):
             return
-        if result.metrics["ic"] > 0 or result.score >= 0.55:
+        if result.depth == 0 or result.metrics["ic"] > 0 or result.score >= 0.55:
             self.zoo.append(result)
+            # Cap zoo size: keep top 50 by score, plus all depth-0 seeds
+            if len(self.zoo) > 50:
+                seeds = [a for a in self.zoo if a.depth == 0]
+                non_seeds = sorted(
+                    [a for a in self.zoo if a.depth > 0],
+                    key=lambda a: a.score,
+                    reverse=True,
+                )
+                self.zoo = seeds + non_seeds[:50]
 
     def save(self, out_dir: str | Path) -> None:
         out = Path(out_dir)
