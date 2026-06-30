@@ -153,6 +153,20 @@ Default outputs are written under `reports/runtime_live/`:
 
 The monitor only reads runtime APIs. It cannot update factors and cannot place orders.
 
+### RandysLab baseline comparison
+
+The monitor can optionally render a RandysLab control-group table in the daily report. Configure the exported
+`baseline_summary.json` path in `configs/runtime_monitor.yaml`:
+
+```yaml
+baseline:
+  summary_path: "../RandysLab-STRICT4H/reports/quantumrandy_baselines/baseline_summary.json"
+```
+
+This is read-only report context. RandysLab baseline exports are not QuantumRandy runtime publish payloads and must not
+bypass the manual factor or portfolio promotion flow. If the file is missing, the monitor still writes the runtime report
+with a load-error note instead of mutating runtime state.
+
 ## Suggested first server run
 
 Use three separate shells or process-manager units:

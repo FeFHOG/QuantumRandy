@@ -17,18 +17,22 @@ class RuntimeMonitorConfig:
     poll_seconds: float = 300.0
     request_timeout_seconds: float = 10.0
     stale_after_minutes: float = 300.0
+    baseline_summary_path: Path | None = None
 
 
 def config_from_dict(raw: dict[str, Any]) -> RuntimeMonitorConfig:
     runtime = raw.get("runtime") or {}
     output = raw.get("output") or {}
     polling = raw.get("polling") or {}
+    baseline = raw.get("baseline") or {}
+    baseline_summary_path = baseline.get("summary_path")
     return RuntimeMonitorConfig(
         runtime_url=str(runtime.get("url", "http://127.0.0.1:8787")).rstrip("/"),
         out_dir=Path(output.get("out_dir", "reports/runtime_live")),
         poll_seconds=float(polling.get("poll_seconds", 300.0)),
         request_timeout_seconds=float(polling.get("request_timeout_seconds", 10.0)),
         stale_after_minutes=float(polling.get("stale_after_minutes", 300.0)),
+        baseline_summary_path=Path(baseline_summary_path) if baseline_summary_path else None,
     )
 
 
@@ -38,7 +42,8 @@ def run_monitor(config: RuntimeMonitorConfig, *, once: bool = False) -> None:
         record = collect_runtime_record(config)
         append_jsonl(config.out_dir / "snapshots.jsonl", record)
         write_latest_json(config.out_dir / "latest_snapshot.json", record)
-        write_daily_report(config.out_dir, record)
+        baseline_summary = load_baseline_summary(config.baseline_summary_path)
+        write_daily_report(config.out_dir, record, baseline_summary=baseline_summary)
         print(
             f"runtime snapshot stored; status={record['health'].get('status')} "
             f"latest={record['health'].get('latest_timestamp')} stale={record['stale_bar']}",
@@ -88,14 +93,35 @@ def write_latest_json(path: Path, record: dict[str, Any]) -> None:
     path.write_text(json.dumps(record, indent=2, ensure_ascii=True, allow_nan=False) + "\n", encoding="utf-8")
 
 
-def write_daily_report(out_dir: Path, record: dict[str, Any]) -> Path:
+def write_daily_report(
+    out_dir: Path,
+    record: dict[str, Any],
+    *,
+    baseline_summary: dict[str, Any] | None = None,
+) -> Path:
     observed = pd.Timestamp(record["observed_at"])
     report_path = out_dir / f"runtime_report_{observed.strftime('%Y%m%d')}.md"
-    report_path.write_text(render_report(record), encoding="utf-8")
+    report_path.write_text(render_report(record, baseline_summary=baseline_summary), encoding="utf-8")
     return report_path
 
 
-def render_report(record: dict[str, Any]) -> str:
+def load_baseline_summary(path: Path | None) -> dict[str, Any] | None:
+    if path is None:
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise RuntimeError("baseline summary must be a JSON object")
+        return {**payload, "source_path": path.as_posix()}
+    except Exception as exc:
+        return {
+            "artifact_type": "randyslab_baseline_export_error",
+            "source_path": path.as_posix(),
+            "load_error": str(exc),
+        }
+
+
+def render_report(record: dict[str, Any], *, baseline_summary: dict[str, Any] | None = None) -> str:
     health = record.get("health") or {}
     snapshot = record.get("snapshot") or {}
     factors = snapshot.get("factors") or []
@@ -135,6 +161,7 @@ def render_report(record: dict[str, Any]) -> str:
             )
     else:
         lines.append("No active strategy rows.")
+    lines.extend(_render_baseline_section(baseline_summary))
     lines.extend(["", "## Factors", ""])
     if factors:
         lines.extend(
@@ -158,6 +185,70 @@ def render_report(record: dict[str, Any]) -> str:
     else:
         lines.append("No active factor rows.")
     return "\n".join(lines) + "\n"
+
+
+def _render_baseline_section(baseline_summary: dict[str, Any] | None) -> list[str]:
+    if not baseline_summary:
+        return []
+    lines = ["", "## RandysLab Baseline Comparison", ""]
+    source_path = baseline_summary.get("source_path")
+    if baseline_summary.get("load_error"):
+        lines.extend(
+            [
+                "Configured RandysLab baseline export could not be loaded.",
+                "",
+                f"- Source: `{source_path}`",
+                f"- Error: `{baseline_summary.get('load_error')}`",
+            ]
+        )
+        return lines
+
+    if baseline_summary.get("artifact_type") != "randyslab_baseline_export":
+        lines.extend(
+            [
+                "Configured baseline summary is not a recognized RandysLab baseline export.",
+                "",
+                f"- Source: `{source_path}`",
+                f"- Artifact type: `{baseline_summary.get('artifact_type')}`",
+            ]
+        )
+        return lines
+
+    window = baseline_summary.get("window") or {}
+    lines.extend(
+        [
+            "Traditional-strategy control group only. These rows are not QuantumRandy runtime publish payloads.",
+            "",
+            f"- Source: `{source_path}`",
+            f"- Generated at: `{baseline_summary.get('generated_at')}`",
+            f"- Symbol: `{baseline_summary.get('symbol')}`",
+            f"- Window: `{window.get('name')}`",
+            "",
+        ]
+    )
+    strategies = baseline_summary.get("strategies") or []
+    if not strategies:
+        lines.append("No RandysLab baseline strategy rows.")
+        return lines
+    lines.extend(
+        [
+            "| Baseline | Sharpe | CAGR | Max DD | Trades | Net Total | Final Equity |",
+            "|---|---:|---:|---:|---:|---:|---:|",
+        ]
+    )
+    for item in strategies:
+        metrics = item.get("metrics") or {}
+        lines.append(
+            "| "
+            f"{item.get('strategy_id')} | "
+            f"{_fmt(metrics.get('sharpe'))} | "
+            f"{_fmt(metrics.get('cagr'))} | "
+            f"{_fmt(metrics.get('max_dd'))} | "
+            f"{_fmt(metrics.get('trades'))} | "
+            f"{_fmt(metrics.get('net_total'))} | "
+            f"{_fmt(item.get('final_equity'))} |"
+        )
+    return lines
 
 
 def _fmt(value: Any) -> str:

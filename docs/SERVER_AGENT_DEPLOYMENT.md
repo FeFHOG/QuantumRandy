@@ -117,3 +117,26 @@ RandysLab/reports/quantumrandy_baselines/
 
 Use the runtime daily report for live paper observations and RandysLab exported baseline summaries for the traditional
 strategy floor.
+
+`configs/runtime_monitor.yaml` may point at the RandysLab export:
+
+```yaml
+baseline:
+  summary_path: "../RandysLab-STRICT4H/reports/quantumrandy_baselines/baseline_summary.json"
+```
+
+The monitor only reads this file and renders a comparison table in `runtime_report_YYYYMMDD.md`. If the path is absent on
+the server, fix the path or generate the RandysLab export; do not treat baseline rows as approved runtime strategies.
+
+## Paper Blend Promotion Checklist
+
+Before submitting any portfolio blend to the runtime paper server:
+
+- Confirm the source artifact is `quantumrandy_portfolio_research`, not a live runtime manifest.
+- Review `PORTFOLIO_REPORT.md`, `portfolio_summary.csv`, `portfolio_contribution.csv`, and the publisher audit.
+- Compare the selected blend against the RandysLab baseline export for the same symbol and window when available.
+- Confirm every component factor passed the intended admission gates, including the friction audit gate.
+- Confirm the blend has a small fixed component set with explicit weights and no automatic mining dependency.
+- Run `scripts/publish_factors.py` without `--submit` first and inspect the generated payload.
+- Submit only from an operator-controlled shell with `--submit` after the audit is accepted.
+- Record the runtime generation before and after the update, plus the reason for promotion.

@@ -4,6 +4,9 @@ runtime:
 output:
   out_dir: "reports/runtime_live"
 
+baseline:
+  summary_path: "../RandysLab-STRICT4H/reports/quantumrandy_baselines/baseline_summary.json"
+
 polling:
   poll_seconds: 300
   request_timeout_seconds: 10
