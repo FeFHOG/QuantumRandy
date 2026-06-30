@@ -1,0 +1,17 @@
+runtime:
+  url: "http://127.0.0.1:8787"
+  ingest_token_env: "QUANTUMRANDY_INGEST_TOKEN"
+
+binance:
+  base_url: "https://fapi.binance.com"
+  symbol: "BTCUSDT"
+  interval: "4h"
+  lookback_bars: 120
+  include_unclosed: false
+  proxy:
+
+polling:
+  poll_seconds: 300
+  request_timeout_seconds: 20
+  retries: 5
+  retry_sleep_seconds: 1

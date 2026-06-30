@@ -108,3 +108,68 @@ settings reject the entire update. A successful update is atomically persisted a
 The server intentionally uses push ingestion. A separate collector may read a public exchange feed, a licensed data
 vendor, or recorded test data and post normalized bars to this service. Keeping collection outside the executor makes
 the execution process deterministic and prevents exchange-specific networking from becoming a hidden trading path.
+
+## Binance 4h feeder
+
+The first public-data collector is `scripts/binance_feeder.py`. It pulls recent Binance USDT perpetual 4h candles and
+funding history, aligns the latest prior funding rate to each bar, then posts normalized bars to the runtime ingest API.
+It does not contain strategy logic and cannot place orders.
+
+```bash
+export QUANTUMRANDY_INGEST_TOKEN='same-token-used-by-runtime'
+python scripts/binance_feeder.py --config configs/binance_feeder.yaml --once
+```
+
+For a long-running process, omit `--once`:
+
+```bash
+python scripts/binance_feeder.py --config configs/binance_feeder.yaml
+```
+
+By default the feeder posts only completed 4h candles. Re-posting a recent lookback window is safe because the runtime
+replaces bars with the same timestamp. This lets the process recover from restarts or short data outages without keeping
+local state.
+
+## Runtime monitor
+
+The lightweight monitor polls `/health` and `/v1/snapshot`, appends every observation to JSONL, writes the latest
+snapshot, and renders a daily Markdown paper report.
+
+```bash
+python scripts/runtime_monitor.py --config configs/runtime_monitor.yaml --once
+```
+
+For long-running monitoring, omit `--once`:
+
+```bash
+python scripts/runtime_monitor.py --config configs/runtime_monitor.yaml
+```
+
+Default outputs are written under `reports/runtime_live/`:
+
+- `snapshots.jsonl`: append-only runtime observations.
+- `latest_snapshot.json`: latest health and snapshot payload.
+- `runtime_report_YYYYMMDD.md`: daily human-readable paper report.
+
+The monitor only reads runtime APIs. It cannot update factors and cannot place orders.
+
+## Suggested first server run
+
+Use three separate shells or process-manager units:
+
+```bash
+# 1. Paper runtime
+export QUANTUMRANDY_ADMIN_TOKEN='long-random-admin-token'
+export QUANTUMRANDY_INGEST_TOKEN='long-random-ingest-token'
+python scripts/runtime_server.py --config configs/runtime_server.yaml
+
+# 2. Public market-data feeder
+export QUANTUMRANDY_INGEST_TOKEN='same-ingest-token'
+python scripts/binance_feeder.py --config configs/binance_feeder.yaml
+
+# 3. Read-only paper monitor
+python scripts/runtime_monitor.py --config configs/runtime_monitor.yaml
+```
+
+Keep the runtime bound to `127.0.0.1` or a private interface unless authentication, firewalling, and operational
+controls are deliberately added.

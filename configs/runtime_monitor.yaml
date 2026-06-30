@@ -1,0 +1,10 @@
+runtime:
+  url: "http://127.0.0.1:8787"
+
+output:
+  out_dir: "reports/runtime_live"
+
+polling:
+  poll_seconds: 300
+  request_timeout_seconds: 10
+  stale_after_minutes: 300
