@@ -270,6 +270,15 @@ class FormulaGenerator:
                 "min": "rolling minimum — support level",
                 "max": "rolling maximum — resistance level",
             },
+            "operator_expansion_notes": {
+                "clip": "cap a series between two constants to limit extreme signal values",
+                "winsorize": "rolling outlier cap at roughly three standard deviations",
+                "decay_linear": "linearly weighted moving average with more weight on recent bars",
+                "ts_argmax": "position of the rolling maximum within the lookback window",
+                "ts_argmin": "position of the rolling minimum within the lookback window",
+                "skew": "rolling skewness to detect asymmetric return or flow regimes",
+                "kurtosis": "rolling kurtosis to detect fat-tailed or jumpy regimes",
+            },
             "avoid_subtrees": truncated_forbidden,
             "failure_memory": {
                 "source": failure_context.get("source", ""),

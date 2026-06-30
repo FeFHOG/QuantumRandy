@@ -9,7 +9,25 @@ import pandas as pd
 
 
 FIELDS = {"open", "high", "low", "close", "volume", "funding_rate"}
-ROLLING_OPERATORS = {"sma", "ema", "std", "zscore", "min", "max", "delta", "ret", "rank", "delay", "rsi"}
+ROLLING_OPERATORS = {
+    "sma",
+    "ema",
+    "std",
+    "zscore",
+    "min",
+    "max",
+    "delta",
+    "ret",
+    "rank",
+    "delay",
+    "rsi",
+    "winsorize",
+    "decay_linear",
+    "ts_argmax",
+    "ts_argmin",
+    "skew",
+    "kurtosis",
+}
 OPERATORS = {
     "add",
     "sub",
@@ -17,6 +35,7 @@ OPERATORS = {
     "div",
     "neg",
     "abs",
+    "clip",
     "log",
     "sqrt",
     "sign",
@@ -35,10 +54,12 @@ OPERATOR_ARITY = {
     "sqrt": 1,
     "sign": 1,
     "corr": 3,
+    "clip": 3,
     **{name: 2 for name in ROLLING_OPERATORS},
 }
 WINDOW_ARGUMENT = {name: 1 for name in ROLLING_OPERATORS}
 WINDOW_ARGUMENT["corr"] = 2
+CONSTANT_ARGUMENTS = {"clip": (1, 2)}
 
 
 @dataclass(frozen=True)
@@ -165,6 +186,13 @@ def _validate_semantics(node: ExprNode) -> None:
         ):
             raise ValueError(f"Operator {node.name} requires an integer window >= 2")
 
+    for arg_index in CONSTANT_ARGUMENTS.get(node.name, ()):
+        argument = node.args[arg_index]
+        if not isinstance(argument, (int, float)) or isinstance(argument, bool) or not math.isfinite(float(argument)):
+            raise ValueError(f"Operator {node.name} requires numeric constant arguments")
+    if node.name == "clip" and float(node.args[1]) > float(node.args[2]):
+        raise ValueError("Operator clip requires lower <= upper")
+
     for arg in node.args:
         if isinstance(arg, ExprNode):
             _validate_semantics(arg)
@@ -193,6 +221,12 @@ def _eval(value: ExprNode | float | int | str, data: pd.DataFrame) -> pd.Series 
         return -_as_series(args[0], data)
     if name == "abs":
         return _as_series(args[0], data).abs()
+    if name == "clip":
+        lower = _constant(args[1], "clip lower bound")
+        upper = _constant(args[2], "clip upper bound")
+        if lower > upper:
+            raise ValueError("clip lower bound must be <= upper bound")
+        return _as_series(args[0], data).clip(lower=lower, upper=upper)
     if name == "log":
         return np.log(_as_series(args[0], data).abs().replace(0, np.nan))
     if name == "sqrt":
@@ -209,6 +243,27 @@ def _eval(value: ExprNode | float | int | str, data: pd.DataFrame) -> pd.Series 
         mean = x.rolling(win, min_periods=win).mean()
         std = x.rolling(win, min_periods=win).std(ddof=0).replace(0, np.nan)
         return (x - mean) / std
+    if name == "winsorize":
+        x = _as_series(args[0], data)
+        win = _window(args[1])
+        mean = x.rolling(win, min_periods=win).mean()
+        std = x.rolling(win, min_periods=win).std(ddof=0)
+        return x.clip(lower=mean - 3.0 * std, upper=mean + 3.0 * std)
+    if name == "decay_linear":
+        win = _window(args[1])
+        weights = np.arange(1.0, win + 1.0)
+        weights = weights / weights.sum()
+        return _as_series(args[0], data).rolling(win, min_periods=win).apply(lambda x: float(np.dot(x, weights)), raw=True)
+    if name == "ts_argmax":
+        win = _window(args[1])
+        return _as_series(args[0], data).rolling(win, min_periods=win).apply(lambda x: float(np.argmax(x)), raw=True)
+    if name == "ts_argmin":
+        win = _window(args[1])
+        return _as_series(args[0], data).rolling(win, min_periods=win).apply(lambda x: float(np.argmin(x)), raw=True)
+    if name == "skew":
+        return _as_series(args[0], data).rolling(_window(args[1]), min_periods=_window(args[1])).skew()
+    if name == "kurtosis":
+        return _as_series(args[0], data).rolling(_window(args[1]), min_periods=_window(args[1])).kurt()
     if name == "min":
         return _as_series(args[0], data).rolling(_window(args[1]), min_periods=_window(args[1])).min()
     if name == "max":
@@ -252,6 +307,14 @@ def _window(value: pd.Series | float) -> int:
     if isinstance(value, pd.Series):
         raise ValueError("Window argument must be a numeric constant")
     return max(int(value), 2)
+
+
+def _constant(value: pd.Series | float, label: str) -> float:
+    if isinstance(value, pd.Series):
+        raise ValueError(f"{label} must be a numeric constant")
+    if not math.isfinite(float(value)):
+        raise ValueError(f"{label} must be finite")
+    return float(value)
 
 
 def subtrees(formula: str) -> list[str]:

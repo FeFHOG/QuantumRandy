@@ -79,7 +79,9 @@ QuantumRandy/
 
 Available fields: `open`, `high`, `low`, `close`, `volume`, `funding_rate`
 
-Available operators (21): `abs`, `add`, `corr`, `delay`, `delta`, `div`, `ema`, `log`, `max`, `min`, `mul`, `neg`, `rank`, `ret`, `rsi`, `sign`, `sma`, `sqrt`, `std`, `sub`, `zscore`
+Available operators (28): `abs`, `add`, `clip`, `corr`, `decay_linear`, `delay`, `delta`, `div`, `ema`,
+`kurtosis`, `log`, `max`, `min`, `mul`, `neg`, `rank`, `ret`, `rsi`, `sign`, `skew`, `sma`, `sqrt`, `std`,
+`sub`, `ts_argmax`, `ts_argmin`, `winsorize`, `zscore`
 
 Examples:
 

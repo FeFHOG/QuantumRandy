@@ -290,7 +290,9 @@ Priority: P1.
 
 ### 7. DSL And Data Expansion
 
-Status: current DSL has 21 operators and fields: OHLCV plus funding rate.
+Status: current DSL has 28 operators and fields: OHLCV plus funding rate. First operator expansion added
+`clip`, `winsorize`, `decay_linear`, `ts_argmax`, `ts_argmin`, `skew`, and `kurtosis`; new crypto-specific data fields
+remain future work.
 
 Most valuable new data fields for crypto perpetuals:
 
@@ -307,14 +309,14 @@ Most valuable new data fields for crypto perpetuals:
 
 Most useful new operators:
 
-- `winsorize(x, window)`
+- `winsorize(x, window)`: implemented.
 - `neutralize(x, y, window)`
-- `clip(x, low, high)`
-- `decay_linear(x, window)`
-- `ts_argmax(x, window)`
-- `ts_argmin(x, window)`
-- `skew(x, window)`
-- `kurtosis(x, window)`
+- `clip(x, low, high)`: implemented.
+- `decay_linear(x, window)`: implemented.
+- `ts_argmax(x, window)`: implemented.
+- `ts_argmin(x, window)`: implemented.
+- `skew(x, window)`: implemented.
+- `kurtosis(x, window)`: implemented.
 - `reg_beta(y, x, window)`
 - `resid(y, x, window)`
 
@@ -467,6 +469,10 @@ Expected value:
   - MCTS saves `pareto_archive.csv` and `pareto_archive.json`;
   - zoo/tree/leaderboard rows carry `pareto_rank` and `pareto_front`;
   - dashboard research review summarizes the nondominated front when present.
+- Added first DSL operator expansion:
+  - added `clip`, `winsorize`, `decay_linear`, `ts_argmax`, `ts_argmin`, `skew`, and `kurtosis`;
+  - updated parser validation, expression evaluation, LLM operator notes, README, and tests;
+  - no new data fields or runtime publishing behavior were added.
 
 ## Next Session Prompt
 
