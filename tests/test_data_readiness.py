@@ -10,6 +10,7 @@ from quantumrandy.data_readiness import (
     readiness_manifest,
     readiness_report,
     run_data_readiness,
+    scaffold_asset_configs,
 )
 
 
@@ -115,3 +116,43 @@ def test_readiness_manifest_and_report_are_research_only(tmp_path: Path) -> None
     assert manifest["ready_count"] == 1
     assert "does not download data" in report
     assert "DATA_READINESS_REPORT.md" in report
+
+
+def test_scaffold_asset_configs_uses_reference_template(tmp_path: Path) -> None:
+    reference = _write_asset_config(tmp_path, "BTCUSDT")
+    out_dir = tmp_path / "configs"
+
+    rows = scaffold_asset_configs(
+        ["ETHUSDT"],
+        config_dir=out_dir,
+        reference_config=reference,
+        data_root=Path("../data"),
+    )
+
+    written = out_dir / "ethusdt.yaml"
+    text = written.read_text(encoding="utf-8")
+    assert rows == [
+        {
+            "symbol": "ETHUSDT",
+            "config_path": str(written),
+            "existed": False,
+            "written": True,
+            "overwrite": False,
+        }
+    ]
+    assert "symbol: ETHUSDT" in text
+    assert "ohlcv_csv: ../data/ETHUSDT_4h.csv" in text
+    assert "funding_csv: ../data/ETHUSDT_funding.csv" in text
+    assert "training_start: '2024-01-01'" in text
+
+
+def test_scaffold_asset_configs_skips_existing_config(tmp_path: Path) -> None:
+    reference = _write_asset_config(tmp_path, "BTCUSDT")
+    out_dir = tmp_path / "configs"
+
+    first = scaffold_asset_configs(["ETHUSDT"], config_dir=out_dir, reference_config=reference)
+    second = scaffold_asset_configs(["ETHUSDT"], config_dir=out_dir, reference_config=reference)
+
+    assert first[0]["written"] is True
+    assert second[0]["existed"] is True
+    assert second[0]["written"] is False

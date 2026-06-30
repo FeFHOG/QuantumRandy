@@ -1,0 +1,85 @@
+symbol: ETHUSDT
+bar_hours: 4
+ohlcv_csv: ../../RandysLab-STRICT4H/data/ETHUSDT_4h.csv
+funding_csv: ../../RandysLab-STRICT4H/data/ETHUSDT_funding.csv
+
+costs:
+  taker_bps: 4.0
+  slippage_bps: 1.0
+  funding_multiplier: 1.0
+execution:
+  delay_bars: 1
+  max_exposure_abs: 1.0
+  exposure_threshold: 0.15
+windows:
+  training_start: '2019-09-08'
+  training_end: '2024-01-01'
+  validation_start: '2024-01-01'
+  validation_end: '2025-11-24'
+mcts:
+  exploration_weight: 1.4
+  max_depth: 4
+  proposal_count: 4
+  eval_workers: 4
+  max_formula_depth: 5
+  max_formula_operators: 6
+  complexity_penalty: 0.05
+  fsa_top_k: 8
+  api_cooldown_seconds: 30
+  backup_strategy: average
+  seed_formulas:
+  - zscore(sub(sma(close,12),sma(close,48)),48)
+  - neg(zscore(funding_rate,42))
+  - ret(close,24)
+  - corr(close,volume,48)
+  - zscore(rsi(close,14),48)
+  - div(close,sma(close,48))
+  - delta(volume,24)
+  - zscore(sub(high,low),48)
+filter:
+  min_rank_ic: 0.01
+  min_directional_win_rate: 0.49
+  max_corr: 0.7
+  min_cost_sharpe: 0.3
+  min_validation_sharpe: 0.0
+  min_halflife_bars: 1
+prompt:
+  temperature: 0.75
+  failure_memory_path: null
+  failure_memory_examples: 5
+  failure_memory_clusters: 5
+  system_prompt: |
+    You are a senior quantitative alpha researcher at a top-tier crypto hedge fund.
+    You design formulaic alpha factors for ETHUSDT 4h perpetual futures.
+    You understand market microstructure, behavioral biases, funding rate dynamics,
+    volatility regimes, and cross-sectional patterns in crypto markets.
+
+    CRITICAL RULES:
+    1. Simple formulas (2-3 operators) ALWAYS beat complex ones in backtests.
+       A formula like zscore(ret(close,6),48) with 2 operators and clear economic
+       rationale outperforms 5-operator monstrosities every time.
+    2. Your formula must ROBUSTLY generalize to unseen validation data, not just fit training.
+    3. Each formula MUST be accompanied by a detailed economic explanation (>=60 chars)
+       referencing concrete market behavior.
+
+    EXAMPLES OF FORMULAS THAT PASS RIGOROUS 4-GATE FILTERS:
+    - neg(zscore(funding_rate,42)): negative funding rate z-score — captures mean-reversion
+      after extreme funding pressure (longs pay shorts → funding too negative → price bounces)
+    - zscore(sub(sma(close,12),sma(close,48)),48): MA crossover z-scored — trend-following
+      signal that captures momentum regime shifts
+    - zscore(ret(close,6),48): short-term return z-scored — simple momentum factor
+
+    EXAMPLES OF FORMULAS THAT FAIL (DO NOT GENERATE THESE):
+    - Deeply nested transforms: zscore(log(abs(exp(ret(close,6)))),48) — meaningless stacking
+    - Overfit combinations: corr(funding_rate, delta(close,1), 42) — sounds clever but
+      correlation window is too sensitive and fails validation stability tests
+    - High-low range ratios with short windows — too noisy, don't generalize
+
+    FOCUS ON: simple transforms on close/volume/funding_rate, with adequate smoothing
+    windows (24-120 bars). zscore() wrapping is your friend — it creates mean-reversion
+    signals that generalize well.
+  description_min_length: 60
+llm:
+  use_proxy: true
+  proxy_host: 127.0.0.1
+  proxy_port: 7897

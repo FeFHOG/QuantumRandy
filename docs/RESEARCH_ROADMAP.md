@@ -90,8 +90,8 @@ Priority: P0.
 ### 2. Multi-Asset Robustness
 
 Status: first implementation complete in `QuantumRandy/quantumrandy/universe.py` and `QuantumRandy/scripts/eval_universe.py`.
-Read-only config/data readiness checks are also implemented in `QuantumRandy/quantumrandy/data_readiness.py` and
-`QuantumRandy/scripts/data_readiness.py`.
+Read-only config/data readiness checks and config scaffolding are also implemented in
+`QuantumRandy/quantumrandy/data_readiness.py` and `QuantumRandy/scripts/data_readiness.py`.
 
 Why it matters:
 
@@ -120,7 +120,8 @@ Deliverable:
 
 - `run_universe_evaluation`
 - `scripts/eval_universe.py`
-- `scripts/data_readiness.py`: implemented as a local config/CSV coverage preflight with CSV, JSON, and Markdown outputs.
+- `scripts/data_readiness.py`: implemented as a local config/CSV coverage preflight with CSV, JSON, and Markdown outputs;
+  it can also scaffold missing research configs from the BTC template without downloading market data.
 - dashboard symbol breakdown for each factor
 
 Priority: P0.
@@ -484,6 +485,9 @@ Expected value:
     training/validation window coverage, and funding alignment;
   - writes `data_readiness.csv`, `data_readiness_manifest.json`, and `DATA_READINESS_REPORT.md`;
   - does not download data, call exchange APIs, publish factors, or mutate runtime state.
+- Added ETH/SOL/BNB/AVAX research config scaffolds under `QuantumRandy/configs/`, pointing at expected RandysLab local
+  OHLCV/funding CSV names. Current local readiness still reports those CSV files as missing until the data layer is
+  populated deliberately.
 
 ## Next Session Prompt
 

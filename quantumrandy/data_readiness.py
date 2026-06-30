@@ -4,12 +4,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
+import yaml
 
 from .config import ProjectConfig, load_config
 from .data import REQUIRED_OHLCV, slice_window
 
 DEFAULT_UNIVERSE_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "AVAXUSDT"]
 REQUIRED_FUNDING = {"timestamp", "funding_rate"}
+DEFAULT_REFERENCE_CONFIG = Path("configs/btcusdt.yaml")
+DEFAULT_DATA_ROOT = Path("../../RandysLab-STRICT4H/data")
 
 
 @dataclass(frozen=True)
@@ -31,6 +34,42 @@ def build_config_targets(
         {"expected_symbol": symbol.upper(), "config_path": str(Path(config_dir) / f"{symbol.lower()}.yaml")}
         for symbol in (symbols or DEFAULT_UNIVERSE_SYMBOLS)
     ]
+
+
+def scaffold_asset_configs(
+    symbols: list[str] | None = None,
+    *,
+    config_dir: str | Path = "configs",
+    reference_config: str | Path = DEFAULT_REFERENCE_CONFIG,
+    data_root: str | Path = DEFAULT_DATA_ROOT,
+    overwrite: bool = False,
+) -> list[dict[str, object]]:
+    reference_config = Path(reference_config)
+    raw = yaml.safe_load(reference_config.read_text(encoding="utf-8")) or {}
+    config_dir = Path(config_dir)
+    data_root = Path(data_root)
+    config_dir.mkdir(parents=True, exist_ok=True)
+
+    rows: list[dict[str, object]] = []
+    for symbol in symbols or DEFAULT_UNIVERSE_SYMBOLS:
+        symbol = symbol.upper()
+        path = config_dir / f"{symbol.lower()}.yaml"
+        existed = path.exists()
+        written = False
+        if overwrite or not existed:
+            next_raw = _asset_config_from_template(raw, symbol, data_root)
+            path.write_text(_asset_config_yaml(next_raw), encoding="utf-8")
+            written = True
+        rows.append(
+            {
+                "symbol": symbol,
+                "config_path": str(path),
+                "existed": existed,
+                "written": written,
+                "overwrite": overwrite,
+            }
+        )
+    return rows
 
 
 def run_data_readiness(
@@ -341,3 +380,42 @@ def _window_covered(
     if end and pd.Timestamp(end, tz="UTC") - pd.Timedelta(hours=bar_hours) > index_max:
         return False
     return True
+
+
+def _asset_config_from_template(raw: dict[str, object], symbol: str, data_root: Path) -> dict[str, object]:
+    out = dict(raw)
+    out["symbol"] = symbol
+    out["ohlcv_csv"] = (data_root / f"{symbol}_4h.csv").as_posix()
+    out["funding_csv"] = (data_root / f"{symbol}_funding.csv").as_posix()
+    if isinstance(out.get("prompt"), dict):
+        prompt = dict(out["prompt"])
+        system_prompt = str(prompt.get("system_prompt", ""))
+        if system_prompt:
+            prompt["system_prompt"] = system_prompt.replace("BTCUSDT", symbol)
+        out["prompt"] = prompt
+    return out
+
+
+def _asset_config_yaml(raw: dict[str, object]) -> str:
+    ordered_keys = ["symbol", "bar_hours", "ohlcv_csv", "funding_csv"]
+    lines: list[str] = []
+    for key in ordered_keys:
+        if key in raw:
+            lines.append(f"{key}: {raw[key]}")
+    rest = {key: value for key, value in raw.items() if key not in ordered_keys}
+    if rest:
+        lines.append("")
+        lines.append(yaml.dump(rest, Dumper=_ReadableConfigDumper, sort_keys=False, allow_unicode=True).rstrip())
+    return "\n".join(lines) + "\n"
+
+
+class _ReadableConfigDumper(yaml.SafeDumper):
+    pass
+
+
+def _represent_readable_string(dumper: _ReadableConfigDumper, value: str):
+    style = "|" if "\n" in value else None
+    return dumper.represent_scalar("tag:yaml.org,2002:str", value, style=style)
+
+
+_ReadableConfigDumper.add_representer(str, _represent_readable_string)

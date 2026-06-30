@@ -225,6 +225,16 @@ does not download market data, call exchange APIs, publish factors, or touch the
 - `data_readiness_manifest.json`: machine-readable readiness artifact.
 - `DATA_READINESS_REPORT.md`: concise runbook-style summary.
 
+If new asset configs are missing, scaffold research-only configs from the BTC template:
+
+```powershell
+python scripts\data_readiness.py --write-missing-configs --out reports\data_readiness
+```
+
+The scaffolded configs point at `../..\RandysLab-STRICT4H\data\<SYMBOL>_4h.csv` and
+`../..\RandysLab-STRICT4H\data\<SYMBOL>_funding.csv`; the script still only checks local files and never fetches market
+data.
+
 Evaluate the same formula set across repeated asset configs:
 
 ```powershell
@@ -401,9 +411,8 @@ See `CHANGELOG.md` for full details.
 ## Extending to Other Coins
 
 ```powershell
-# Copy config, update symbol + data paths
-copy configs\btcusdt.yaml configs\ethusdt.yaml
-# Edit: symbol, ohlcv_csv, funding_csv
+# Scaffold or refresh research configs without downloading data
+python scripts\data_readiness.py --write-missing-configs --out reports\data_readiness
 
 # Run
 python scripts\mine.py --config configs\ethusdt.yaml --iterations 50 --out reports\eth_mcts
