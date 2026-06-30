@@ -138,7 +138,17 @@ HTML = r"""<!doctype html>
     .metric-grid .mv { border-left: 2px solid var(--accent); padding-left: 8px; }
     .metric-grid .mv span { display: block; color: var(--muted); font-size: 11px; }
     .metric-grid .mv strong { display: block; font-size: 15px; margin-top: 2px; }
+    .review-grid { padding: 12px 14px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .review-card { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; min-height: 120px; }
+    .review-card h3 { margin: 0 0 10px; font-size: 14px; color: var(--accent); }
+    .review-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+    .review-stat span { display: block; color: var(--muted); font-size: 11px; }
+    .review-stat strong { display: block; font-size: 16px; margin-top: 2px; }
+    .review-list { display: grid; gap: 6px; font-size: 12px; }
+    .review-row { border-top: 1px solid var(--line); padding-top: 6px; }
+    .review-row:first-child { border-top: 0; padding-top: 0; }
     @media (max-width: 900px) { .chart-row { grid-template-columns: 1fr; } .metric-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 1000px) { .review-grid { grid-template-columns: 1fr; } }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
@@ -177,6 +187,10 @@ HTML = r"""<!doctype html>
     <section class="panel" id="killPanel" style="display:none">
       <h2>Kill Breakdown <span class="muted" style="font-size:12px;font-weight:400">(Why factors are killed in the brutal filter)</span></h2>
       <div id="killBreakdown" style="padding:10px 14px;display:flex;gap:16px;flex-wrap:wrap;font-size:13px"></div>
+    </section>
+    <section class="panel" id="reviewPanel" style="display:none">
+      <h2>Research Review <span class="muted" style="font-size:12px;font-weight:400">(Read-only admission, failure memory, and portfolio walk-forward artifacts)</span></h2>
+      <div id="researchReview" class="review-grid"></div>
     </section>
     <section class="panel">
       <h2>Factor Leaderboard <span class="muted" style="font-size:12px;font-weight:400">(Click row for details · Click header to sort)</span></h2>
@@ -311,10 +325,11 @@ HTML = r"""<!doctype html>
     }
 
     async function refresh() {
-      const [state, factors, llmLog] = await Promise.all([
+      const [state, factors, llmLog, review] = await Promise.all([
         fetch('/api/status').then(r => r.json()),
         fetch('/api/factors').then(r => r.json()),
-        fetch('/api/llm_log').then(r => r.json()).catch(() => [])
+        fetch('/api/llm_log').then(r => r.json()).catch(() => []),
+        fetch('/api/research_review').then(r => r.json()).catch(() => ({available:false}))
       ]);
       status.textContent = state.status;
       iterations.textContent = state.iterations_done;
@@ -398,6 +413,72 @@ HTML = r"""<!doctype html>
       } else {
         document.getElementById('llmLog').innerHTML = '<span class="muted">No records (enable DeepSeek and start research)</span>';
       }
+      renderResearchReview(review);
+    }
+
+    function renderResearchReview(review) {
+      const panel = document.getElementById('reviewPanel');
+      const box = document.getElementById('researchReview');
+      if (!review || !review.available) {
+        panel.style.display = 'none';
+        return;
+      }
+      panel.style.display = '';
+      const admission = review.admission || {};
+      const failure = review.failure_memory || {};
+      const portfolio = review.portfolio_walk_forward || {};
+      box.innerHTML =
+        reviewAdmissionCard(admission) +
+        reviewFailureCard(failure) +
+        reviewPortfolioCard(portfolio);
+    }
+
+    function reviewAdmissionCard(data) {
+      const top = data.top || [];
+      return '<div class="review-card"><h3>Admission</h3>' +
+        '<div class="review-stats">' +
+        '<div class="review-stat"><span>Approved</span><strong style="color:var(--good)">' + (data.approved ?? 0) + '</strong></div>' +
+        '<div class="review-stat"><span>Review</span><strong style="color:var(--warn)">' + (data.review ?? 0) + '</strong></div>' +
+        '<div class="review-stat"><span>Rejected</span><strong style="color:var(--bad)">' + (data.rejected ?? 0) + '</strong></div>' +
+        '</div><div class="muted" style="font-size:11px;margin-bottom:8px">' + (data.source || 'No admission artifact') + '</div>' +
+        '<div class="review-list">' + top.map(r =>
+          '<div class="review-row"><strong class="' + (r.status === 'approve' ? 'pass' : r.status === 'reject' ? 'fail' : '') + '">' + (r.status || '-') +
+          '</strong> <span class="muted">' + fmt(r.score, 1) + '</span><br><span style="font-family:Consolas,monospace;color:var(--gold)">' +
+          escapeHtml(r.factor_id || '-') + '</span><br><span class="muted">' + escapeHtml(r.failed_rules || 'all gates pass') + '</span></div>'
+        ).join('') + '</div></div>';
+    }
+
+    function reviewFailureCard(data) {
+      const clusters = data.clusters || [];
+      return '<div class="review-card"><h3>Failure Memory</h3>' +
+        '<div class="review-stats">' +
+        '<div class="review-stat"><span>Failures</span><strong style="color:var(--bad)">' + (data.failures ?? 0) + '</strong></div>' +
+        '<div class="review-stat"><span>Clusters</span><strong>' + (data.cluster_count ?? 0) + '</strong></div>' +
+        '<div class="review-stat"><span>Top Count</span><strong>' + (clusters[0]?.count ?? 0) + '</strong></div>' +
+        '</div><div class="muted" style="font-size:11px;margin-bottom:8px">' + (data.source || 'No failure memory artifact') + '</div>' +
+        '<div class="review-list">' + clusters.map(r =>
+          '<div class="review-row"><span style="font-family:Consolas,monospace;color:var(--gold)">' + escapeHtml(r.subtree || '-') +
+          '</span><br><span class="muted">count=' + (r.count ?? '-') + ' gates=' + escapeHtml(r.failed_gates || '-') + '</span></div>'
+        ).join('') + '</div></div>';
+    }
+
+    function reviewPortfolioCard(data) {
+      const rows = data.top || [];
+      return '<div class="review-card"><h3>Portfolio Walk-Forward</h3>' +
+        '<div class="review-stats">' +
+        '<div class="review-stat"><span>Portfolios</span><strong>' + (data.portfolios ?? 0) + '</strong></div>' +
+        '<div class="review-stat"><span>Best Survival</span><strong style="color:var(--good)">' + fmt(data.best_survival, 2) + '</strong></div>' +
+        '<div class="review-stat"><span>Windows</span><strong>' + (data.best_windows ?? 0) + '</strong></div>' +
+        '</div><div class="muted" style="font-size:11px;margin-bottom:8px">' + (data.source || 'No portfolio walk-forward artifact') + '</div>' +
+        '<div class="review-list">' + rows.map(r =>
+          '<div class="review-row"><strong>' + escapeHtml(r.portfolio_id || '-') + '</strong><br><span class="muted">survival=' +
+          fmt(r.survival_rate, 2) + ' test_sharpe=' + fmt(r.test_sharpe_median, 2) + ' rank_ic=' + fmt(r.test_rank_ic_median, 4) +
+          '</span></div>'
+        ).join('') + '</div></div>';
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
     }
 
     function showDetail(idx) {
@@ -733,6 +814,134 @@ def _run_blind_validate(formula: str) -> dict:
         return {"formula": formula, "error": str(exc), "blind": None, "chart": None, "trade_list": []}
 
 
+def build_research_review_payload(output_dir: str | Path) -> dict:
+    out = Path(output_dir)
+    if not out.is_absolute():
+        out = Path(__file__).resolve().parents[1] / out
+    reports_root = out.parent
+
+    admission = _admission_payload(_latest_artifact(reports_root, "admission*", "admission_decisions.csv"))
+    failure = _failure_payload(
+        _latest_artifact(reports_root, "failure_memory*", "failure_memory.csv"),
+        _latest_artifact(reports_root, "failure_memory*", "failure_clusters.csv"),
+    )
+    portfolio = _portfolio_wf_payload(
+        _latest_artifact(reports_root, "portfolio_walk_forward*", "portfolio_walk_forward_summary.csv")
+    )
+    available = any(section.get("available") for section in (admission, failure, portfolio))
+    return {
+        "available": available,
+        "admission": admission,
+        "failure_memory": failure,
+        "portfolio_walk_forward": portfolio,
+    }
+
+
+def _latest_artifact(root: Path, directory_glob: str, filename: str) -> Path | None:
+    candidates = [path / filename for path in root.glob(directory_glob) if (path / filename).exists()]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda path: path.stat().st_mtime)
+
+
+def _admission_payload(path: Path | None) -> dict:
+    if path is None:
+        return {"available": False}
+    try:
+        frame = pd.read_csv(path)
+    except Exception as exc:
+        return {"available": False, "source": str(path), "error": str(exc)}
+    statuses = frame.get("admission_status", pd.Series(dtype=str)).fillna("")
+    top = frame.sort_values("admission_score", ascending=False).head(5) if "admission_score" in frame.columns else frame.head(5)
+    return {
+        "available": True,
+        "source": _display_path(path),
+        "approved": int((statuses == "approve").sum()),
+        "review": int((statuses == "review").sum()),
+        "rejected": int((statuses == "reject").sum()),
+        "top": [
+            {
+                "factor_id": row.get("factor_id", ""),
+                "status": row.get("admission_status", ""),
+                "score": _num(row.get("admission_score")),
+                "failed_rules": row.get("failed_rules", ""),
+            }
+            for row in top.to_dict(orient="records")
+        ],
+    }
+
+
+def _failure_payload(memory_path: Path | None, cluster_path: Path | None) -> dict:
+    if memory_path is None and cluster_path is None:
+        return {"available": False}
+    try:
+        memory = pd.read_csv(memory_path) if memory_path else pd.DataFrame()
+        clusters = pd.read_csv(cluster_path) if cluster_path else pd.DataFrame()
+    except Exception as exc:
+        return {"available": False, "source": str(memory_path or cluster_path), "error": str(exc)}
+    if not clusters.empty and "count" in clusters.columns:
+        clusters = clusters.sort_values("count", ascending=False)
+    return {
+        "available": True,
+        "source": _display_path(memory_path or cluster_path),
+        "failures": int(len(memory)),
+        "cluster_count": int(len(clusters)),
+        "clusters": [
+            {
+                "subtree": row.get("subtree", ""),
+                "count": _num(row.get("count")),
+                "failed_gates": row.get("failed_gates", ""),
+            }
+            for row in clusters.head(5).to_dict(orient="records")
+        ],
+    }
+
+
+def _portfolio_wf_payload(path: Path | None) -> dict:
+    if path is None:
+        return {"available": False}
+    try:
+        frame = pd.read_csv(path)
+    except Exception as exc:
+        return {"available": False, "source": str(path), "error": str(exc)}
+    if "survival_rate" in frame.columns:
+        frame = frame.sort_values(["survival_rate", "test_sharpe_median"], ascending=[False, False])
+    best = frame.iloc[0].to_dict() if not frame.empty else {}
+    return {
+        "available": True,
+        "source": _display_path(path),
+        "portfolios": int(len(frame)),
+        "best_survival": _num(best.get("survival_rate")),
+        "best_windows": _num(best.get("windows")),
+        "top": [
+            {
+                "portfolio_id": row.get("portfolio_id", ""),
+                "survival_rate": _num(row.get("survival_rate")),
+                "test_sharpe_median": _num(row.get("test_sharpe_median")),
+                "test_rank_ic_median": _num(row.get("test_rank_ic_median")),
+            }
+            for row in frame.head(5).to_dict(orient="records")
+        ],
+    }
+
+
+def _display_path(path: Path | None) -> str:
+    if path is None:
+        return ""
+    try:
+        return str(path.relative_to(Path(__file__).resolve().parents[1]))
+    except ValueError:
+        return str(path)
+
+
+def _num(value: object) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    return number if pd.notna(number) else 0.0
+
+
 def run_dashboard(config: str, out: str, host: str = "127.0.0.1", port: int = 8765) -> None:
     import errno
     import socket
@@ -755,6 +964,8 @@ def run_dashboard(config: str, out: str, host: str = "127.0.0.1", port: int = 87
                 self._json(factors)
             elif parsed.path == "/api/llm_log":
                 self._json(session.llm_log())
+            elif parsed.path == "/api/research_review":
+                self._json(build_research_review_payload(session.output_dir))
             elif parsed.path == "/api/test_deepseek":
                 self._json(session.test_deepseek())
             elif parsed.path == "/api/validate_factor":

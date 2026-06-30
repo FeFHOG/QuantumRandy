@@ -76,7 +76,8 @@ Remaining algorithm risks:
 - Portfolio construction is fixed-weight and offline; fixed-blend walk-forward exists, but no walk-forward retraining of
   weights yet.
 - Factor admission policy has a first research-only implementation and can ingest factor-level and portfolio-level
-  walk-forward evidence, but dashboard review panels are still pending.
+  walk-forward evidence; the mining dashboard can summarize admission, failure-cluster, and portfolio walk-forward
+  artifacts in a read-only review panel.
 - Failure memory has a first artifact builder and prompt-context integration, but richer retrieval and dashboard views
   are still pending.
 - Pareto MCTS is not implemented yet.
@@ -103,7 +104,7 @@ While the server agent handles the 48-hour paper trial:
 3. Formalize a factor admission policy that combines brutal filter, blind validation, walk-forward survival, multi-asset
    robustness, correlation, turnover, and drawdown.
 4. Build failure memory from rejected candidates and schema-v2 proposal fields.
-5. Add dashboard review panels for admission, failure clusters, and portfolio walk-forward evidence.
+5. Expand review panels with deeper drill-downs and artifact freshness checks.
 6. Prepare v0.8 beta release notes only after the server trial result is known.
 
 The useful mental model: the lab bench and observation chamber now exist. The scientist still needs stronger evidence

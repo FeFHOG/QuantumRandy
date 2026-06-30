@@ -176,7 +176,7 @@ Deliverable:
 - `admission_manifest.json`: implemented.
 - `ADMISSION_REPORT.md`: implemented.
 - optional portfolio-level walk-forward evidence ingestion: implemented.
-- dashboard admission panel: not started.
+- dashboard admission / failure-cluster / portfolio walk-forward review panel: implemented.
 
 Priority: P0/P1.
 
@@ -457,6 +457,10 @@ Expected value:
   - `scripts/build_admission.py` accepts `--portfolio-walk-forward-summary`;
   - component factors inherit evidence from fixed blends that include their factor id;
   - admission decisions record best blend survival, window count, and median test Sharpe evidence.
+- Added a read-only research review panel to the mining dashboard:
+  - loads latest admission, failure-memory, and portfolio walk-forward artifacts from `reports/`;
+  - summarizes admission counts, repeated failed subtrees, and fixed-blend stability;
+  - does not submit runtime updates or publish strategies.
 
 ## Next Session Prompt
 

@@ -48,7 +48,7 @@ QuantumRandy/
     proposals.py            # Template engine (46% funding_rate coverage)
     lab.py                  # 4-gate brutal filter + kill diagnosis
     research.py             # Background research session + auto-purge
-    dashboard.py            # HTTP dashboard backend + kill breakdown
+    dashboard.py            # HTTP dashboard backend + kill/research review panels
     walk_forward.py         # Rolling train/validation/test survival validation
     universe.py             # Multi-asset robustness evaluation
     portfolio.py            # Fixed-weight factor portfolio research
@@ -352,6 +352,10 @@ Outputs:
 The dashboard shows a **Kill Breakdown** panel — which of the 4 brutal-filter gates kills the most factors. Hover any KILL badge to see the specific gates that failed. Click a factor row for a detail modal with per-gate actual values vs thresholds.
 
 Kill reasons are stored in `leaderboard.json` -> `kill_reasons` field (e.g. `["predictive_power", "friction_audit"]`).
+
+The dashboard also shows a read-only **Research Review** panel when admission, failure-memory, or portfolio
+walk-forward artifacts exist under `reports/`. It summarizes admission decisions, repeated failed subtree clusters, and
+fixed-blend walk-forward stability without mutating runtime or publishing strategies.
 
 ## v0.7 "Funding Rate Renaissance" (2026-05-20)
 
