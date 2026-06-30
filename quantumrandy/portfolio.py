@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -27,7 +29,7 @@ def build_portfolio_research(
     *,
     max_corr: float | None = None,
     min_factors: int = 1,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, Any]]:
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, Any]]:
     """Evaluate accepted factors, apply correlation filtering, and backtest simple fixed-weight portfolios."""
     if not entries:
         raise ValueError("At least one formula entry is required")
@@ -182,6 +184,7 @@ def render_portfolio_report(
     selection_frame: pd.DataFrame,
     portfolio_frame: pd.DataFrame,
     contribution_frame: pd.DataFrame | None = None,
+    baseline_summary: dict[str, Any] | None = None,
 ) -> str:
     lines = [
         "# QuantumRandy Portfolio Research Report",
@@ -205,6 +208,7 @@ def render_portfolio_report(
             "| {portfolio_id} | {weighting} | {factor_count} | {sharpe:.4f} | {rank_ic:.4f} | "
             "{max_dd:.4f} | {turnover:.4f} | {trades:.0f} |".format(**row)
         )
+    lines.extend(_render_baseline_comparison(portfolio_frame, baseline_summary))
 
     lines.extend(
         [
@@ -256,6 +260,84 @@ def render_portfolio_report(
         ]
     )
     return "\n".join(lines)
+
+
+def load_baseline_summary(path: str | Path | None) -> dict[str, Any] | None:
+    if path is None:
+        return None
+    path = Path(path)
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise RuntimeError("baseline summary must be a JSON object")
+        return {**payload, "source_path": path.as_posix()}
+    except Exception as exc:
+        return {
+            "artifact_type": "randyslab_baseline_export_error",
+            "source_path": path.as_posix(),
+            "load_error": str(exc),
+        }
+
+
+def _render_baseline_comparison(
+    portfolio_frame: pd.DataFrame,
+    baseline_summary: dict[str, Any] | None,
+) -> list[str]:
+    if not baseline_summary:
+        return []
+    lines = ["", "## RandysLab Baseline Comparison", ""]
+    source_path = baseline_summary.get("source_path")
+    if baseline_summary.get("load_error"):
+        lines.extend(
+            [
+                "Configured RandysLab baseline export could not be loaded.",
+                "",
+                f"- Source: `{source_path}`",
+                f"- Error: `{baseline_summary.get('load_error')}`",
+            ]
+        )
+        return lines
+    if baseline_summary.get("artifact_type") != "randyslab_baseline_export":
+        lines.extend(
+            [
+                "Configured baseline summary is not a recognized RandysLab baseline export.",
+                "",
+                f"- Source: `{source_path}`",
+                f"- Artifact type: `{baseline_summary.get('artifact_type')}`",
+            ]
+        )
+        return lines
+
+    window = baseline_summary.get("window") or {}
+    lines.extend(
+        [
+            "Traditional-strategy control group only. These rows are not runtime publish payloads.",
+            "",
+            f"- Source: `{source_path}`",
+            f"- Generated at: `{baseline_summary.get('generated_at')}`",
+            f"- Symbol: `{baseline_summary.get('symbol')}`",
+            f"- Window: `{window.get('name')}`",
+            "",
+            "| Candidate | Source | Sharpe | Max DD | Trades | Net Total |",
+            "|---|---|---:|---:|---:|---:|",
+        ]
+    )
+    for row in portfolio_frame.to_dict(orient="records"):
+        lines.append(
+            "| {portfolio_id} | QuantumRandy portfolio research | {sharpe:.4f} | {max_dd:.4f} | "
+            "{trades:.0f} | {net_total:.4f} |".format(**row)
+        )
+    for item in baseline_summary.get("strategies") or []:
+        metrics = item.get("metrics") or {}
+        lines.append(
+            "| "
+            f"{item.get('strategy_id')} | RandysLab baseline | "
+            f"{_fmt(metrics.get('sharpe'))} | "
+            f"{_fmt(metrics.get('max_dd'))} | "
+            f"{_fmt(metrics.get('trades'))} | "
+            f"{_fmt(metrics.get('net_total'))} |"
+        )
+    return lines
 
 
 def _evaluate_factor_pool(
@@ -430,3 +512,12 @@ def _factor_id(entry: dict[str, object], index: int) -> str:
     if not safe or not safe[0].isalpha():
         safe = f"factor_{index:03d}"
     return safe[:64]
+
+
+def _fmt(value: Any) -> str:
+    if value is None:
+        return "-"
+    try:
+        return f"{float(value):.4f}"
+    except (TypeError, ValueError):
+        return str(value)

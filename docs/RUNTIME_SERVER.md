@@ -228,6 +228,19 @@ rejects stale updates with HTTP 409. This is deliberate: review the current mani
 Portfolio research artifacts from `scripts/build_portfolio.py` can also be converted into a reviewable runtime proposal.
 This remains a manual dry run unless `--submit` is explicitly provided.
 
+`scripts/build_portfolio.py` can include RandysLab baseline rows in `PORTFOLIO_REPORT.md` with the report-only
+`--baseline-summary` option:
+
+```bash
+python scripts/build_portfolio.py \
+  --leaderboard reports/research_live/leaderboard.json \
+  --out reports/portfolio \
+  --baseline-summary ../RandysLab-STRICT4H/reports/quantumrandy_baselines/baseline_summary.json
+```
+
+The baseline comparison is a control-group section only. It is written into the research manifest as provenance, but it
+does not change selected portfolio weights and it is not accepted by the runtime publisher as a strategy definition.
+
 ```bash
 python scripts/publish_factors.py \
   --portfolio-manifest reports/portfolio/portfolio_manifest.json \

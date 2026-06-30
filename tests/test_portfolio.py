@@ -13,7 +13,7 @@ from quantumrandy.config import (
     PromptConfig,
     WindowConfig,
 )
-from quantumrandy.portfolio import build_portfolio_research, render_portfolio_report
+from quantumrandy.portfolio import build_portfolio_research, load_baseline_summary, render_portfolio_report
 
 
 def _data(periods: int = 240) -> pd.DataFrame:
@@ -82,7 +82,31 @@ def test_build_portfolio_research_outputs_research_only_artifacts() -> None:
         contribution.columns
     )
 
-    report = render_portfolio_report(manifest, factors, selection, portfolios, contribution)
+    baseline_summary = {
+        "artifact_type": "randyslab_baseline_export",
+        "source_path": "../RandysLab-STRICT4H/reports/quantumrandy_baselines/baseline_summary.json",
+        "generated_at": "2026-06-30T12:00:00+00:00",
+        "symbol": "BTC/USDT:USDT",
+        "window": {"name": "validation"},
+        "strategies": [
+            {
+                "strategy_id": "bb_breakout",
+                "metrics": {"sharpe": 1.2, "max_dd": 0.08, "trades": 30, "net_total": 0.09},
+            }
+        ],
+    }
+    report = render_portfolio_report(manifest, factors, selection, portfolios, contribution, baseline_summary)
     assert "research artifact only" in report
     assert "equal_weight_accepted" in report
     assert "Factor Ablation" in report
+    assert "RandysLab Baseline Comparison" in report
+    assert "bb_breakout" in report
+    assert "not runtime publish payloads" in report
+
+
+def test_load_portfolio_baseline_summary_returns_error_payload_for_missing_file(tmp_path) -> None:
+    payload = load_baseline_summary(tmp_path / "missing.json")
+
+    assert payload is not None
+    assert payload["artifact_type"] == "randyslab_baseline_export_error"
+    assert "missing.json" in payload["source_path"]

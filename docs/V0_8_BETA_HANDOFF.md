@@ -48,6 +48,7 @@ Phase 4 portfolio research path. GitHub-facing notes are intentionally in Englis
 - Optional RandysLab baseline comparison in runtime reports via `configs/runtime_monitor.yaml`
 - Manual factor publisher: `scripts/publish_factors.py`
 - Offline portfolio research builder: `scripts/build_portfolio.py`
+- Optional RandysLab baseline comparison in `PORTFOLIO_REPORT.md` via `--baseline-summary`
 - Portfolio contribution and ablation analysis
 - Reviewable runtime proposal flow for fixed portfolio blends
 - Local end-to-end paper trial smoke runner: `scripts/run_paper_trial.py`

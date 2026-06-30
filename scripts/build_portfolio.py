@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from quantumrandy.config import load_config
 from quantumrandy.data import load_market_frame, slice_window
 from quantumrandy.io_utils import safe_write_csv, safe_write_json, safe_write_text
-from quantumrandy.portfolio import build_portfolio_research, render_portfolio_report
+from quantumrandy.portfolio import build_portfolio_research, load_baseline_summary, render_portfolio_report
 from quantumrandy.walk_forward import load_formula_entries
 
 
@@ -24,6 +24,11 @@ def main() -> None:
     ap.add_argument("--window", choices=["training", "validation", "all"], default="validation")
     ap.add_argument("--max-corr", type=float, help="Maximum absolute pairwise factor correlation after selection")
     ap.add_argument("--min-factors", type=int, default=1, help="Minimum factors to keep even if correlation is high")
+    ap.add_argument(
+        "--baseline-summary",
+        default="../RandysLab-STRICT4H/reports/quantumrandy_baselines/baseline_summary.json",
+        help="Optional RandysLab baseline_summary.json path for report-only comparison.",
+    )
     args = ap.parse_args()
 
     cfg = load_config(args.config)
@@ -46,6 +51,13 @@ def main() -> None:
     )
     manifest["window"] = args.window
     manifest["config"] = str(Path(args.config))
+    baseline_summary = load_baseline_summary(args.baseline_summary)
+    if baseline_summary is not None:
+        manifest["baseline_comparison"] = {
+            "source_path": baseline_summary.get("source_path"),
+            "artifact_type": baseline_summary.get("artifact_type"),
+            "loaded": not bool(baseline_summary.get("load_error")),
+        }
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -56,7 +68,7 @@ def main() -> None:
     safe_write_json(out / "portfolio_manifest.json", manifest, out / "events.jsonl")
     safe_write_text(
         out / "PORTFOLIO_REPORT.md",
-        render_portfolio_report(manifest, factors, selection, portfolios, contribution),
+        render_portfolio_report(manifest, factors, selection, portfolios, contribution, baseline_summary),
         out / "events.jsonl",
     )
 
