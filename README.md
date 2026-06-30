@@ -236,6 +236,10 @@ The scaffolded configs point at `../..\RandysLab-STRICT4H\data\<SYMBOL>_4h.csv` 
 `../..\RandysLab-STRICT4H\data\<SYMBOL>_funding.csv`; the script still only checks local files and never fetches market
 data.
 
+The checked-in BTC/ETH/SOL/BNB/AVAX configs use a shared research window of `2022-05-01` to `2025-11-24`, with
+`2024-01-01` as the train/validation boundary. This keeps the default universe on a common local-data window after
+later-listed assets and early archive gaps are excluded.
+
 Evaluate the same formula set across repeated asset configs:
 
 ```powershell

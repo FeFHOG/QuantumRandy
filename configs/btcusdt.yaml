@@ -14,7 +14,7 @@ execution:
   exposure_threshold: 0.15
 
 windows:
-  training_start: "2019-09-08"
+  training_start: "2022-05-01"
   training_end: "2024-01-01"
   validation_start: "2024-01-01"
   validation_end: "2025-11-24"

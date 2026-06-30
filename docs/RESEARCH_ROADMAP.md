@@ -491,6 +491,9 @@ Expected value:
 - Added ETH/SOL/BNB/AVAX research config scaffolds under `QuantumRandy/configs/`, pointing at expected RandysLab local
   OHLCV/funding CSV names. Current local readiness still reports those CSV files as missing until the data layer is
   populated deliberately.
+- Populated the local RandysLab data layer from Binance public archive files and moved BTC/ETH/SOL/BNB/AVAX configs to
+  a shared `2022-05-01` to `2025-11-24` research window. `scripts/data_readiness.py` now reports all five configs ready
+  on the local archive dataset, and a two-formula universe smoke has run successfully as a research artifact.
 
 ## Next Session Prompt
 

@@ -105,6 +105,20 @@ def test_run_data_readiness_flags_gap_and_window_shortfall(tmp_path: Path) -> No
     assert "validation_window_not_covered" in reasons
 
 
+def test_readiness_interval_check_uses_configured_research_window(tmp_path: Path) -> None:
+    config = _write_asset_config(tmp_path, "SOLUSDT", periods=260, missing_bar=True)
+    text = config.read_text(encoding="utf-8")
+    text = text.replace('training_start: "2024-01-01"', 'training_start: "2024-01-10"')
+    config.write_text(text, encoding="utf-8")
+
+    frame = run_data_readiness(
+        [{"expected_symbol": "SOLUSDT", "config_path": str(config)}],
+        policy=ReadinessPolicy(min_total_bars=100, min_window_bars=20),
+    )
+
+    assert bool(frame.iloc[0]["ready"]) is True
+
+
 def test_readiness_manifest_and_report_are_research_only(tmp_path: Path) -> None:
     config = _write_asset_config(tmp_path, "BTCUSDT")
     policy = ReadinessPolicy(min_total_bars=100, min_window_bars=20)

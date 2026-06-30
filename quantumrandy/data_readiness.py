@@ -172,7 +172,8 @@ def inspect_asset_readiness(
     if ohlcv["frame"] is not None:
         ohlcv_frame = ohlcv["frame"]
         assert isinstance(ohlcv_frame, pd.DataFrame)
-        interval_stats = _interval_stats(ohlcv_frame.index, cfg.bar_hours, policy)
+        research_frame = slice_window(ohlcv_frame, cfg.windows.training_start, cfg.windows.validation_end)
+        interval_stats = _interval_stats(research_frame.index, cfg.bar_hours, policy)
         row.update(interval_stats)
         if not bool(interval_stats["ohlcv_interval_ok"]):
             reasons.append("ohlcv_interval_not_4h_regular")
@@ -187,8 +188,9 @@ def inspect_asset_readiness(
 
         funding_frame = funding["frame"]
         if isinstance(funding_frame, pd.DataFrame):
-            aligned_funding = funding_frame.reindex(ohlcv_frame.index.union(funding_frame.index)).sort_index().ffill()
-            coverage = aligned_funding.reindex(ohlcv_frame.index)["funding_rate"].notna().mean()
+            coverage_index = research_frame.index if len(research_frame) else ohlcv_frame.index
+            aligned_funding = funding_frame.reindex(coverage_index.union(funding_frame.index)).sort_index().ffill()
+            coverage = aligned_funding.reindex(coverage_index)["funding_rate"].notna().mean()
             row["funding_alignment_coverage"] = round(float(coverage), 6)
             if coverage < 0.95:
                 reasons.append("funding_alignment_low")
