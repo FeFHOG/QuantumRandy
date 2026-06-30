@@ -90,6 +90,8 @@ Priority: P0.
 ### 2. Multi-Asset Robustness
 
 Status: first implementation complete in `QuantumRandy/quantumrandy/universe.py` and `QuantumRandy/scripts/eval_universe.py`.
+Read-only config/data readiness checks are also implemented in `QuantumRandy/quantumrandy/data_readiness.py` and
+`QuantumRandy/scripts/data_readiness.py`.
 
 Why it matters:
 
@@ -118,6 +120,7 @@ Deliverable:
 
 - `run_universe_evaluation`
 - `scripts/eval_universe.py`
+- `scripts/data_readiness.py`: implemented as a local config/CSV coverage preflight with CSV, JSON, and Markdown outputs.
 - dashboard symbol breakdown for each factor
 
 Priority: P0.
@@ -473,6 +476,14 @@ Expected value:
   - added `clip`, `winsorize`, `decay_linear`, `ts_argmax`, `ts_argmin`, `skew`, and `kurtosis`;
   - updated parser validation, expression evaluation, LLM operator notes, README, and tests;
   - no new data fields or runtime publishing behavior were added.
+- Added a read-only multi-asset data readiness preflight:
+  - added `QuantumRandy/quantumrandy/data_readiness.py`;
+  - added `QuantumRandy/scripts/data_readiness.py`;
+  - added tests in `QuantumRandy/tests/test_data_readiness.py`;
+  - checks expected BTC/ETH/SOL/BNB/AVAX config presence, OHLCV/funding CSV columns, row counts, 4h gaps, configured
+    training/validation window coverage, and funding alignment;
+  - writes `data_readiness.csv`, `data_readiness_manifest.json`, and `DATA_READINESS_REPORT.md`;
+  - does not download data, call exchange APIs, publish factors, or mutate runtime state.
 
 ## Next Session Prompt
 

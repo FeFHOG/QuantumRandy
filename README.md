@@ -51,6 +51,7 @@ QuantumRandy/
     dashboard.py            # HTTP dashboard backend + kill/research review panels
     walk_forward.py         # Rolling train/validation/test survival validation
     universe.py             # Multi-asset robustness evaluation
+    data_readiness.py       # Read-only multi-asset config/data coverage checks
     portfolio.py            # Fixed-weight factor portfolio research
     portfolio_walk_forward.py # Fixed-blend portfolio walk-forward validation
     pareto.py               # Pareto archive ranking for multi-objective alpha review
@@ -61,6 +62,7 @@ QuantumRandy/
     mine.py                 # Batch alpha mining
     eval_formula.py         # Evaluate a single formula
     backtest_all.py         # One-click backtest ALL factors
+    data_readiness.py       # Check local asset configs/CSVs before universe runs
     walk_forward.py         # Walk-forward validation for fixed formulas
     eval_universe.py        # Evaluate fixed formulas across repeated asset configs
     build_portfolio.py      # Build fixed-weight accepted-factor portfolios
@@ -209,6 +211,19 @@ Outputs:
 - `WALK_FORWARD_REPORT.md`: concise human-readable report.
 
 ## Multi-Asset Robustness
+
+Before running a universe evaluation, check whether the expected local configs and CSV files are ready:
+
+```powershell
+python scripts\data_readiness.py --out reports\data_readiness
+```
+
+By default this checks `BTCUSDT`, `ETHUSDT`, `SOLUSDT`, `BNBUSDT`, and `AVAXUSDT` config paths under `configs/`. It
+does not download market data, call exchange APIs, publish factors, or touch the runtime. Outputs:
+
+- `data_readiness.csv`: config/data coverage, window coverage, 4h gap checks, and funding alignment.
+- `data_readiness_manifest.json`: machine-readable readiness artifact.
+- `DATA_READINESS_REPORT.md`: concise runbook-style summary.
 
 Evaluate the same formula set across repeated asset configs:
 
