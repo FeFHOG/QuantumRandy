@@ -43,6 +43,7 @@ Phase 4 portfolio research path. GitHub-facing notes are intentionally in Englis
 ## QuantumRandy Capabilities In This Beta
 
 - Paper runtime server: `scripts/runtime_server.py`
+- Read-only server deployment preflight: `scripts/preflight_server.py`
 - Binance public-data feeder: `scripts/binance_feeder.py`
 - Read-only runtime monitor and daily report: `scripts/runtime_monitor.py`
 - Optional RandysLab baseline comparison in runtime reports via `configs/runtime_monitor.yaml`

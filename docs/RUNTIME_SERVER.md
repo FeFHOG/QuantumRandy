@@ -23,6 +23,7 @@ pip install -r requirements.txt
 
 export QUANTUMRANDY_ADMIN_TOKEN='replace-with-a-long-random-value'
 export QUANTUMRANDY_INGEST_TOKEN='replace-with-a-different-long-random-value'
+python scripts/preflight_server.py --require-tokens
 python scripts/runtime_server.py --config configs/runtime_server.yaml
 ```
 

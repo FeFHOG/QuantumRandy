@@ -52,6 +52,18 @@ export QUANTUMRANDY_ADMIN_TOKEN='replace-with-a-long-random-admin-token'
 export QUANTUMRANDY_INGEST_TOKEN='replace-with-a-different-long-random-ingest-token'
 ```
 
+## Preflight
+
+Before starting the long-running paper loop, run the read-only preflight:
+
+```bash
+python scripts/preflight_server.py --require-tokens
+```
+
+It checks local/private runtime binding, environment-token configuration, runtime manifest validity, public-data feeder
+settings, monitor baseline availability, and the absence of exchange trading-key requirements. It does not start the
+runtime server, ingest market bars, submit admin updates, or place orders.
+
 ## Start The Paper Loop
 
 Start each command in its own managed process.
