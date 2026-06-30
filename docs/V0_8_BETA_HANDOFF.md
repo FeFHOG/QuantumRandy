@@ -39,6 +39,8 @@ Phase 4 portfolio research path. GitHub-facing notes are intentionally in Englis
 - Newly mined factors cannot auto-promote into runtime.
 - Runtime updates require a manual publisher or another explicit review flow.
 - RandysLab baseline exports are control artifacts, not QuantumRandy runtime publish payloads.
+- Future live execution is only a reserved roadmap interface after stable multi-factor paper validation. It is not part
+  of this beta deployment.
 
 ## QuantumRandy Capabilities In This Beta
 
@@ -110,4 +112,5 @@ portfolio manifest -> runtime proposal -> localhost runtime -> submit proposal -
 - Run one real Binance feeder one-shot against a local runtime and inspect the monitor report with baseline comparison.
 - If that is clean, run the server 48h paper trial without strategy churn.
 - Keep aligning portfolio reports and runtime monitor reports around comparable metrics.
-- Add dashboard views later; do not block the paper observation loop on UI work.
+- Keep the runtime dashboard read-only and bound to `127.0.0.1` or a private interface.
+- Do not implement live execution code until the Phase 6 interface spec is deliberately reviewed.

@@ -21,17 +21,17 @@ HTML = r"""<!doctype html>
   <title>QuantumRandy Paper Runtime</title>
   <style>
     :root {
-      --bg: #f6f7f9;
-      --panel: #ffffff;
-      --ink: #1d2633;
-      --muted: #667085;
-      --line: #d8dee8;
-      --ok: #0f8a5f;
-      --warn: #b54708;
-      --bad: #b42318;
-      --accent: #2563eb;
-      --cyan: #0e7490;
-      --gold: #a16207;
+      --bg: #080806;
+      --panel: #14120d;
+      --panel-soft: #1b1810;
+      --ink: #f3ead7;
+      --muted: #a79b82;
+      --line: #3a321f;
+      --ok: #d7b86a;
+      --warn: #c58b38;
+      --bad: #d36b5d;
+      --gold: #d7b86a;
+      --gold-soft: #8c6f32;
     }
     * { box-sizing: border-box; }
     body {
@@ -48,7 +48,7 @@ HTML = r"""<!doctype html>
       gap: 16px;
       padding: 18px 24px;
       border-bottom: 1px solid var(--line);
-      background: #ffffff;
+      background: #0d0b08;
       position: sticky;
       top: 0;
       z-index: 10;
@@ -70,14 +70,14 @@ HTML = r"""<!doctype html>
       min-height: 28px;
       padding: 4px 9px;
       border: 1px solid var(--line);
-      background: #f9fafb;
+      background: var(--panel-soft);
       border-radius: 7px;
       color: var(--muted);
       white-space: nowrap;
     }
-    .pill.ok { color: var(--ok); border-color: #9fd7c1; background: #f0fdf7; }
-    .pill.warn { color: var(--warn); border-color: #fed7aa; background: #fff7ed; }
-    .pill.bad { color: var(--bad); border-color: #fecaca; background: #fef2f2; }
+    .pill.ok { color: var(--ok); border-color: var(--gold-soft); background: #18140b; }
+    .pill.warn { color: var(--warn); border-color: #6f4b1d; background: #1b1208; }
+    .pill.bad { color: var(--bad); border-color: #71352f; background: #1b0d0b; }
     .grid { display: grid; gap: 14px; }
     .summary { grid-template-columns: repeat(6, minmax(120px, 1fr)); margin-bottom: 14px; }
     .content { grid-template-columns: 1.25fr .75fr; align-items: start; }
@@ -89,7 +89,7 @@ HTML = r"""<!doctype html>
       min-width: 0;
     }
     .metric span { display: block; color: var(--muted); font-size: 12px; }
-    .metric strong { display: block; font-size: 18px; margin-top: 4px; }
+    .metric strong { display: block; font-size: 18px; margin-top: 4px; color: var(--gold); }
     .chart-wrap { height: 280px; }
     canvas { width: 100%; height: 100%; display: block; }
     .table-scroll { overflow-x: auto; }
@@ -102,7 +102,7 @@ HTML = r"""<!doctype html>
       white-space: nowrap;
     }
     th:first-child, td:first-child { text-align: left; }
-    th { color: var(--muted); font-size: 12px; font-weight: 650; }
+    th { color: var(--gold); font-size: 12px; font-weight: 650; }
     td { font-variant-numeric: tabular-nums; }
     .stack { display: grid; gap: 14px; }
     .muted { color: var(--muted); }
@@ -206,7 +206,7 @@ HTML = r"""<!doctype html>
         const m = s.metrics || {};
         return [s.strategy_id, fmt(m.sharpe), fmt(m.cagr), fmt(m.max_dd), fmt(m.trades, 0), fmt(m.net_total)];
       });
-      $("baselines").innerHTML = `<div class="source">${baseline.symbol || ""} · ${baseline.window?.name || ""}</div>` +
+      $("baselines").innerHTML = `<div class="source">${baseline.symbol || ""} - ${baseline.window?.name || ""}</div>` +
         table(["Baseline", "Sharpe", "CAGR", "Max DD", "Trades", "Net"], rows);
     }
     function renderFeed(history) {
@@ -231,16 +231,16 @@ HTML = r"""<!doctype html>
       }));
       const names = Object.keys(series).filter(k => series[k].length > 1);
       if (!names.length) {
-        ctx.fillStyle = "#667085";
+        ctx.fillStyle = "#a79b82";
         ctx.fillText("Waiting for monitor history", 12, 22);
         return;
       }
       const values = names.flatMap(k => series[k]).filter(Number.isFinite);
       const min = Math.min(...values), max = Math.max(...values);
       const pad = 22, w = rect.width - pad * 2, h = rect.height - pad * 2;
-      ctx.strokeStyle = "#d8dee8";
+      ctx.strokeStyle = "#3a321f";
       ctx.beginPath(); ctx.moveTo(pad, pad); ctx.lineTo(pad, pad + h); ctx.lineTo(pad + w, pad + h); ctx.stroke();
-      const colors = ["#2563eb", "#0e7490", "#a16207", "#b42318"];
+      const colors = ["#d7b86a", "#b89145", "#f3ead7", "#d36b5d"];
       names.forEach((name, idx) => {
         const arr = series[name];
         ctx.strokeStyle = colors[idx % colors.length];

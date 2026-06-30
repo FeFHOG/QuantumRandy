@@ -14,6 +14,9 @@ keeping factor mining and algorithm research isolated enough that they can conti
 - Runtime simulates strategy equity and exposure with capped paper capital.
 - Research/mining may create candidate factors, but candidates must not automatically become active paper strategies.
 - Factor promotion into the runtime should be manual at first, generation-guarded, and fully logged.
+- Future live execution may be planned only as a separate, explicitly reviewed execution adapter after the multi-factor
+  paper strategy layer is stable. This roadmap reserves that interface conceptually; it does not authorize live trading
+  code in the current runtime.
 
 ## Project Roles
 
@@ -82,6 +85,12 @@ Process E: monitor/reporter
   - polls runtime snapshots
   - writes daily paper reports
   - alerts on stale bars, process failures, and abnormal drawdown
+
+Future Process F: execution_adapter (not in current beta)
+  - consumes only approved multi-factor target exposures after paper validation
+  - owns broker/exchange connectivity behind a separate permission boundary
+  - requires explicit kill switch, dry-run mode, order caps, audit logs, and operator approval
+  - must not import LLM, MCTS, mining, or automatic factor promotion code
 ```
 
 Physical repo split can wait until runtime is stable for several weeks. A future split may look like:
@@ -306,6 +315,35 @@ Exit criteria:
 - Algorithm changes improve validated candidates, not just training leaderboard scores.
 - New candidates survive walk-forward and manual promotion.
 - Paper runtime remains stable while research code changes.
+
+### Phase 6: Live Execution Interface Planning (after stable multi-factor paper)
+
+Goal: reserve a clean path toward live execution without weakening the current paper-only safety boundary.
+
+Status: planning only. No live trading code should be added during the v0.8 server-paper beta.
+
+Prerequisites:
+
+- 48h server paper trial completes without process or data-feed instability.
+- Multi-factor paper blend runs for a longer observation window with documented baseline comparison.
+- Promotion evidence exists for every active component factor and blend weight.
+- Operator-runbook exists for halt, restart, rollback, stale data, abnormal drawdown, and token rotation.
+
+Design requirements:
+
+- Implement live execution as a separate `execution_adapter` process, not inside the research miner or current paper
+  runtime.
+- Support dry-run mode first, then tiny-capital live mode only after explicit approval.
+- Use separate exchange credentials with least privilege and hard account-level limits.
+- Add order-size caps, exposure caps, max daily loss, stale-data halt, generation pinning, and a manual kill switch.
+- Persist an append-only order-intent and order-result audit log.
+- Never let newly mined factors, LLM output, or unreviewed portfolio artifacts reach the execution adapter directly.
+
+Exit criteria:
+
+- A formal interface spec exists for target exposures, risk checks, order intents, fills, and audit events.
+- Paper runtime and execution adapter can be tested end-to-end in dry-run mode without exchange trading permissions.
+- The server agent has separate deployment instructions for paper observation and live execution.
 
 ## Complete Multi-Factor Strategy: Missing Pieces
 
