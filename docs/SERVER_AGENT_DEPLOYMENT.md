@@ -1,0 +1,119 @@
+# Server Agent Deployment Notes
+
+Last updated: 2026-06-30
+
+This note is the minimal handoff for running the QuantumRandy paper observation loop on a server. It is intentionally
+operational and conservative. The server agent should not add trading features while following this document.
+
+## Scope
+
+Run three local processes:
+
+1. `scripts/runtime_server.py`
+2. `scripts/binance_feeder.py`
+3. `scripts/runtime_monitor.py`
+
+The first deployment target is BTCUSDT 4h Binance USD-M perpetual public market data, approved runtime factors from
+`configs/runtime_factors.json`, and read-only paper reports under `reports/runtime_live/`.
+
+## Hard Safety Rules
+
+- Do not place live orders.
+- Do not add exchange trading API keys.
+- Do not expose admin endpoints to the public internet.
+- Do not auto-promote research or mined factors into runtime.
+- Do not modify research/mining algorithms while debugging the paper runtime.
+- Bind the runtime to `127.0.0.1` or a private interface unless separate firewalling and operational controls are
+  deliberately added.
+
+The Binance feeder uses public market-data endpoints only. It does not need exchange credentials.
+
+## Server Baseline
+
+- Ubuntu 22.04 or newer.
+- Python 3.10 or newer.
+- Persistent disk for logs and reports.
+- Outbound network access to Binance public futures endpoints.
+- A process manager such as `systemd`, `supervisor`, or `tmux` for the first smoke run.
+
+## Install
+
+```bash
+cd QuantumRandy
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Use long random values for both tokens. Keep the admin token local to the runtime host.
+
+```bash
+export QUANTUMRANDY_ADMIN_TOKEN='replace-with-a-long-random-admin-token'
+export QUANTUMRANDY_INGEST_TOKEN='replace-with-a-different-long-random-ingest-token'
+```
+
+## Start The Paper Loop
+
+Start each command in its own managed process.
+
+```bash
+python scripts/runtime_server.py --config configs/runtime_server.yaml
+```
+
+```bash
+python scripts/binance_feeder.py --config configs/binance_feeder.yaml
+```
+
+```bash
+python scripts/runtime_monitor.py --config configs/runtime_monitor.yaml
+```
+
+For a one-shot smoke test, add `--once` to the feeder and monitor commands.
+
+## Health Checks
+
+```bash
+curl http://127.0.0.1:8787/health
+curl http://127.0.0.1:8787/v1/factors
+curl http://127.0.0.1:8787/v1/snapshot
+```
+
+Expected first-run behavior:
+
+- `/health` returns `status: ok`.
+- `factor_count` and `strategy_count` match `configs/runtime_factors.json`.
+- `latest_timestamp` is populated after the feeder posts at least one completed 4h bar.
+- Re-running the feeder over its lookback window does not duplicate stored timestamps.
+
+## Outputs To Preserve
+
+The monitor writes:
+
+- `reports/runtime_live/snapshots.jsonl`
+- `reports/runtime_live/latest_snapshot.json`
+- `reports/runtime_live/runtime_report_YYYYMMDD.md`
+
+Keep process stdout/stderr logs together with these files. They are part of the paper-run audit trail.
+
+## Factor Updates
+
+Do not edit runtime factors directly during the first smoke period unless fixing a runtime bug.
+
+When a reviewed research leaderboard is ready, use `scripts/publish_factors.py` from an operator-controlled shell. The
+publisher is manual by default and only submits when `--submit` is explicitly provided. Runtime updates are guarded by
+`expected_generation`; HTTP 409 means another update landed first and the proposal must be regenerated.
+
+## RandysLab Baseline Comparison
+
+Keep RandysLab baseline exports nearby as control artifacts. They are not trading signals for the runtime server and
+must not be auto-published into QuantumRandy.
+
+A typical layout is:
+
+```text
+QuantumRandy/reports/runtime_live/
+RandysLab/reports/quantumrandy_baselines/
+```
+
+Use the runtime daily report for live paper observations and RandysLab exported baseline summaries for the traditional
+strategy floor.

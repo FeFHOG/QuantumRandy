@@ -100,6 +100,8 @@ Do not split now unless dependency or deployment pain becomes real.
 The server agent should operate only from explicit deployment instructions. It should not improvise live-trading
 features.
 
+The minimal operational handoff is maintained in `docs/SERVER_AGENT_DEPLOYMENT.md`.
+
 ### Must Not Do
 
 - Do not add exchange order placement.
