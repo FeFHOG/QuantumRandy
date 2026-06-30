@@ -200,7 +200,7 @@ class ResearchSession:
                         time.sleep(cooldown)
                 with self.lock:
                     self.state.phase = "brutal_filter"
-                    self.state.message = "Running four-gate brutal filter and AutoQuant-style audit."
+                    self.state.message = "Running four-gate brutal filter and friction audit."
                     self.state.updated_at = _now()
                     self._write_state_locked()
                 t0 = time.time()
@@ -305,7 +305,7 @@ class ResearchSession:
                             "gates": {
                                 "predictive_power": {"pass": row.get("gate_predictive_power", False), "rank_ic": row.get("rank_ic", 0), "directional_win_rate": row.get("directional_win_rate", 0)},
                                 "homogeneity": {"pass": row.get("gate_homogeneity", False), "max_corr_to_library": row.get("max_corr_to_library", 0)},
-                                "autoquant_audit": {"pass": row.get("gate_autoquant_audit", False), "cost_sharpe": row.get("sharpe", 0)},
+                                "friction_audit": {"pass": row.get("gate_friction_audit", False), "cost_sharpe": row.get("sharpe", 0)},
                                 "lifetime": {"pass": row.get("gate_lifetime", False), "halflife_bars": row.get("halflife_bars", 0), "validation_sharpe": row.get("validation_sharpe", 0)},
                             },
                             "train": {"rank_ic": row.get("rank_ic", 0), "sharpe": row.get("sharpe", 0), "cagr": row.get("cagr", 0), "max_dd": row.get("max_dd", 0)},

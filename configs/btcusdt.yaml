@@ -1,7 +1,7 @@
 symbol: BTCUSDT
 bar_hours: 4
-ohlcv_csv: ../../AutoQuant/data/BTCUSDT_4h.csv
-funding_csv: ../../AutoQuant/data/BTCUSDT_funding.csv
+ohlcv_csv: ../../RandysLab-STRICT4H/data/BTCUSDT_4h.csv
+funding_csv: ../../RandysLab-STRICT4H/data/BTCUSDT_funding.csv
 
 costs:
   taker_bps: 4.0

@@ -74,7 +74,7 @@ def run_brutal_filter(
             "max_corr_to_library": max_corr,
             "rule": f"max_corr < {thresholds.max_corr}",
         },
-        "autoquant_audit": {
+        "friction_audit": {
             "pass": audit_pass,
             "cost_sharpe": train_metrics["sharpe"],
             "rule": f"cost_sharpe >= {thresholds.min_cost_sharpe}",
@@ -146,7 +146,7 @@ def estimate_halflife_bars(factor: pd.Series, returns: pd.Series, max_horizon: i
 def kill_reasons(gates: dict) -> list[str]:
     """Return list of gate names that failed."""
     failed = []
-    for name in ["predictive_power", "homogeneity", "autoquant_audit", "lifetime"]:
+    for name in ["predictive_power", "homogeneity", "friction_audit", "lifetime"]:
         if not gates.get(name, {}).get("pass", False):
             failed.append(name)
     return failed
@@ -172,7 +172,7 @@ def row_from_alpha(alpha: AlphaResult, brutal: dict | None = None) -> dict:
                 "kill_reasons": reasons,
                 "gate_predictive_power": brutal["gates"]["predictive_power"]["pass"],
                 "gate_homogeneity": brutal["gates"]["homogeneity"]["pass"],
-                "gate_autoquant_audit": brutal["gates"]["autoquant_audit"]["pass"],
+                "gate_friction_audit": brutal["gates"]["friction_audit"]["pass"],
                 "gate_lifetime": brutal["gates"]["lifetime"]["pass"],
                 "max_corr_to_library": brutal["gates"]["homogeneity"]["max_corr_to_library"],
                 "halflife_bars": brutal["gates"]["lifetime"]["halflife_bars"],

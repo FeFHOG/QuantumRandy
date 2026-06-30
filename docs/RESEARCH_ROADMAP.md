@@ -34,7 +34,7 @@ Primary papers already present under `docs/papers/`:
 | Priority | Local file | Topic | Use for QuantumRandy |
 |---|---|---|---|
 | P0 | `Navigating the Alpha Jungle An LLM-Powered MCTS Framework for Formulaic Factor Mining.pdf` | LLM + MCTS formulaic alpha mining | Core method reference: LLM proposal, MCTS selection, alpha zoo, correlation retrieval, formula mining loop |
-| P0 | `2512.22476v1.pdf` | AutoQuant execution-constrained crypto perpetual tuning | Use as execution-audit layer after QuantumRandy generates formulas |
+| P0 | `2512.22476v1.pdf` | Execution-constrained crypto perpetual tuning | Use as execution-audit layer after QuantumRandy generates formulas |
 | P1 | `2511.02136v1.pdf` | GPU-accelerated multi-agent RL for high-frequency trading | Long-term reference for market simulation and execution realism |
 | P1 | `2511.15262v1.pdf` | Queue-reactive RL for optimal execution | Long-term reference for execution reward and simulated order-book response |
 | P1 | `2511.02518v2.pdf` | Option market making with hedging-induced market impact | Reference for inventory risk, market impact, and policy optimization thinking |

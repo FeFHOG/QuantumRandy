@@ -131,7 +131,7 @@ def _derive_kill_reasons(entry: dict) -> list[str]:
     gate_keys = {
         "gate_predictive_power": "predictive_power",
         "gate_homogeneity": "homogeneity",
-        "gate_autoquant_audit": "autoquant_audit",
+        "gate_friction_audit": "friction_audit",
         "gate_lifetime": "lifetime",
     }
     return [label for key, label in gate_keys.items() if entry.get(key) is False]

@@ -140,7 +140,7 @@ The dashboard includes a one-click blind validation feature. Download fresh data
 
 ```powershell
 # Download 2026 blind data
-cd ../AutoQuant
+cd ../RandysLab-STRICT4H
 python scripts/fetch_binance.py --start 2026-01-01 --end 2026-05-01 --file-prefix BTCUSDT_2026 --outdir data
 
 # Start dashboard, click any factor → "一键验证(2026盲测)"
@@ -267,7 +267,7 @@ Sharpe-weighted variants. Outputs are research artifacts only, not runtime publi
 
 The dashboard shows a **Kill Breakdown** panel — which of the 4 brutal-filter gates kills the most factors. Hover any KILL badge to see the specific gates that failed. Click a factor row for a detail modal with per-gate actual values vs thresholds.
 
-Kill reasons are stored in `leaderboard.json` → `kill_reasons` field (e.g. `["predictive_power", "autoquant_audit"]`).
+Kill reasons are stored in `leaderboard.json` -> `kill_reasons` field (e.g. `["predictive_power", "friction_audit"]`).
 
 ## v0.7 "Funding Rate Renaissance" (2026-05-20)
 

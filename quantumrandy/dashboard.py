@@ -367,13 +367,13 @@ HTML = r"""<!doctype html>
         const labels = {
           predictive_power: 'Predictive Power',
           homogeneity: 'Homogeneity',
-          autoquant_audit: 'Friction Audit',
+          friction_audit: 'Friction Audit',
           lifetime: 'Lifetime'
         };
         const rules = {
           predictive_power: 'rank_ic>=0.01 & win_rate>=0.49',
           homogeneity: 'max_corr<0.70',
-          autoquant_audit: 'cost_sharpe>=0.30',
+          friction_audit: 'cost_sharpe>=0.30',
           lifetime: 'val_sharpe>=0 & halflife>=1'
         };
         document.getElementById('killPanel').style.display = '';
@@ -408,7 +408,7 @@ HTML = r"""<!doctype html>
       const gates = [];
       if (row.gate_predictive_power !== undefined) gates.push(['Predictive Power', row.gate_predictive_power, 'Rank IC >= 0.01 AND Win Rate >= 0.49', 'rank_ic=' + fmt(row.rank_ic,4) + ' win_rate=' + fmt(row.directional_win_rate,3)]);
       if (row.gate_homogeneity !== undefined) gates.push(['Homogeneity', row.gate_homogeneity, 'max_corr < 0.70', 'max_corr=' + fmt(row.max_corr_to_library,3)]);
-      if (row.gate_autoquant_audit !== undefined) gates.push(['Friction Audit', row.gate_autoquant_audit, 'cost_sharpe >= 0.30', 'cost_sharpe=' + fmt(row.sharpe,2)]);
+      if (row.gate_friction_audit !== undefined) gates.push(['Friction Audit', row.gate_friction_audit, 'cost_sharpe >= 0.30', 'cost_sharpe=' + fmt(row.sharpe,2)]);
       if (row.gate_lifetime !== undefined) gates.push(['Lifespan', row.gate_lifetime, 'val_sharpe >= 0, halflife >= 1', 'val_sharpe=' + fmt(row.validation_sharpe,2) + ' halflife=' + (row.halflife_bars||'-')]);
       document.getElementById('modalBody').innerHTML = `
         <div class="full">
@@ -427,7 +427,7 @@ HTML = r"""<!doctype html>
           <div class="muted" style="margin-bottom:4px">MCTS Score</div>
           <div style="font-size:20px;font-weight:700">${fmt(row.mcts_score, 4)}</div>
         </div>
-        ${!row.passed && killReasons.length > 0 ? '<div class="full" style="padding:10px 14px;background:rgba(246,70,93,.1);border:1px solid var(--bad);border-radius:8px;margin-bottom:4px"><span style="color:var(--bad);font-weight:700">KILLED by: ' + killReasons.map(function(r){return ({predictive_power:'Predictive Power',homogeneity:'Homogeneity',autoquant_audit:'Friction Audit',lifetime:'Lifetime'})[r]||r;}).join(', ') + '</span></div>' : ''}
+        ${!row.passed && killReasons.length > 0 ? '<div class="full" style="padding:10px 14px;background:rgba(246,70,93,.1);border:1px solid var(--bad);border-radius:8px;margin-bottom:4px"><span style="color:var(--bad);font-weight:700">KILLED by: ' + killReasons.map(function(r){return ({predictive_power:'Predictive Power',homogeneity:'Homogeneity',friction_audit:'Friction Audit',lifetime:'Lifetime'})[r]||r;}).join(', ') + '</span></div>' : ''}
         <div><span class="muted">Rank IC</span> <strong>${fmt(row.rank_ic, 6)}</strong></div>
         <div><span class="muted">IC</span> <strong>${fmt(row.ic, 6)}</strong></div>
         <div><span class="muted">Sharpe</span> <strong>${fmt(row.sharpe, 2)}</strong></div>
@@ -645,7 +645,7 @@ def _load_blind_data():
     global _blind_cache
     if _blind_cache is not None:
         return _blind_cache["data"], _blind_cache["bar_hours"], _blind_cache["costs"], _blind_cache["execution"]
-    base = Path(__file__).resolve().parents[2] / "AutoQuant" / "data"
+    base = Path(__file__).resolve().parents[2] / "RandysLab-STRICT4H" / "data"
     ohlcv_path = base / "BTCUSDT_2026_4h.csv"
     funding_path = base / "BTCUSDT_2026_funding.csv"
     if not ohlcv_path.exists():

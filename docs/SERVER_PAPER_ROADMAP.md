@@ -1,8 +1,8 @@
-# QuantumRandy + AutoQuant Server Paper Roadmap
+# QuantumRandy + RandysLab Server Paper Roadmap
 
 Last updated: 2026-06-30
 
-This document records the application-layer plan for running QuantumRandy and AutoQuant on a server without live
+This document records the application-layer plan for running QuantumRandy and RandysLab on a server without live
 exchange trading. The goal is to build a safe, long-running paper observation system fed by real market data, while
 keeping factor mining and algorithm research isolated enough that they can continue to evolve.
 
@@ -17,9 +17,9 @@ keeping factor mining and algorithm research isolated enough that they can conti
 
 ## Project Roles
 
-### AutoQuant
+### RandysLab
 
-AutoQuant should be used as the baseline and data utility layer:
+RandysLab should be used as the baseline and data utility layer:
 
 - fetch and maintain Binance historical OHLCV/funding data;
 - provide traditional baseline strategies such as EMA, Bollinger, and funding-deviation logic;
@@ -27,7 +27,7 @@ AutoQuant should be used as the baseline and data utility layer:
 - act as the benchmark floor for QuantumRandy factors;
 - provide a sanity reference for execution costs and strict 4h backtest assumptions.
 
-AutoQuant should not become the LLM factor-mining engine. It is the baseline/control group.
+RandysLab should not become the LLM factor-mining engine. It is the baseline/control group.
 
 ### QuantumRandy
 
@@ -90,7 +90,7 @@ Physical repo split can wait until runtime is stable for several weeks. A future
 quantumrandy-core      # DSL, factor evaluation, metrics, manifest schema
 QuantumRandyResearch   # LLM/MCTS mining, validation, portfolio research
 QuantumRandyRuntime    # feeder, runtime server, monitor, paper reports
-AutoQuant              # baseline strategies and data utilities
+RandysLab              # baseline strategies and data utilities
 ```
 
 Do not split now unless dependency or deployment pain becomes real.
@@ -119,7 +119,7 @@ Run a minimal paper observation system:
 3. Feed BTCUSDT OHLCV plus funding rate into runtime.
 4. Run 2-5 approved factors plus one simple multi-factor blend.
 5. Poll `/v1/snapshot` and write daily paper reports.
-6. Keep AutoQuant baseline results nearby for comparison.
+6. Keep RandysLab baseline results nearby for comparison.
 
 ### Server Environment
 
@@ -190,10 +190,10 @@ Goal: make the separation explicit.
 
 Tasks:
 
-- Keep QuantumRandy and AutoQuant in one workspace for now.
+- Keep QuantumRandy and RandysLab in one workspace for now.
 - Write down process boundaries and safety rules.
 - Confirm runtime server remains paper-only.
-- Pick initial approved factors and AutoQuant baseline strategies.
+- Pick initial approved factors and RandysLab baseline strategies.
 
 Exit criteria:
 
@@ -284,7 +284,7 @@ Tasks:
 
 Exit criteria:
 
-- Multi-factor strategy beats or usefully diversifies AutoQuant baselines in validation.
+- Multi-factor strategy beats or usefully diversifies RandysLab baselines in validation.
 - Runtime paper blend has clear components and weights.
 - Daily report separates factor-level and portfolio-level performance.
 
@@ -348,7 +348,7 @@ Missing pieces:
 
 Start small. Suggested initial paper set:
 
-- one AutoQuant baseline or proxy strategy if available;
+- one RandysLab baseline or proxy strategy if available;
 - `neg(zscore(funding_rate,42))`;
 - one price/volume correlation factor that survived blind validation;
 - one EMA trend factor that survived blind validation;
