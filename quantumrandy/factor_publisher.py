@@ -86,6 +86,82 @@ def select_runtime_factors(
     return PublishSelection(factors=factors, strategies=strategies, selected_rows=rows)
 
 
+def select_portfolio_runtime_config(
+    portfolio_manifest: dict[str, Any],
+    factor_rows: list[dict[str, Any]],
+    *,
+    portfolio_id: str | None = None,
+    exposure_threshold: float = 0.15,
+    initial_capital_usd: float = 1000.0,
+    max_exposure_abs: float = 0.75,
+) -> PublishSelection:
+    if portfolio_manifest.get("artifact_type") != "quantumrandy_portfolio_research":
+        raise ValueError("portfolio manifest must be a quantumrandy_portfolio_research artifact")
+    if not portfolio_manifest.get("safety", {}).get("requires_manual_review_before_runtime"):
+        raise ValueError("portfolio manifest must require manual review before runtime publishing")
+    portfolios = portfolio_manifest.get("portfolios")
+    if not isinstance(portfolios, list) or not portfolios:
+        raise ValueError("portfolio manifest must contain a non-empty portfolios list")
+
+    selected_portfolio = _select_portfolio(portfolios, portfolio_id)
+    weights = selected_portfolio.get("weights")
+    if not isinstance(weights, dict) or not weights:
+        raise ValueError("selected portfolio must contain non-empty weights")
+    factors_by_id = {str(row.get("factor_id", "")): row for row in factor_rows}
+    missing = sorted(factor_id for factor_id in weights if factor_id not in factors_by_id)
+    if missing:
+        raise ValueError(f"portfolio references missing factor rows: {', '.join(missing)}")
+
+    factors = []
+    selected_rows = []
+    id_map: dict[str, str] = {}
+    for factor_id in weights:
+        row = factors_by_id[factor_id]
+        formula = parse_formula(str(row.get("formula", ""))).canonical()
+        runtime_id = factor_id_for_formula(formula)
+        id_map[factor_id] = runtime_id
+        factor = {
+            "factor_id": runtime_id,
+            "formula": formula,
+            "description": _clean_text(row.get("description", "")),
+            "enabled": True,
+            "exposure_threshold": exposure_threshold,
+        }
+        factors.append(factor)
+        selected = dict(row)
+        selected["portfolio_factor_id"] = factor_id
+        selected["factor_id"] = runtime_id
+        selected["formula"] = formula
+        selected["portfolio_weight"] = float(weights[factor_id])
+        selected_rows.append(selected)
+
+    strategy = {
+        "strategy_id": _runtime_id(str(selected_portfolio.get("portfolio_id", "portfolio_blend"))),
+        "description": (
+            "Manual portfolio blend promoted from reviewed QuantumRandy portfolio research artifact. "
+            f"Source weighting: {selected_portfolio.get('weighting', '')}."
+        ),
+        "initial_capital_usd": initial_capital_usd,
+        "enabled": True,
+        "components": [
+            {"factor_id": id_map[factor_id], "weight": float(weight)}
+            for factor_id, weight in weights.items()
+        ],
+        "execution_model": {
+            "latency_bars": 2,
+            "max_exposure_abs": max_exposure_abs,
+            "exposure_threshold": 0.20,
+            "base_slippage_bps": 1.5,
+            "slippage_jitter_bps": 3.0,
+            "adverse_slippage_bps": 5.0,
+            "signal_noise_std": 0.08,
+            "fill_probability": 0.95,
+            "seed": 211,
+        },
+    }
+    return PublishSelection(factors=factors, strategies=[strategy], selected_rows=selected_rows)
+
+
 def build_update_payload(
     *,
     expected_generation: int,
@@ -180,7 +256,9 @@ def render_publish_audit(payload: dict[str, Any], selected_rows: list[dict[str, 
         lines.append("No factors selected.")
     lines.extend(["", "## Strategies", ""])
     for strategy in payload.get("strategies") or []:
-        components = ", ".join(f"{item['factor_id']}:{item.get('weight', 1.0)}" for item in strategy.get("components", []))
+        components = ", ".join(
+            f"{item['factor_id']}:{item.get('weight', 1.0)}" for item in strategy.get("components", [])
+        )
         lines.append(f"- `{strategy.get('strategy_id')}`: {components}")
     return "\n".join(lines) + "\n"
 
@@ -218,6 +296,36 @@ def publish_from_files(
     return {"payload": payload, "audit_path": str(audit_path), "selected_count": len(selection.selected_rows)}
 
 
+def publish_portfolio_from_files(
+    *,
+    portfolio_manifest_path: str | Path,
+    portfolio_factors_path: str | Path,
+    runtime_manifest_path: str | Path,
+    out_path: str | Path,
+    portfolio_id: str | None = None,
+    exposure_threshold: float = 0.15,
+    initial_capital_usd: float = 1000.0,
+    max_exposure_abs: float = 0.75,
+) -> dict[str, Any]:
+    manifest = load_json(portfolio_manifest_path)
+    factor_rows = _load_records(portfolio_factors_path)
+    selection = select_portfolio_runtime_config(
+        manifest,
+        factor_rows,
+        portfolio_id=portfolio_id,
+        exposure_threshold=exposure_threshold,
+        initial_capital_usd=initial_capital_usd,
+        max_exposure_abs=max_exposure_abs,
+    )
+    payload = build_update_payload(
+        expected_generation=current_generation_from_manifest(runtime_manifest_path),
+        factors=selection.factors,
+        strategies=selection.strategies,
+    )
+    audit_path = write_publish_artifacts(out_path, payload, selection.selected_rows)
+    return {"payload": payload, "audit_path": str(audit_path), "selected_count": len(selection.selected_rows)}
+
+
 def factor_id_for_formula(formula: str) -> str:
     digest = hashlib.sha1(formula.encode("utf-8")).hexdigest()[:10]
     return f"qr_{digest}"
@@ -245,3 +353,41 @@ def _fmt(value: Any) -> str:
         return f"{float(value):.4f}"
     except (TypeError, ValueError):
         return str(value)
+
+
+def _clean_text(value: Any) -> str:
+    if value is None:
+        return ""
+    try:
+        if pd.isna(value):
+            return ""
+    except (TypeError, ValueError):
+        pass
+    return str(value).strip()
+
+
+def _select_portfolio(portfolios: list[dict[str, Any]], portfolio_id: str | None) -> dict[str, Any]:
+    if portfolio_id is None:
+        return portfolios[0]
+    for item in portfolios:
+        if item.get("portfolio_id") == portfolio_id:
+            return item
+    raise ValueError(f"portfolio_id not found: {portfolio_id}")
+
+
+def _runtime_id(raw: str) -> str:
+    safe = "".join(char if char.isalnum() or char in {"_", "-"} else "_" for char in raw.strip())
+    if not safe or not safe[0].isalpha():
+        safe = f"portfolio_{safe}"
+    return safe[:64]
+
+
+def _load_records(path: str | Path) -> list[dict[str, Any]]:
+    path = Path(path)
+    if path.suffix.lower() == ".json":
+        raw = load_json(path)
+        if isinstance(raw, list):
+            return [item for item in raw if isinstance(item, dict)]
+        raise ValueError("JSON factor rows must be a list")
+    frame = pd.read_csv(path)
+    return frame.to_dict(orient="records")

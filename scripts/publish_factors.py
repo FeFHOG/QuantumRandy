@@ -11,6 +11,7 @@ from quantumrandy.factor_publisher import (
     build_update_payload,
     fetch_runtime_manifest,
     load_json,
+    select_portfolio_runtime_config,
     select_runtime_factors,
     submit_runtime_config,
     write_publish_artifacts,
@@ -19,8 +20,15 @@ from quantumrandy.factor_publisher import (
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build or submit a manual QuantumRandy runtime factor update.")
-    parser.add_argument("--leaderboard", required=True, help="Path to research leaderboard.json")
-    parser.add_argument("--runtime-manifest", default="configs/runtime_factors.json", help="Local runtime manifest for dry-run generation")
+    parser.add_argument("--leaderboard", help="Path to research leaderboard.json")
+    parser.add_argument("--portfolio-manifest", help="Path to portfolio_manifest.json from scripts/build_portfolio.py")
+    parser.add_argument("--portfolio-factors", help="Path to portfolio_factors.csv from scripts/build_portfolio.py")
+    parser.add_argument("--portfolio-id", help="Portfolio ID to publish from the research manifest")
+    parser.add_argument(
+        "--runtime-manifest",
+        default="configs/runtime_factors.json",
+        help="Local runtime manifest for dry-run generation",
+    )
     parser.add_argument("--runtime-url", default="http://127.0.0.1:8787")
     parser.add_argument("--admin-token-env", default="QUANTUMRANDY_ADMIN_TOKEN")
     parser.add_argument("--out", default="reports/runtime_publish/proposed_runtime_config.json")
@@ -33,19 +41,34 @@ def main() -> None:
     parser.add_argument("--submit", action="store_true", help="Submit to runtime admin API after writing artifacts")
     args = parser.parse_args()
 
-    leaderboard = load_json(args.leaderboard)
-    if not isinstance(leaderboard, list):
-        raise SystemExit("leaderboard must be a JSON list")
+    if args.portfolio_manifest or args.portfolio_factors:
+        if not args.portfolio_manifest or not args.portfolio_factors:
+            raise SystemExit("--portfolio-manifest and --portfolio-factors must be provided together")
+        portfolio_manifest = load_json(args.portfolio_manifest)
+        factor_rows = _load_factor_rows(args.portfolio_factors)
+        selection = select_portfolio_runtime_config(
+            portfolio_manifest,
+            factor_rows,
+            portfolio_id=args.portfolio_id,
+            exposure_threshold=args.exposure_threshold,
+            initial_capital_usd=args.initial_capital_usd,
+        )
+    else:
+        if not args.leaderboard:
+            raise SystemExit("--leaderboard is required unless --portfolio-manifest/--portfolio-factors are provided")
+        leaderboard = load_json(args.leaderboard)
+        if not isinstance(leaderboard, list):
+            raise SystemExit("leaderboard must be a JSON list")
 
-    selection = select_runtime_factors(
-        leaderboard,
-        max_factors=args.max_factors,
-        include_unpassed=args.include_unpassed,
-        min_brutal_score=args.min_brutal_score,
-        exposure_threshold=args.exposure_threshold,
-        strategy_id=args.strategy_id,
-        initial_capital_usd=args.initial_capital_usd,
-    )
+        selection = select_runtime_factors(
+            leaderboard,
+            max_factors=args.max_factors,
+            include_unpassed=args.include_unpassed,
+            min_brutal_score=args.min_brutal_score,
+            exposure_threshold=args.exposure_threshold,
+            strategy_id=args.strategy_id,
+            initial_capital_usd=args.initial_capital_usd,
+        )
     if args.submit:
         current = fetch_runtime_manifest(args.runtime_url)
         expected_generation = int(current.get("generation", 0))
@@ -69,6 +92,13 @@ def main() -> None:
         print(f"Submitted runtime update. New generation: {result.get('generation')}")
     else:
         print("Dry run only. Re-run with --submit to call the runtime admin API.")
+
+
+def _load_factor_rows(path: str):
+    import pandas as pd
+
+    frame = pd.read_csv(path)
+    return frame.to_dict(orient="records")
 
 
 if __name__ == "__main__":

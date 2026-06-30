@@ -208,3 +208,20 @@ python scripts/publish_factors.py \
 
 The publisher fetches the current runtime generation before submitting. If another update lands first, the runtime
 rejects stale updates with HTTP 409. This is deliberate: review the current manifest and rerun the publisher.
+
+### Portfolio research proposal
+
+Portfolio research artifacts from `scripts/build_portfolio.py` can also be converted into a reviewable runtime proposal.
+This remains a manual dry run unless `--submit` is explicitly provided.
+
+```bash
+python scripts/publish_factors.py \
+  --portfolio-manifest reports/portfolio/portfolio_manifest.json \
+  --portfolio-factors reports/portfolio/portfolio_factors.csv \
+  --portfolio-id equal_weight_accepted \
+  --runtime-manifest configs/runtime_factors.json \
+  --out reports/runtime_publish/portfolio_proposal.json
+```
+
+This writes a complete runtime config payload plus an audit file. It does not call the runtime admin API without
+`--submit`. Review the source portfolio report, factor metrics, contribution analysis, and audit before submitting.
