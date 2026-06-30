@@ -10,6 +10,8 @@ from quantumrandy.data_readiness import (
     DEFAULT_UNIVERSE_SYMBOLS,
     ReadinessPolicy,
     build_config_targets,
+    data_fetch_plan,
+    data_fetch_runbook,
     readiness_manifest,
     readiness_report,
     run_data_readiness,
@@ -37,6 +39,7 @@ def main() -> None:
     )
     parser.add_argument("--reference-config", default="configs/btcusdt.yaml")
     parser.add_argument("--data-root", default="../../RandysLab-STRICT4H/data")
+    parser.add_argument("--randyslab-dir", default="../RandysLab-STRICT4H")
     parser.add_argument("--overwrite-configs", action="store_true", help="Rewrite scaffolded configs if they exist.")
     parser.add_argument("--out", default="reports/data_readiness", help="Output directory.")
     parser.add_argument("--min-total-bars", type=int, default=180)
@@ -56,22 +59,29 @@ def main() -> None:
         )
     targets = build_config_targets(symbols, config_dir=args.config_dir, config_paths=args.config)
     frame = run_data_readiness(targets, policy=policy)
+    fetch_plan = data_fetch_plan(frame, randyslab_dir=args.randyslab_dir)
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     safe_write_csv(out / "data_readiness.csv", frame, out / "events.jsonl")
     safe_write_json(
         out / "data_readiness_manifest.json",
-        {**readiness_manifest(frame, targets, policy), "scaffolded_configs": scaffold_rows},
+        {
+            **readiness_manifest(frame, targets, policy),
+            "scaffolded_configs": scaffold_rows,
+            "data_fetch_plan": fetch_plan,
+        },
         out / "events.jsonl",
     )
     safe_write_text(out / "DATA_READINESS_REPORT.md", readiness_report(frame, policy), out / "events.jsonl")
+    safe_write_text(out / "DATA_FETCH_RUNBOOK.md", data_fetch_runbook(fetch_plan), out / "events.jsonl")
 
     ready_count = int(frame["ready"].sum()) if "ready" in frame else 0
     if scaffold_rows:
         written = sum(1 for row in scaffold_rows if row["written"])
         print(f"Config scaffold: wrote={written}; skipped={len(scaffold_rows) - written}")
     print(f"Checked {len(frame)} asset configs; ready={ready_count}; incomplete={len(frame) - ready_count}")
+    print(f"Fetch plan items: {len(fetch_plan)}")
     print(f"Output: {out.resolve()}")
     for row in frame.to_dict(orient="records"):
         symbol = row.get("expected_symbol") or row.get("symbol") or row.get("config_path")

@@ -121,7 +121,8 @@ Deliverable:
 - `run_universe_evaluation`
 - `scripts/eval_universe.py`
 - `scripts/data_readiness.py`: implemented as a local config/CSV coverage preflight with CSV, JSON, and Markdown outputs;
-  it can also scaffold missing research configs from the BTC template without downloading market data.
+  it can also scaffold missing research configs from the BTC template and write a RandysLab fetch runbook without
+  downloading market data.
 - dashboard symbol breakdown for each factor
 
 Priority: P0.
@@ -484,6 +485,8 @@ Expected value:
   - checks expected BTC/ETH/SOL/BNB/AVAX config presence, OHLCV/funding CSV columns, row counts, 4h gaps, configured
     training/validation window coverage, and funding alignment;
   - writes `data_readiness.csv`, `data_readiness_manifest.json`, and `DATA_READINESS_REPORT.md`;
+  - also writes `DATA_FETCH_RUNBOOK.md` with explicit RandysLab public-data fetch commands for missing or under-covered
+    local datasets;
   - does not download data, call exchange APIs, publish factors, or mutate runtime state.
 - Added ETH/SOL/BNB/AVAX research config scaffolds under `QuantumRandy/configs/`, pointing at expected RandysLab local
   OHLCV/funding CSV names. Current local readiness still reports those CSV files as missing until the data layer is

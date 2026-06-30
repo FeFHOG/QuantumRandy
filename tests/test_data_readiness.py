@@ -7,6 +7,8 @@ import pandas as pd
 from quantumrandy.data_readiness import (
     ReadinessPolicy,
     build_config_targets,
+    data_fetch_plan,
+    data_fetch_runbook,
     readiness_manifest,
     readiness_report,
     run_data_readiness,
@@ -156,3 +158,40 @@ def test_scaffold_asset_configs_skips_existing_config(tmp_path: Path) -> None:
     assert first[0]["written"] is True
     assert second[0]["existed"] is True
     assert second[0]["written"] is False
+
+
+def test_data_fetch_plan_lists_missing_asset_csv_commands(tmp_path: Path) -> None:
+    reference = _write_asset_config(tmp_path, "BTCUSDT")
+    out_dir = tmp_path / "configs"
+    scaffold_asset_configs(["AVAXUSDT"], config_dir=out_dir, reference_config=reference)
+    frame = run_data_readiness(
+        [{"expected_symbol": "AVAXUSDT", "config_path": str(out_dir / "avaxusdt.yaml")}],
+        policy=ReadinessPolicy(min_total_bars=100, min_window_bars=20),
+    )
+
+    plan = data_fetch_plan(frame, randyslab_dir="../RandysLab-STRICT4H")
+    runbook = data_fetch_runbook(plan)
+
+    assert len(plan) == 1
+    assert plan[0]["symbol"] == "AVAXUSDT"
+    assert plan[0]["market_symbol"] == "AVAX/USDT:USDT"
+    assert plan[0]["incomplete_window"] is True
+    assert "--file-prefix AVAXUSDT" in plan[0]["command"]
+    assert "--start 2024-01-01 --end 2024-02-06" in plan[0]["command"]
+    assert "does not download data" in runbook
+    assert "python scripts/fetch_binance.py" in runbook
+
+
+def test_data_fetch_plan_includes_existing_files_with_incomplete_windows(tmp_path: Path) -> None:
+    config = _write_asset_config(tmp_path, "BTCUSDT", periods=60)
+    frame = run_data_readiness(
+        [{"expected_symbol": "BTCUSDT", "config_path": str(config)}],
+        policy=ReadinessPolicy(min_total_bars=10, min_window_bars=20),
+    )
+
+    plan = data_fetch_plan(frame)
+
+    assert len(plan) == 1
+    assert plan[0]["missing_ohlcv"] is False
+    assert plan[0]["missing_funding"] is False
+    assert plan[0]["incomplete_window"] is True

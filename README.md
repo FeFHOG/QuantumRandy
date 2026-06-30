@@ -224,6 +224,7 @@ does not download market data, call exchange APIs, publish factors, or touch the
 - `data_readiness.csv`: config/data coverage, window coverage, 4h gap checks, and funding alignment.
 - `data_readiness_manifest.json`: machine-readable readiness artifact.
 - `DATA_READINESS_REPORT.md`: concise runbook-style summary.
+- `DATA_FETCH_RUNBOOK.md`: read-only RandysLab fetch command plan for missing or under-covered local data.
 
 If new asset configs are missing, scaffold research-only configs from the BTC template:
 

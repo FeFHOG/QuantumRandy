@@ -126,6 +126,10 @@ def inspect_asset_readiness(
         "validation_bars": 0,
         "training_window_covered": False,
         "validation_window_covered": False,
+        "training_start": "",
+        "training_end": "",
+        "validation_start": "",
+        "validation_end": "",
         "reasons": "",
     }
     reasons: list[str] = []
@@ -149,6 +153,10 @@ def inspect_asset_readiness(
             "ohlcv_exists": cfg.ohlcv_csv.exists(),
             "funding_csv": str(cfg.funding_csv),
             "funding_exists": cfg.funding_csv.exists(),
+            "training_start": cfg.windows.training_start or "",
+            "training_end": cfg.windows.training_end or "",
+            "validation_start": cfg.windows.validation_start or "",
+            "validation_end": cfg.windows.validation_end or "",
         }
     )
     if expected_symbol and cfg.symbol.upper() != expected_symbol.upper():
@@ -212,6 +220,99 @@ def readiness_manifest(
         "targets": targets,
         "rows": frame.to_dict(orient="records"),
     }
+
+
+def data_fetch_plan(frame: pd.DataFrame, *, randyslab_dir: str = "../RandysLab-STRICT4H") -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for row in frame.to_dict(orient="records"):
+        symbol = str(row.get("symbol") or row.get("expected_symbol") or "").upper()
+        if not symbol or not bool(row.get("config_exists")):
+            continue
+        missing_ohlcv = not bool(row.get("ohlcv_exists"))
+        missing_funding = not bool(row.get("funding_exists"))
+        incomplete_window = (
+            not bool(row.get("training_window_covered")) or not bool(row.get("validation_window_covered"))
+        )
+        if not (missing_ohlcv or missing_funding or incomplete_window):
+            continue
+        start = str(row.get("training_start") or "2019-09-08")
+        end = str(row.get("validation_end") or "2025-11-24")
+        rows.append(
+            {
+                "symbol": symbol,
+                "market_symbol": _binance_usdm_symbol(symbol),
+                "file_prefix": symbol,
+                "missing_ohlcv": missing_ohlcv,
+                "missing_funding": missing_funding,
+                "incomplete_window": incomplete_window,
+                "start": start,
+                "end": end,
+                "command": (
+                    f"cd {randyslab_dir} && python scripts/fetch_binance.py "
+                    f"--symbol {_binance_usdm_symbol(symbol)} --file-prefix {symbol} --start {start} --end {end}"
+                ),
+                "proxy_command": (
+                    f"cd {randyslab_dir} && python scripts/fetch_binance.py "
+                    f"--symbol {_binance_usdm_symbol(symbol)} --file-prefix {symbol} --start {start} --end {end} "
+                    "--proxy http://127.0.0.1:7890"
+                ),
+            }
+        )
+    return rows
+
+
+def data_fetch_runbook(plan: list[dict[str, object]]) -> str:
+    lines = [
+        "# QuantumRandy Multi-Asset Data Fetch Runbook",
+        "",
+        "This is a read-only planning artifact. It lists public Binance USD-M historical data commands for RandysLab,",
+        (
+            "but it does not download data, call exchange APIs, store credentials, publish factors, "
+            "or mutate runtime state."
+        ),
+        "",
+        "## Commands",
+        "",
+    ]
+    if not plan:
+        lines.append("No missing local OHLCV/funding files were detected for configured assets.")
+    else:
+        for item in plan:
+            lines.extend(
+                [
+                    f"### {item['symbol']}",
+                    "",
+                    f"- Missing OHLCV: `{item['missing_ohlcv']}`",
+                    f"- Missing funding: `{item['missing_funding']}`",
+                    f"- Configured window incomplete: `{item['incomplete_window']}`",
+                    f"- Window: `{item['start']}` to `{item['end']}`",
+                    "",
+                    "```powershell",
+                    str(item["command"]).replace(" && ", "; "),
+                    "```",
+                    "",
+                    "With a local proxy:",
+                    "",
+                    "```powershell",
+                    str(item["proxy_command"]).replace(" && ", "; "),
+                    "```",
+                    "",
+                ]
+            )
+    lines.extend(
+        [
+            "## After Fetching",
+            "",
+            "Run the readiness check again:",
+            "",
+            "```powershell",
+            "python scripts\\data_readiness.py --out reports\\data_readiness",
+            "```",
+            "",
+            "When assets become ready, run the universe evaluator with the same configs.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
 
 
 def readiness_report(frame: pd.DataFrame, policy: ReadinessPolicy) -> str:
@@ -394,6 +495,12 @@ def _asset_config_from_template(raw: dict[str, object], symbol: str, data_root: 
             prompt["system_prompt"] = system_prompt.replace("BTCUSDT", symbol)
         out["prompt"] = prompt
     return out
+
+
+def _binance_usdm_symbol(symbol: str) -> str:
+    if symbol.endswith("USDT"):
+        return f"{symbol[:-4]}/USDT:USDT"
+    return symbol
 
 
 def _asset_config_yaml(raw: dict[str, object]) -> str:
