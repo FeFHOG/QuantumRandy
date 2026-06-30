@@ -80,7 +80,7 @@ Remaining algorithm risks:
   artifacts in a read-only review panel.
 - Failure memory has a first artifact builder and prompt-context integration, but richer retrieval and dashboard views
   are still pending.
-- Pareto MCTS is not implemented yet.
+- Pareto MCTS archive exists as a research review artifact; MCTS acquisition still uses the scalar reward.
 - DSL still uses a compact OHLCV/funding field set; open interest, basis, taker flow, liquidation, and cross-asset fields
   remain future work.
 - Current results are research artifacts, not evidence of deployable edge.
@@ -92,7 +92,8 @@ Remaining algorithm risks:
 - Phase 2 server trial: ready for the server agent, not completed.
 - Phase 3 manual publishing flow: first implementation complete.
 - Phase 4 multi-factor portfolio layer: first offline implementation complete; runtime promotion remains manual.
-- Phase 5 algorithm upgrades: started with LLM proposal schema v2; failure memory and Pareto MCTS still pending.
+- Phase 5 algorithm upgrades: schema-v2 proposals, failure memory, admission, portfolio walk-forward, dashboard review,
+  and first Pareto archive are implemented; richer Pareto-guided acquisition is still pending.
 - Phase 6 live execution: planning only; no live execution code should be added in v0.8.
 
 ## Practical Next Steps

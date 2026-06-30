@@ -21,6 +21,7 @@ from .io_utils import append_jsonl, safe_write_csv, safe_write_json
 from .lab import kill_reasons, row_from_alpha, run_brutal_filter
 from .llm import FormulaGenerator
 from .mcts import AlphaMCTS
+from .pareto import build_pareto_archive
 
 
 @dataclass
@@ -427,9 +428,21 @@ class ResearchSession:
     def _leaderboard_rows(self) -> list[dict]:
         if not self.mcts:
             return []
+        pareto_frame, _ = build_pareto_archive(self.mcts.zoo)
+        pareto_by_formula = {}
+        if not pareto_frame.empty:
+            pareto_by_formula = {
+                str(row["formula"]): {
+                    "pareto_rank": int(row.get("pareto_rank", 0)),
+                    "pareto_front": bool(row.get("pareto_front", False)),
+                }
+                for row in pareto_frame.to_dict(orient="records")
+            }
         rows = []
         for alpha in self.mcts.zoo:
-            rows.append(row_from_alpha(alpha, self.brutal_results.get(alpha.formula)))
+            row = row_from_alpha(alpha, self.brutal_results.get(alpha.formula))
+            row.update(pareto_by_formula.get(alpha.formula, {}))
+            rows.append(row)
         return sorted(rows, key=lambda row: row.get("brutal_score", row.get("mcts_score", 0.0)), reverse=True)
 
     def _best_alpha(self) -> dict | None:

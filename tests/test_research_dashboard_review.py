@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pandas as pd
 
 from quantumrandy.dashboard import build_research_review_payload
@@ -55,6 +57,22 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
             },
         ]
     ).to_csv(portfolio / "portfolio_walk_forward_summary.csv", index=False)
+    research = reports / "research_live"
+    (research / "pareto_archive.json").write_text(
+        json.dumps(
+            {
+                "artifact_type": "quantumrandy_pareto_mcts_archive",
+                "alpha_count": 3,
+                "front_count": 2,
+                "objectives": ["rank_ic:max", "sharpe:max"],
+                "front": [
+                    {"formula": "strong", "rank_ic": 0.04, "sharpe": 1.0, "turnover": 0.1},
+                    {"formula": "tradeoff", "rank_ic": 0.02, "sharpe": 1.2, "turnover": 0.05},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     payload = build_research_review_payload(out)
 
@@ -66,6 +84,8 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
     assert payload["failure_memory"]["clusters"][0]["subtree"] == "ret(close,6)"
     assert payload["portfolio_walk_forward"]["best_survival"] == 0.75
     assert payload["portfolio_walk_forward"]["top"][0]["portfolio_id"] == "equal_weight_accepted"
+    assert payload["pareto_archive"]["front_count"] == 2
+    assert payload["pareto_archive"]["front"][0]["formula"] == "strong"
 
 
 def test_research_review_payload_hides_when_no_artifacts(tmp_path) -> None:

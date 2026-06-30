@@ -180,9 +180,9 @@ Deliverable:
 
 Priority: P0/P1.
 
-### 4. Pareto MCTS Instead Of Single Reward
+### 4. Pareto MCTS Archive
 
-Status: not started.
+Status: first archive implementation complete in `QuantumRandy/quantumrandy/pareto.py` and MCTS save outputs.
 
 Why it matters:
 
@@ -205,9 +205,10 @@ MCTS can still use a scalar acquisition score, but the alpha zoo should preserve
 
 Deliverable:
 
-- Pareto archive;
-- `pareto_rank` in factor rows;
-- dashboard toggle: score rank vs Pareto rank.
+- Pareto archive: implemented.
+- `pareto_rank` in factor rows: implemented for zoo/tree/leaderboard outputs.
+- dashboard review card for nondominated front: implemented.
+- dashboard toggle: score rank vs Pareto rank: not started.
 
 Priority: P1.
 
@@ -461,6 +462,11 @@ Expected value:
   - loads latest admission, failure-memory, and portfolio walk-forward artifacts from `reports/`;
   - summarizes admission counts, repeated failed subtrees, and fixed-blend stability;
   - does not submit runtime updates or publish strategies.
+- Added first Pareto archive for MCTS alpha review:
+  - added `QuantumRandy/quantumrandy/pareto.py`;
+  - MCTS saves `pareto_archive.csv` and `pareto_archive.json`;
+  - zoo/tree/leaderboard rows carry `pareto_rank` and `pareto_front`;
+  - dashboard research review summarizes the nondominated front when present.
 
 ## Next Session Prompt
 

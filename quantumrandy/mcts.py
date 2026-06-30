@@ -14,6 +14,7 @@ from .evaluator import AlphaResult, evaluate_alpha
 from .fsa import frequent_subtrees
 from .llm import FormulaGenerator
 from .io_utils import safe_write_csv, safe_write_json
+from .pareto import build_pareto_archive
 
 
 DIMENSIONS = ["effectiveness", "stability", "turnover", "diversity", "overfit_risk"]
@@ -200,8 +201,19 @@ class AlphaMCTS:
     def save(self, out_dir: str | Path) -> None:
         out = Path(out_dir)
         out.mkdir(parents=True, exist_ok=True)
+        pareto_frame, pareto_rank_counts = build_pareto_archive(self.zoo)
+        pareto_by_formula = {}
+        if not pareto_frame.empty:
+            pareto_by_formula = {
+                str(row["formula"]): {
+                    "pareto_rank": int(row.get("pareto_rank", 0)),
+                    "pareto_front": bool(row.get("pareto_front", False)),
+                }
+                for row in pareto_frame.to_dict(orient="records")
+            }
         rows = []
         for alpha in sorted(self.zoo, key=lambda item: item.score, reverse=True):
+            pareto = pareto_by_formula.get(alpha.formula, {})
             rows.append(
                 {
                     "formula": alpha.formula,
@@ -213,6 +225,8 @@ class AlphaMCTS:
                     "depth": alpha.depth,
                     "operators": alpha.operators,
                     "score": alpha.score,
+                    "pareto_rank": pareto.get("pareto_rank", ""),
+                    "pareto_front": pareto.get("pareto_front", False),
                     **alpha.dimensions,
                     **alpha.metrics,
                 }
@@ -235,9 +249,45 @@ class AlphaMCTS:
                 "visits": node.visits,
                 "value": node.value,
                 "score": node.result.score,
+                "pareto_rank": pareto_by_formula.get(node.result.formula, {}).get("pareto_rank", ""),
+                "pareto_front": pareto_by_formula.get(node.result.formula, {}).get("pareto_front", False),
                 "children": node.children,
             }
             for i, node in enumerate(self.nodes)
         ]
         safe_write_json(out / "tree.json", tree, out / "events.jsonl")
-        safe_write_json(out / "zoo.json", [asdict(a) for a in self.zoo], out / "events.jsonl")
+        zoo_rows = []
+        for alpha in self.zoo:
+            row = asdict(alpha)
+            row.update(pareto_by_formula.get(alpha.formula, {}))
+            zoo_rows.append(row)
+        safe_write_json(out / "zoo.json", zoo_rows, out / "events.jsonl")
+        safe_write_csv(out / "pareto_archive.csv", pareto_frame, out / "events.jsonl")
+        safe_write_json(
+            out / "pareto_archive.json",
+            {
+                "artifact_type": "quantumrandy_pareto_mcts_archive",
+                "schema_version": 1,
+                "safety": {
+                    "research_only": True,
+                    "not_runtime_publish_payload": True,
+                    "does_not_update_runtime": True,
+                },
+                "alpha_count": len(self.zoo),
+                "front_count": int((pareto_frame["pareto_rank"] == 1).sum()) if not pareto_frame.empty else 0,
+                "rank_counts": pareto_rank_counts,
+                "objectives": [
+                    "rank_ic:max",
+                    "sharpe:max",
+                    "turnover:min",
+                    "max_dd:min",
+                    "diversity:max",
+                    "simplicity:max",
+                    "operators:min",
+                ],
+                "front": pareto_frame[pareto_frame["pareto_rank"] == 1].to_dict(orient="records")
+                if not pareto_frame.empty
+                else [],
+            },
+            out / "events.jsonl",
+        )

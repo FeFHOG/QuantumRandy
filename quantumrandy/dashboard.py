@@ -138,7 +138,7 @@ HTML = r"""<!doctype html>
     .metric-grid .mv { border-left: 2px solid var(--accent); padding-left: 8px; }
     .metric-grid .mv span { display: block; color: var(--muted); font-size: 11px; }
     .metric-grid .mv strong { display: block; font-size: 15px; margin-top: 2px; }
-    .review-grid { padding: 12px 14px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .review-grid { padding: 12px 14px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
     .review-card { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; min-height: 120px; }
     .review-card h3 { margin: 0 0 10px; font-size: 14px; color: var(--accent); }
     .review-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
@@ -427,10 +427,12 @@ HTML = r"""<!doctype html>
       const admission = review.admission || {};
       const failure = review.failure_memory || {};
       const portfolio = review.portfolio_walk_forward || {};
+      const pareto = review.pareto_archive || {};
       box.innerHTML =
         reviewAdmissionCard(admission) +
         reviewFailureCard(failure) +
-        reviewPortfolioCard(portfolio);
+        reviewPortfolioCard(portfolio) +
+        reviewParetoCard(pareto);
     }
 
     function reviewAdmissionCard(data) {
@@ -474,6 +476,21 @@ HTML = r"""<!doctype html>
           '<div class="review-row"><strong>' + escapeHtml(r.portfolio_id || '-') + '</strong><br><span class="muted">survival=' +
           fmt(r.survival_rate, 2) + ' test_sharpe=' + fmt(r.test_sharpe_median, 2) + ' rank_ic=' + fmt(r.test_rank_ic_median, 4) +
           '</span></div>'
+        ).join('') + '</div></div>';
+    }
+
+    function reviewParetoCard(data) {
+      const rows = data.front || [];
+      return '<div class="review-card"><h3>Pareto Archive</h3>' +
+        '<div class="review-stats">' +
+        '<div class="review-stat"><span>Alphas</span><strong>' + (data.alpha_count ?? 0) + '</strong></div>' +
+        '<div class="review-stat"><span>Front</span><strong style="color:var(--good)">' + (data.front_count ?? 0) + '</strong></div>' +
+        '<div class="review-stat"><span>Objectives</span><strong>' + ((data.objectives || []).length) + '</strong></div>' +
+        '</div><div class="muted" style="font-size:11px;margin-bottom:8px">' + (data.source || 'No Pareto archive artifact') + '</div>' +
+        '<div class="review-list">' + rows.map(r =>
+          '<div class="review-row"><span style="font-family:Consolas,monospace;color:var(--gold)">' + escapeHtml(r.formula || '-') +
+          '</span><br><span class="muted">rank_ic=' + fmt(r.rank_ic, 4) + ' sharpe=' + fmt(r.sharpe, 2) +
+          ' turnover=' + fmt(r.turnover, 3) + '</span></div>'
         ).join('') + '</div></div>';
     }
 
@@ -828,12 +845,14 @@ def build_research_review_payload(output_dir: str | Path) -> dict:
     portfolio = _portfolio_wf_payload(
         _latest_artifact(reports_root, "portfolio_walk_forward*", "portfolio_walk_forward_summary.csv")
     )
-    available = any(section.get("available") for section in (admission, failure, portfolio))
+    pareto = _pareto_payload(_latest_artifact(reports_root, "*", "pareto_archive.json"))
+    available = any(section.get("available") for section in (admission, failure, portfolio, pareto))
     return {
         "available": available,
         "admission": admission,
         "failure_memory": failure,
         "portfolio_walk_forward": portfolio,
+        "pareto_archive": pareto,
     }
 
 
@@ -921,6 +940,32 @@ def _portfolio_wf_payload(path: Path | None) -> dict:
                 "test_rank_ic_median": _num(row.get("test_rank_ic_median")),
             }
             for row in frame.head(5).to_dict(orient="records")
+        ],
+    }
+
+
+def _pareto_payload(path: Path | None) -> dict:
+    if path is None:
+        return {"available": False}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return {"available": False, "source": str(path), "error": str(exc)}
+    front = payload.get("front") or []
+    return {
+        "available": True,
+        "source": _display_path(path),
+        "alpha_count": int(_num(payload.get("alpha_count"))),
+        "front_count": int(_num(payload.get("front_count"))),
+        "objectives": payload.get("objectives") or [],
+        "front": [
+            {
+                "formula": row.get("formula", ""),
+                "rank_ic": _num(row.get("rank_ic")),
+                "sharpe": _num(row.get("sharpe")),
+                "turnover": _num(row.get("turnover")),
+            }
+            for row in front[:5]
         ],
     }
 

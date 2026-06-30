@@ -53,6 +53,7 @@ QuantumRandy/
     universe.py             # Multi-asset robustness evaluation
     portfolio.py            # Fixed-weight factor portfolio research
     portfolio_walk_forward.py # Fixed-blend portfolio walk-forward validation
+    pareto.py               # Pareto archive ranking for multi-objective alpha review
     config.py               # YAML config reader
     data.py                 # OHLCV/funding data loader
     io_utils.py             # File I/O utilities
@@ -355,7 +356,18 @@ Kill reasons are stored in `leaderboard.json` -> `kill_reasons` field (e.g. `["p
 
 The dashboard also shows a read-only **Research Review** panel when admission, failure-memory, or portfolio
 walk-forward artifacts exist under `reports/`. It summarizes admission decisions, repeated failed subtree clusters, and
-fixed-blend walk-forward stability without mutating runtime or publishing strategies.
+fixed-blend walk-forward stability. When `pareto_archive.json` exists, it also summarizes the current nondominated alpha
+front. This panel does not mutate runtime or publish strategies.
+
+## Pareto Archive
+
+Every MCTS save writes a research-only Pareto archive alongside the usual zoo/tree artifacts:
+
+- `pareto_archive.csv`: all zoo alphas with Pareto rank and objective metrics.
+- `pareto_archive.json`: machine-readable nondominated front and objective metadata.
+
+The first archive ranks tradeoffs across Rank IC, Sharpe, turnover, drawdown, diversity, simplicity, and operator count.
+It is a review aid only; MCTS selection still uses the configured scalar reward.
 
 ## v0.7 "Funding Rate Renaissance" (2026-05-20)
 
