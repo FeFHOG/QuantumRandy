@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 import pandas as pd
 
@@ -48,6 +48,7 @@ def load_formula_entries(
             seen.add(formula)
             entries.append(
                 {
+                    "factor_id": item.get("factor_id", ""),
                     "formula": formula,
                     "description": item.get("description", ""),
                     "source": "leaderboard",

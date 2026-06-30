@@ -124,7 +124,8 @@ Priority: P0.
 
 ### 3. Alpha Portfolio Layer
 
-Status: not started.
+Status: first offline implementation complete in `QuantumRandy/quantumrandy/portfolio.py` and
+`QuantumRandy/scripts/build_portfolio.py`.
 
 Why it matters:
 
@@ -149,9 +150,10 @@ Metrics:
 
 Deliverable:
 
-- `portfolio.py`
-- `scripts/build_portfolio.py`
-- dashboard portfolio equity curve and factor contribution panel
+- `portfolio.py`: implemented for fixed equal-weight, rank-IC-weighted, and Sharpe-weighted portfolios after correlation
+  filtering.
+- `scripts/build_portfolio.py`: implemented.
+- dashboard portfolio equity curve and factor contribution panel: not started.
 
 Priority: P0/P1.
 
@@ -345,7 +347,7 @@ Recommended path:
 1. Write research docs and organize papers. Status: complete.
 2. Implement walk-forward validation. Status: first version complete.
 3. Implement multi-asset evaluator. Status: first version complete.
-4. Implement alpha portfolio layer. Status: not started.
+4. Implement alpha portfolio layer. Status: first offline fixed-weight version complete.
 5. Upgrade LLM proposal schema and failure-aware rewrite loop. Status: not started.
 6. Add failure memory library. Status: not started.
 7. Expand data fields and DSL. Status: not started.
@@ -382,6 +384,12 @@ Expected value:
   - added `QuantumRandy/scripts/eval_universe.py`;
   - added tests in `QuantumRandy/tests/test_universe.py`;
   - outputs detail CSV, summary CSV, JSON report, and markdown report.
+- Implemented first-version offline portfolio research:
+  - added `QuantumRandy/quantumrandy/portfolio.py`;
+  - added `QuantumRandy/scripts/build_portfolio.py`;
+  - added tests in `QuantumRandy/tests/test_portfolio.py`;
+  - outputs evaluated factor metrics, correlation-filter decisions, equal/IC/Sharpe portfolio summaries, a research-only
+    manifest, and a markdown report.
 
 ## Next Session Prompt
 

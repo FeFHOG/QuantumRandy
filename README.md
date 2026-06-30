@@ -51,6 +51,7 @@ QuantumRandy/
     dashboard.py            # HTTP dashboard backend + kill breakdown
     walk_forward.py         # Rolling train/validation/test survival validation
     universe.py             # Multi-asset robustness evaluation
+    portfolio.py            # Fixed-weight factor portfolio research
     config.py               # YAML config reader
     data.py                 # OHLCV/funding data loader
     io_utils.py             # File I/O utilities
@@ -60,6 +61,7 @@ QuantumRandy/
     backtest_all.py         # One-click backtest ALL factors
     walk_forward.py         # Walk-forward validation for fixed formulas
     eval_universe.py        # Evaluate fixed formulas across repeated asset configs
+    build_portfolio.py      # Build fixed-weight accepted-factor portfolios
     run_btc.py              # One-command BTC mining
     dashboard.py            # Launch research dashboard
     check_deepseek.py       # Verify DeepSeek connectivity
@@ -230,6 +232,36 @@ Outputs:
 - `universe_report.json`: run metadata plus machine-readable ranking.
 - `UNIVERSE_REPORT.md`: concise human-readable report.
 
+## Alpha Portfolio Research
+
+Build fixed-weight factor portfolios from accepted formulas:
+
+```powershell
+python scripts\build_portfolio.py `
+  --config configs\btcusdt.yaml `
+  --leaderboard reports\research_live\leaderboard.json `
+  --passed-only `
+  --out reports\portfolio
+```
+
+You can also probe ad hoc formulas:
+
+```powershell
+python scripts\build_portfolio.py `
+  --formula "neg(zscore(funding_rate,42))" `
+  --formula "zscore(ret(close,6),48)" `
+  --out reports\portfolio_probe
+```
+
+The builder evaluates each factor, applies correlation filtering, and reports equal-weight, rank-IC-weighted, and
+Sharpe-weighted variants. Outputs are research artifacts only, not runtime publish payloads:
+
+- `portfolio_factors.csv`: evaluated factor metrics.
+- `portfolio_selection.csv`: correlation-filter decisions.
+- `portfolio_summary.csv`: portfolio-level metrics.
+- `portfolio_manifest.json`: research-only components and weights.
+- `PORTFOLIO_REPORT.md`: concise human-readable report.
+
 ## Kill Diagnosis
 
 The dashboard shows a **Kill Breakdown** panel — which of the 4 brutal-filter gates kills the most factors. Hover any KILL badge to see the specific gates that failed. Click a factor row for a detail modal with per-gate actual values vs thresholds.
@@ -263,7 +295,7 @@ python scripts\mine.py --config configs\ethusdt.yaml --iterations 50 --out repor
 
 - Research/backtest framework only — not a live trading system.
 - Currently default data is BTCUSDT 4h only; multi-asset evaluation requires additional asset configs/data files.
-- No multi-asset portfolio or alpha combination yet.
+- Portfolio construction is fixed-weight research only; runtime publication still requires manual review/publishing.
 
 ## Configuration
 

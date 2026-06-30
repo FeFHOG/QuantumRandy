@@ -269,6 +269,11 @@ Current status: first manual publisher implementation exists in `scripts/publish
 
 Goal: move beyond single-factor observation.
 
+Current status: first offline research builder exists in `quantumrandy/portfolio.py` and
+`scripts/build_portfolio.py`. It creates research-only equal-weight, rank-IC-weighted, and Sharpe-weighted artifacts
+after correlation filtering. Runtime publication of any blend still requires manual review and the controlled publisher
+flow.
+
 Tasks:
 
 - Build equal-weight accepted-factor portfolios after correlation filtering.
