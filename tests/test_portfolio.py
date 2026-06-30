@@ -60,7 +60,7 @@ def test_build_portfolio_research_outputs_research_only_artifacts() -> None:
         {"factor_id": "volume", "formula": "zscore(volume,12)", "passed": True},
     ]
 
-    factors, selection, portfolios, manifest = build_portfolio_research(
+    factors, selection, portfolios, contribution, manifest = build_portfolio_research(
         _data(),
         entries,
         _cfg(),
@@ -77,7 +77,12 @@ def test_build_portfolio_research_outputs_research_only_artifacts() -> None:
     assert manifest["artifact_type"] == "quantumrandy_portfolio_research"
     assert manifest["safety"]["not_runtime_publish_payload"] is True
     assert manifest["safety"]["requires_manual_review_before_runtime"] is True
+    assert not contribution.empty
+    assert {"portfolio_id", "factor_id", "delta_sharpe", "delta_net_total", "delta_max_dd"}.issubset(
+        contribution.columns
+    )
 
-    report = render_portfolio_report(manifest, factors, selection, portfolios)
+    report = render_portfolio_report(manifest, factors, selection, portfolios, contribution)
     assert "research artifact only" in report
     assert "equal_weight_accepted" in report
+    assert "Factor Ablation" in report

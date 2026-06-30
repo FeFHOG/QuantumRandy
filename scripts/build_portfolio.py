@@ -37,7 +37,7 @@ def main() -> None:
         ]
 
     print(f"Loaded {len(entries)} formulas over {len(data)} bars")
-    factors, selection, portfolios, manifest = build_portfolio_research(
+    factors, selection, portfolios, contribution, manifest = build_portfolio_research(
         data,
         entries,
         cfg,
@@ -52,10 +52,11 @@ def main() -> None:
     safe_write_csv(out / "portfolio_factors.csv", factors, out / "events.jsonl")
     safe_write_csv(out / "portfolio_selection.csv", selection, out / "events.jsonl")
     safe_write_csv(out / "portfolio_summary.csv", portfolios, out / "events.jsonl")
+    safe_write_csv(out / "portfolio_contribution.csv", contribution, out / "events.jsonl")
     safe_write_json(out / "portfolio_manifest.json", manifest, out / "events.jsonl")
     safe_write_text(
         out / "PORTFOLIO_REPORT.md",
-        render_portfolio_report(manifest, factors, selection, portfolios),
+        render_portfolio_report(manifest, factors, selection, portfolios, contribution),
         out / "events.jsonl",
     )
 

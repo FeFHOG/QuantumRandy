@@ -259,6 +259,7 @@ Sharpe-weighted variants. Outputs are research artifacts only, not runtime publi
 - `portfolio_factors.csv`: evaluated factor metrics.
 - `portfolio_selection.csv`: correlation-filter decisions.
 - `portfolio_summary.csv`: portfolio-level metrics.
+- `portfolio_contribution.csv`: leave-one-factor-out contribution analysis.
 - `portfolio_manifest.json`: research-only components and weights.
 - `PORTFOLIO_REPORT.md`: concise human-readable report.
 

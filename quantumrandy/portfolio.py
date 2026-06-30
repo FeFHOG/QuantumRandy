@@ -41,6 +41,7 @@ def build_portfolio_research(
     selected_ids, selection_rows = _select_low_correlation_pool(factor_rows, factor_values, max_corr, min_factors)
     specs = build_portfolio_specs(factor_rows, selected_ids)
     portfolio_rows: list[dict[str, Any]] = []
+    contribution_rows: list[dict[str, Any]] = []
 
     for spec in specs:
         ledger = simulate_weighted_signal_portfolio(data, factor_signals, spec, cfg.costs, cfg.execution, cfg.bar_hours)
@@ -53,6 +54,9 @@ def build_portfolio_research(
                 "weights": ",".join(f"{factor_id}:{weight:.6f}" for factor_id, weight in spec.weights.items()),
                 **{key: round(float(value), 8) for key, value in metrics.items()},
             }
+        )
+        contribution_rows.extend(
+            _portfolio_ablation_rows(data, factor_signals, spec, metrics, cfg.costs, cfg.execution, cfg.bar_hours)
         )
 
     manifest = {
@@ -81,6 +85,7 @@ def build_portfolio_research(
         pd.DataFrame(factor_rows),
         pd.DataFrame(selection_rows),
         pd.DataFrame(portfolio_rows),
+        pd.DataFrame(contribution_rows),
         manifest,
     )
 
@@ -176,6 +181,7 @@ def render_portfolio_report(
     factor_frame: pd.DataFrame,
     selection_frame: pd.DataFrame,
     portfolio_frame: pd.DataFrame,
+    contribution_frame: pd.DataFrame | None = None,
 ) -> str:
     lines = [
         "# QuantumRandy Portfolio Research Report",
@@ -221,6 +227,21 @@ def render_portfolio_report(
                 reason=row.get("reason", ""),
             )
         )
+    if contribution_frame is not None and not contribution_frame.empty:
+        lines.extend(
+            [
+                "",
+                "## Factor Ablation",
+                "",
+                "| Portfolio | Removed Factor | Weight | Delta Sharpe | Delta Net Total | Delta Max DD |",
+                "|---|---|---:|---:|---:|---:|",
+            ]
+        )
+        for row in contribution_frame.to_dict(orient="records"):
+            lines.append(
+                "| `{portfolio_id}` | `{factor_id}` | {weight:.4f} | {delta_sharpe:.4f} | "
+                "{delta_net_total:.4f} | {delta_max_dd:.4f} |".format(**row)
+            )
     lines.extend(
         [
             "",
@@ -229,6 +250,7 @@ def render_portfolio_report(
             "- `portfolio_factors.csv`: evaluated factor metrics.",
             "- `portfolio_selection.csv`: correlation-filter decisions.",
             "- `portfolio_summary.csv`: portfolio-level metrics.",
+            "- `portfolio_contribution.csv`: leave-one-factor-out contribution analysis.",
             "- `portfolio_manifest.json`: research-only portfolio components and weights.",
             "",
         ]
@@ -306,6 +328,64 @@ def _select_low_correlation_pool(
         if should_select:
             selected.append(factor_id)
     return selected, decisions
+
+
+def _portfolio_ablation_rows(
+    data: pd.DataFrame,
+    factor_signals: dict[str, pd.Series],
+    spec: PortfolioSpec,
+    full_metrics: dict[str, float],
+    costs: CostConfig,
+    execution: ExecutionConfig,
+    bar_hours: int,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for factor_id, weight in spec.weights.items():
+        without = {other_id: other_weight for other_id, other_weight in spec.weights.items() if other_id != factor_id}
+        if without:
+            ablated = PortfolioSpec(
+                portfolio_id=f"{spec.portfolio_id}_without_{factor_id}",
+                weighting=spec.weighting,
+                weights=_normalize_positive(without),
+                description=f"{spec.description} Without {factor_id}.",
+            )
+            ledger = simulate_weighted_signal_portfolio(data, factor_signals, ablated, costs, execution, bar_hours)
+            removed_metrics = summarize_ledger(ledger, bar_hours)
+        else:
+            removed_metrics = {
+                "sharpe": 0.0,
+                "rank_ic": 0.0,
+                "max_dd": 0.0,
+                "turnover": 0.0,
+                "trades": 0.0,
+                "net_total": 0.0,
+            }
+        rows.append(
+            {
+                "portfolio_id": spec.portfolio_id,
+                "factor_id": factor_id,
+                "weight": round(float(weight), 8),
+                "removed_sharpe": round(float(removed_metrics.get("sharpe", 0.0)), 8),
+                "full_sharpe": round(float(full_metrics.get("sharpe", 0.0)), 8),
+                "delta_sharpe": round(
+                    float(full_metrics.get("sharpe", 0.0)) - float(removed_metrics.get("sharpe", 0.0)),
+                    8,
+                ),
+                "removed_net_total": round(float(removed_metrics.get("net_total", 0.0)), 8),
+                "full_net_total": round(float(full_metrics.get("net_total", 0.0)), 8),
+                "delta_net_total": round(
+                    float(full_metrics.get("net_total", 0.0)) - float(removed_metrics.get("net_total", 0.0)),
+                    8,
+                ),
+                "removed_max_dd": round(float(removed_metrics.get("max_dd", 0.0)), 8),
+                "full_max_dd": round(float(full_metrics.get("max_dd", 0.0)), 8),
+                "delta_max_dd": round(
+                    float(full_metrics.get("max_dd", 0.0)) - float(removed_metrics.get("max_dd", 0.0)),
+                    8,
+                ),
+            }
+        )
+    return rows
 
 
 def _passes_basic(metrics: dict[str, float], filters: FilterConfig) -> bool:
