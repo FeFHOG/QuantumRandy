@@ -46,6 +46,7 @@ Phase 4 portfolio research path. GitHub-facing notes are intentionally in Englis
 - Read-only server deployment preflight: `scripts/preflight_server.py`
 - Binance public-data feeder: `scripts/binance_feeder.py`
 - Read-only runtime monitor and daily report: `scripts/runtime_monitor.py`
+- Read-only runtime web dashboard: `scripts/runtime_dashboard.py`
 - Optional RandysLab baseline comparison in runtime reports via `configs/runtime_monitor.yaml`
 - Manual factor publisher: `scripts/publish_factors.py`
 - Offline portfolio research builder: `scripts/build_portfolio.py`

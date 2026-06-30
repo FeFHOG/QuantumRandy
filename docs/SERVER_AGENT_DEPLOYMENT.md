@@ -7,14 +7,15 @@ operational and conservative. The server agent should not add trading features w
 
 ## Scope
 
-Run three local processes:
+Run four local processes:
 
 1. `scripts/runtime_server.py`
 2. `scripts/binance_feeder.py`
 3. `scripts/runtime_monitor.py`
+4. `scripts/runtime_dashboard.py`
 
 The first deployment target is BTCUSDT 4h Binance USD-M perpetual public market data, approved runtime factors from
-`configs/runtime_factors.json`, and read-only paper reports under `reports/runtime_live/`.
+`configs/runtime_factors.json`, read-only paper reports under `reports/runtime_live/`, and a local read-only dashboard.
 
 ## Hard Safety Rules
 
@@ -80,7 +81,20 @@ python scripts/binance_feeder.py --config configs/binance_feeder.yaml
 python scripts/runtime_monitor.py --config configs/runtime_monitor.yaml
 ```
 
+```bash
+python scripts/runtime_dashboard.py --monitor-config configs/runtime_monitor.yaml --host 127.0.0.1 --port 8790
+```
+
 For a one-shot smoke test, add `--once` to the feeder and monitor commands.
+
+View the dashboard from a workstation with an SSH tunnel, for example:
+
+```bash
+ssh -L 8790:127.0.0.1:8790 user@server
+```
+
+Then open `http://127.0.0.1:8790`. The dashboard reads monitor output files only. It has no admin update endpoint and
+does not place orders.
 
 ## Health Checks
 
@@ -105,7 +119,8 @@ The monitor writes:
 - `reports/runtime_live/latest_snapshot.json`
 - `reports/runtime_live/runtime_report_YYYYMMDD.md`
 
-Keep process stdout/stderr logs together with these files. They are part of the paper-run audit trail.
+Keep process stdout/stderr logs together with these files. They are part of the paper-run audit trail. The dashboard is
+a read-only view over the same files.
 
 ## Factor Updates
 

@@ -154,6 +154,19 @@ Default outputs are written under `reports/runtime_live/`:
 
 The monitor only reads runtime APIs. It cannot update factors and cannot place orders.
 
+## Runtime dashboard
+
+The runtime dashboard is a read-only web page over `reports/runtime_live/latest_snapshot.json`,
+`reports/runtime_live/snapshots.jsonl`, and the optional RandysLab baseline export.
+
+```bash
+python scripts/runtime_dashboard.py --monitor-config configs/runtime_monitor.yaml --host 127.0.0.1 --port 8790
+```
+
+Keep it bound to `127.0.0.1` or a private interface. On a server, prefer an SSH tunnel such as
+`ssh -L 8790:127.0.0.1:8790 user@server` and open `http://127.0.0.1:8790` locally. The dashboard has no admin endpoint,
+does not submit runtime updates, and cannot place orders.
+
 ### RandysLab baseline comparison
 
 The monitor can optionally render a RandysLab control-group table in the daily report. Configure the exported
