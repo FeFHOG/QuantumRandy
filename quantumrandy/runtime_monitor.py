@@ -50,7 +50,7 @@ def run_monitor(config: RuntimeMonitorConfig, *, once: bool = False) -> None:
 
 
 def collect_runtime_record(config: RuntimeMonitorConfig) -> dict[str, Any]:
-    observed_at = pd.Timestamp.utcnow()
+    observed_at = pd.Timestamp.now(tz="UTC")
     health = get_json(config.runtime_url, "/health", timeout=config.request_timeout_seconds)
     snapshot = get_json(config.runtime_url, "/v1/snapshot", timeout=config.request_timeout_seconds)
     latest = health.get("latest_timestamp")

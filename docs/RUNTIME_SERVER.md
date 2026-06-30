@@ -225,3 +225,21 @@ python scripts/publish_factors.py \
 
 This writes a complete runtime config payload plus an audit file. It does not call the runtime admin API without
 `--submit`. Review the source portfolio report, factor metrics, contribution analysis, and audit before submitting.
+
+## Local end-to-end paper trial
+
+Use `scripts/run_paper_trial.py` to exercise the full local paper path without touching the checked-in runtime manifest
+or any exchange endpoint:
+
+```bash
+python scripts/run_paper_trial.py \
+  --portfolio-manifest reports/portfolio/portfolio_manifest.json \
+  --portfolio-factors reports/portfolio/portfolio_factors.csv \
+  --portfolio-id equal_weight_accepted \
+  --out reports/paper_trial
+```
+
+The trial starts a localhost runtime on an ephemeral port, copies the runtime manifest into the output directory,
+submits the reviewed portfolio proposal to that temporary runtime, pushes local historical bars from the research config,
+and runs the monitor once. Outputs include `paper_trial_summary.json`, the proposal/audit files, the temporary runtime
+manifest, and a runtime monitor report.
