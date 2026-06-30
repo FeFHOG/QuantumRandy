@@ -173,3 +173,38 @@ python scripts/runtime_monitor.py --config configs/runtime_monitor.yaml
 
 Keep the runtime bound to `127.0.0.1` or a private interface unless authentication, firewalling, and operational
 controls are deliberately added.
+
+## Manual factor publishing
+
+Research output should not automatically mutate the paper runtime. Use `scripts/publish_factors.py` to build an auditable
+runtime update from a `leaderboard.json` file.
+
+Dry-run proposal:
+
+```bash
+python scripts/publish_factors.py \
+  --leaderboard reports/research_live/leaderboard.json \
+  --runtime-manifest configs/runtime_factors.json \
+  --max-factors 5 \
+  --out reports/runtime_publish/proposed_runtime_config.json
+```
+
+This writes:
+
+- `proposed_runtime_config.json`: complete payload with `expected_generation`, `factors`, and `strategies`.
+- `proposed_runtime_config_audit.md`: human-readable selection audit.
+
+After reviewing the audit, submit to a running runtime server:
+
+```bash
+export QUANTUMRANDY_ADMIN_TOKEN='same-admin-token-used-by-runtime'
+python scripts/publish_factors.py \
+  --leaderboard reports/research_live/leaderboard.json \
+  --runtime-url http://127.0.0.1:8787 \
+  --max-factors 5 \
+  --out reports/runtime_publish/proposed_runtime_config.json \
+  --submit
+```
+
+The publisher fetches the current runtime generation before submitting. If another update lands first, the runtime
+rejects stale updates with HTTP 409. This is deliberate: review the current manifest and rerun the publisher.

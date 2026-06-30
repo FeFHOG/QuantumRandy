@@ -163,6 +163,10 @@ The monitor/reporter script is `scripts/runtime_monitor.py`. It polls `/health` 
 `snapshots.jsonl`, writes `latest_snapshot.json`, and renders `runtime_report_YYYYMMDD.md` under
 `reports/runtime_live/`.
 
+The manual publisher script is `scripts/publish_factors.py`. It reads a research `leaderboard.json`, selects passed
+factors, writes a complete runtime update payload plus an audit report, and only calls the runtime admin API when
+`--submit` is explicitly provided.
+
 ## Application Layer Before Algorithm Layer
 
 Do the application layer first.
@@ -256,6 +260,8 @@ Exit criteria:
 - A candidate factor can move from leaderboard to runtime manifest through a documented manual flow.
 - Runtime rejects stale generation updates.
 - Factor promotion can be rolled forward by submitting a new manifest.
+
+Current status: first manual publisher implementation exists in `scripts/publish_factors.py`.
 
 ### Phase 4: First Multi-Factor Strategy Layer (1-2 weeks)
 
