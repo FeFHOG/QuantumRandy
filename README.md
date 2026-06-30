@@ -52,6 +52,7 @@ QuantumRandy/
     walk_forward.py         # Rolling train/validation/test survival validation
     universe.py             # Multi-asset robustness evaluation
     portfolio.py            # Fixed-weight factor portfolio research
+    portfolio_walk_forward.py # Fixed-blend portfolio walk-forward validation
     config.py               # YAML config reader
     data.py                 # OHLCV/funding data loader
     io_utils.py             # File I/O utilities
@@ -62,6 +63,9 @@ QuantumRandy/
     walk_forward.py         # Walk-forward validation for fixed formulas
     eval_universe.py        # Evaluate fixed formulas across repeated asset configs
     build_portfolio.py      # Build fixed-weight accepted-factor portfolios
+    portfolio_walk_forward.py # Validate fixed portfolio blends across rolling windows
+    build_failure_memory.py # Build research-only memory from killed candidates
+    build_admission.py      # Build research-only factor admission decisions
     run_btc.py              # One-command BTC mining
     dashboard.py            # Launch research dashboard
     check_deepseek.py       # Verify DeepSeek connectivity
@@ -263,6 +267,86 @@ Sharpe-weighted variants. Outputs are research artifacts only, not runtime publi
 - `portfolio_manifest.json`: research-only components and weights.
 - `PORTFOLIO_REPORT.md`: concise human-readable report.
 
+## Portfolio Walk-Forward
+
+Validate a fixed portfolio blend from `scripts\build_portfolio.py` across rolling train/validation/test windows:
+
+```powershell
+python scripts\portfolio_walk_forward.py `
+  --config configs\btcusdt.yaml `
+  --portfolio-manifest reports\portfolio\portfolio_manifest.json `
+  --portfolio-factors reports\portfolio\portfolio_factors.csv `
+  --portfolio-id equal_weight_accepted `
+  --out reports\portfolio_walk_forward
+```
+
+This checks whether a selected fixed blend is stable across windows. It does not retrain weights, publish runtime
+strategies, or mutate active paper runtime state.
+
+Outputs:
+
+- `portfolio_walk_forward_details.csv`: portfolio x window x segment metrics.
+- `portfolio_walk_forward_summary.csv`: portfolio-level survival and stability summary.
+- `portfolio_walk_forward_manifest.json`: research-only run metadata.
+- `PORTFOLIO_WALK_FORWARD_REPORT.md`: concise human-readable report.
+
+## Failure Memory
+
+Build a research-only memory artifact from killed candidates:
+
+```powershell
+python scripts\build_failure_memory.py `
+  --leaderboard reports\research_live\leaderboard.json `
+  --out reports\failure_memory
+```
+
+The output preserves schema-v2 proposal context, failed gates, metrics, and shared subtree fingerprints. It is for
+negative examples and targeted rewrites only; it is not a runtime publish payload.
+
+To feed this memory back into LLM proposals, set `prompt.failure_memory_path` in the research config:
+
+```yaml
+prompt:
+  failure_memory_path: "reports/failure_memory"
+  failure_memory_examples: 5
+  failure_memory_clusters: 5
+```
+
+Outputs:
+
+- `failure_memory.csv`: failed formula rows with schema-v2 proposal context.
+- `failure_clusters.csv`: repeated failed subtree patterns.
+- `failure_memory_manifest.json`: machine-readable artifact metadata.
+- `FAILURE_MEMORY_REPORT.md`: concise human-readable report.
+
+When research mining runs, killed non-seed factors can also trigger a small targeted rewrite pass. The rewrite prompt is
+gate-aware:
+
+- `predictive_power`: change information source, sign, or horizon.
+- `homogeneity`: keep only the broad hypothesis and change field/operator structure.
+- `friction_audit`: reduce turnover through slower windows or smoothing.
+- `lifetime`: prefer slower, more regime-stable transforms.
+
+## Factor Admission
+
+Combine leaderboard, walk-forward, universe, and portfolio evidence into one research-only admission report:
+
+```powershell
+python scripts\build_admission.py `
+  --leaderboard reports\research_live\leaderboard.json `
+  --walk-forward-summary reports\walk_forward\walk_forward_summary.csv `
+  --universe-summary reports\universe_eval\universe_summary.csv `
+  --portfolio-selection reports\portfolio\portfolio_selection.csv `
+  --portfolio-walk-forward-summary reports\portfolio_walk_forward\portfolio_walk_forward_summary.csv `
+  --out reports\admission
+```
+
+Outputs:
+
+- `admission_decisions.csv`: per-factor gates, evidence, score, and decision.
+- `admission_manifest.json`: machine-readable policy and run summary.
+- `ADMISSION_REPORT.md`: concise human-readable report.
+
 ## Kill Diagnosis
 
 The dashboard shows a **Kill Breakdown** panel — which of the 4 brutal-filter gates kills the most factors. Hover any KILL badge to see the specific gates that failed. Click a factor row for a detail modal with per-gate actual values vs thresholds.
@@ -296,7 +380,8 @@ python scripts\mine.py --config configs\ethusdt.yaml --iterations 50 --out repor
 
 - Research/backtest framework only — not a live trading system.
 - Currently default data is BTCUSDT 4h only; multi-asset evaluation requires additional asset configs/data files.
-- Portfolio construction is fixed-weight research only; runtime publication still requires manual review/publishing.
+- Portfolio construction and portfolio walk-forward validation are fixed-weight research only; runtime publication still
+  requires manual review/publishing.
 
 ## Configuration
 

@@ -5,6 +5,9 @@ Last updated: 2026-06-30
 This handoff records the v0.8 beta state of the Randy quant stack after the first server-paper application layer and
 Phase 4 portfolio research path. GitHub-facing notes are intentionally in English.
 
+For a maturity-level view of what is beta-ready versus still research-only, see
+`docs/STACK_MATURITY_STATUS.md`.
+
 ## Repository State
 
 ### QuantumRandy
@@ -52,6 +55,7 @@ Phase 4 portfolio research path. GitHub-facing notes are intentionally in Englis
 - Optional RandysLab baseline comparison in runtime reports via `configs/runtime_monitor.yaml`
 - Manual factor publisher: `scripts/publish_factors.py`
 - Offline portfolio research builder: `scripts/build_portfolio.py`
+- Portfolio fixed-blend walk-forward validator: `scripts/portfolio_walk_forward.py`
 - Optional RandysLab baseline comparison in `PORTFOLIO_REPORT.md` via `--baseline-summary`
 - Portfolio contribution and ablation analysis
 - Reviewable runtime proposal flow for fixed portfolio blends
@@ -70,6 +74,11 @@ QuantumRandy:
 ```bash
 python -m pytest
 python scripts/build_portfolio.py --leaderboard reports/research_live/leaderboard.json --out reports/portfolio_smoke
+python scripts/portfolio_walk_forward.py \
+  --portfolio-manifest reports/portfolio_smoke/portfolio_manifest.json \
+  --portfolio-factors reports/portfolio_smoke/portfolio_factors.csv \
+  --portfolio-id equal_weight_accepted \
+  --out reports/portfolio_walk_forward_smoke
 python scripts/run_paper_trial.py \
   --portfolio-manifest reports/portfolio_smoke/portfolio_manifest.json \
   --portfolio-factors reports/portfolio_smoke/portfolio_factors.csv \
@@ -86,6 +95,8 @@ portfolio manifest -> runtime proposal -> localhost runtime -> submit proposal -
 `stale=True` is expected when the trial uses old local historical sample data.
 
 ## Server 48h Paper Trial Checklist
+
+Use `docs/SERVER_48H_TRIAL_RUNBOOK.md` as the operator-facing Ubuntu/tmux checklist for the first full trial.
 
 1. Start `scripts/runtime_server.py` with `QUANTUMRANDY_ADMIN_TOKEN` and `QUANTUMRANDY_INGEST_TOKEN` set to long random
    local-only values.

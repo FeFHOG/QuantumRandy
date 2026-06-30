@@ -156,6 +156,10 @@ def row_from_alpha(alpha: AlphaResult, brutal: dict | None = None) -> dict:
     row = {
         "formula": alpha.formula,
         "description": alpha.description,
+        "hypothesis": alpha.hypothesis,
+        "expected_edge": alpha.expected_edge,
+        "expected_failure_mode": alpha.expected_failure_mode,
+        "rewrite_plan_if_killed": alpha.rewrite_plan_if_killed,
         "depth": alpha.depth,
         "operators": alpha.operators,
         "mcts_score": alpha.score,

@@ -18,6 +18,10 @@ class AlphaResult:
     dimensions: dict[str, float]
     metrics: dict[str, float]
     description: str = ""
+    hypothesis: str = ""
+    expected_edge: str = ""
+    expected_failure_mode: str = ""
+    rewrite_plan_if_killed: str = ""
     depth: int = 0
     operators: int = 0
     generated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat(timespec="seconds"))
@@ -31,6 +35,10 @@ def evaluate_alpha(
     bar_hours: int,
     zoo: list[AlphaResult] | None = None,
     description: str = "",
+    hypothesis: str = "",
+    expected_edge: str = "",
+    expected_failure_mode: str = "",
+    rewrite_plan_if_killed: str = "",
     complexity_penalty: float = 0.025,
 ) -> AlphaResult:
     canonical = parse_formula(formula).canonical()
@@ -58,6 +66,10 @@ def evaluate_alpha(
         dimensions=dimensions,
         metrics=metrics,
         description=description,
+        hypothesis=hypothesis,
+        expected_edge=expected_edge,
+        expected_failure_mode=expected_failure_mode,
+        rewrite_plan_if_killed=rewrite_plan_if_killed,
         depth=depth,
         operators=operators,
     )
@@ -103,5 +115,4 @@ def _overfit_proxy(formula: str, metrics: dict[str, float]) -> float:
     complexity_score = np.clip(1.0 - max(complexity - 10, 0) / 25.0, 0.0, 1.0)
     drawdown_score = np.clip(1.0 - metrics["max_dd"], 0.0, 1.0)
     return float(0.65 * complexity_score + 0.35 * drawdown_score)
-
 

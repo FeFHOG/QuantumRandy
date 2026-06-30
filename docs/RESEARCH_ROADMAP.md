@@ -124,8 +124,9 @@ Priority: P0.
 
 ### 3. Alpha Portfolio Layer
 
-Status: first offline implementation complete in `QuantumRandy/quantumrandy/portfolio.py` and
-`QuantumRandy/scripts/build_portfolio.py`.
+Status: first offline implementation complete in `QuantumRandy/quantumrandy/portfolio.py`,
+`QuantumRandy/scripts/build_portfolio.py`, and fixed-blend walk-forward validation in
+`QuantumRandy/quantumrandy/portfolio_walk_forward.py` / `QuantumRandy/scripts/portfolio_walk_forward.py`.
 
 Why it matters:
 
@@ -153,7 +154,29 @@ Deliverable:
 - `portfolio.py`: implemented for fixed equal-weight, rank-IC-weighted, and Sharpe-weighted portfolios after correlation
   filtering.
 - `scripts/build_portfolio.py`: implemented.
+- `scripts/portfolio_walk_forward.py`: implemented for fixed-blend rolling train/validation/test stability checks.
 - dashboard portfolio equity curve and factor contribution panel: not started.
+
+Priority: P0/P1.
+
+### 3B. Factor Admission Policy
+
+Status: first implementation complete in `QuantumRandy/quantumrandy/admission.py` and
+`QuantumRandy/scripts/build_admission.py`.
+
+Why it matters:
+
+Individual reports are useful, but promotion decisions need one explicit evidence policy. Admission should combine
+brutal-filter status, validation metrics, walk-forward survival, multi-asset robustness, turnover, drawdown, and
+correlation evidence before a factor reaches manual runtime-publishing review.
+
+Deliverable:
+
+- `admission_decisions.csv`: implemented.
+- `admission_manifest.json`: implemented.
+- `ADMISSION_REPORT.md`: implemented.
+- optional portfolio-level walk-forward evidence ingestion: implemented.
+- dashboard admission panel: not started.
 
 Priority: P0/P1.
 
@@ -190,7 +213,7 @@ Priority: P1.
 
 ### 5. LLM Research Loop
 
-Status: partially started through current LLM formula proposal and descriptions; not yet a full loop.
+Status: schema-v2 proposal context, failure-memory-aware prompting, and first targeted rewrite loop are implemented.
 
 Current behavior:
 
@@ -218,15 +241,17 @@ After brutal filter, feed failure reasons back into a targeted rewrite prompt:
 
 Deliverable:
 
-- LLM event schema v2;
-- prompt templates for generate, diagnose, and rewrite;
-- failure-aware proposal history.
+- LLM event schema v2: implemented.
+- prompt templates for generate, diagnose, and rewrite: generate and rewrite prompts implemented; separate diagnose prompt
+  not started.
+- failure-aware proposal history: implemented through schema-v2 fields, failure memory artifacts, and rewrite events.
 
 Priority: P1.
 
 ### 6. Failure Memory Library
 
-Status: not started.
+Status: first implementation complete in `QuantumRandy/quantumrandy/failure_memory.py` and
+`QuantumRandy/scripts/build_failure_memory.py`.
 
 Why it matters:
 
@@ -253,9 +278,12 @@ Use this library for:
 
 Deliverable:
 
-- `failure_memory.jsonl`
-- retrieval function by failed gate and formula similarity
-- dashboard failed-cluster view
+- `failure_memory.csv`: implemented.
+- `failure_clusters.csv`: implemented.
+- `failure_memory_manifest.json`: implemented.
+- `FAILURE_MEMORY_REPORT.md`: implemented.
+- retrieval function by failed gate and formula similarity: prompt context loader implemented; richer API not started.
+- dashboard failed-cluster view: not started.
 
 Priority: P1.
 
@@ -348,10 +376,12 @@ Recommended path:
 2. Implement walk-forward validation. Status: first version complete.
 3. Implement multi-asset evaluator. Status: first version complete.
 4. Implement alpha portfolio layer. Status: first offline fixed-weight version complete.
-5. Upgrade LLM proposal schema and failure-aware rewrite loop. Status: not started.
-6. Add failure memory library. Status: not started.
-7. Expand data fields and DSL. Status: not started.
-8. Add execution stress testing and richer dashboard panels. Status: not started.
+5. Add factor admission policy. Status: first research-only admission report implemented.
+6. Upgrade LLM proposal schema and failure-aware rewrite loop. Status: schema-v2 proposal context, failure-memory-aware
+   generation, and first targeted rewrite loop implemented.
+7. Add failure memory library. Status: first artifact builder and prompt context loader implemented.
+8. Expand data fields and DSL. Status: not started.
+9. Add execution stress testing and richer dashboard panels. Status: not started.
 
 Minimum viable next milestone:
 
@@ -390,6 +420,43 @@ Expected value:
   - added tests in `QuantumRandy/tests/test_portfolio.py`;
   - outputs evaluated factor metrics, correlation-filter decisions, equal/IC/Sharpe portfolio summaries, a research-only
     manifest, and a markdown report.
+
+### 2026-06-30
+
+- Implemented LLM proposal schema v2 metadata:
+  - added hypothesis, expected edge, expected failure mode, and rewrite plan fields;
+  - persisted the fields through MCTS results, zoo/tree outputs, and leaderboard rows;
+  - added tests in `QuantumRandy/tests/test_llm_schema.py`.
+- Implemented first-version failure memory artifacts:
+  - added `QuantumRandy/quantumrandy/failure_memory.py`;
+  - added `QuantumRandy/scripts/build_failure_memory.py`;
+  - added tests in `QuantumRandy/tests/test_failure_memory.py`;
+  - outputs failed formula rows, repeated failed subtree clusters, manifest metadata, and a Markdown report.
+- Connected failure memory to LLM proposal context:
+  - `prompt.failure_memory_path` can point to a failure memory output directory or CSV;
+  - DeepSeek prompts include negative examples and repeated failed subtree clusters;
+  - LLM proposal events record the number of failure examples and clusters sent.
+- Implemented first targeted rewrite loop:
+  - killed non-seed factors can trigger a small gate-aware rewrite pass;
+  - local fallback rewrites by failed gate when LLM is unavailable;
+  - DeepSeek rewrite prompts include failed gates, compact gate metrics, failure memory, and schema-v2 requirements;
+  - rewrite candidates still go through the normal evaluation and brutal-filter path.
+- Implemented first factor admission policy artifact:
+  - added `QuantumRandy/quantumrandy/admission.py`;
+  - added `QuantumRandy/scripts/build_admission.py`;
+  - added tests in `QuantumRandy/tests/test_admission.py`;
+  - combines leaderboard, walk-forward, universe, and portfolio evidence into `approve`, `review`, or `reject`
+    research decisions.
+- Implemented first portfolio-level walk-forward validation:
+  - added `QuantumRandy/quantumrandy/portfolio_walk_forward.py`;
+  - added `QuantumRandy/scripts/portfolio_walk_forward.py`;
+  - added tests in `QuantumRandy/tests/test_portfolio_walk_forward.py`;
+  - validates fixed portfolio blends from research manifests across rolling train/validation/test windows;
+  - outputs portfolio detail rows, summary stability metrics, windows, manifest, and a Markdown report.
+- Connected portfolio-level walk-forward evidence to factor admission:
+  - `scripts/build_admission.py` accepts `--portfolio-walk-forward-summary`;
+  - component factors inherit evidence from fixed blends that include their factor id;
+  - admission decisions record best blend survival, window count, and median test Sharpe evidence.
 
 ## Next Session Prompt
 

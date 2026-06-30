@@ -28,6 +28,24 @@ class LocalProposalEngine:
                 candidates.append(formula)
         return candidates
 
+    def rewrite_for_failure(
+        self,
+        formula: str,
+        failed_gates: list[str],
+        count: int,
+        forbidden: list[str],
+    ) -> list[str]:
+        candidates: list[str] = []
+        attempts = 0
+        gates = failed_gates or ["predictive_power"]
+        while len(candidates) < count and attempts < count * 20:
+            attempts += 1
+            gate = gates[(attempts - 1) % len(gates)]
+            candidate = self._rewrite_one(formula, gate)
+            if candidate not in candidates and not violates_forbidden(candidate, forbidden):
+                candidates.append(candidate)
+        return candidates
+
     def _price_field(self) -> str:
         return self.random.choice(PRICE_FIELDS)
 
@@ -123,3 +141,38 @@ class LocalProposalEngine:
 
         pool = templates.get(dimension, templates["effectiveness"])
         return self.random.choice(pool)
+
+    def _rewrite_one(self, formula: str, failed_gate: str) -> str:
+        pf = self._price_field()
+        af = self._any_field()
+        fast, slow, vol_win = self._pick_windows()
+        templates = {
+            "predictive_power": [
+                f"zscore(ret({pf},{fast}),{vol_win})",
+                f"neg(zscore(funding_rate,{slow}))",
+                f"zscore(corr(funding_rate,ret(close,{fast}),{slow}),{vol_win})",
+                f"zscore(sub(ema({af},{fast}),ema({af},{slow})),{vol_win})",
+            ],
+            "homogeneity": [
+                f"zscore(corr(funding_rate,volume,{slow}),{vol_win})",
+                f"zscore(div(funding_rate,sma(volume,{slow})),{vol_win})",
+                f"zscore(corr(ret(close,{fast}),ret(volume,{fast}),{slow}),{vol_win})",
+                f"zscore(div(sub(high,low),close),{vol_win})",
+            ],
+            "friction_audit": [
+                f"zscore(ema({formula},{slow}),{vol_win})",
+                f"zscore(sma({formula},{slow}),{vol_win})",
+                f"zscore(funding_rate,{slow * 2})",
+                f"neg(zscore(funding_rate,{slow * 2}))",
+                f"zscore(ema(funding_rate,{slow}),{vol_win})",
+                f"zscore(ema(ret({pf},{fast}),{slow}),{vol_win})",
+                f"zscore(sub(sma({af},{slow}),sma({af},{slow * 2})),{vol_win})",
+            ],
+            "lifetime": [
+                f"zscore(ema(funding_rate,{slow}),{vol_win})",
+                f"zscore(ema(ret({pf},{fast}),{slow}),{vol_win})",
+                f"zscore(div(delta({pf},{slow}),std({pf},{slow})),{vol_win})",
+                f"zscore(sub(ema({af},{fast}),ema({af},{slow})),{slow})",
+            ],
+        }
+        return self.random.choice(templates.get(failed_gate, templates["predictive_power"]))

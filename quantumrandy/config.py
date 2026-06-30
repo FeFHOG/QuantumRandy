@@ -71,6 +71,9 @@ class PromptConfig:
         "volatility regimes, and cross-sectional patterns in crypto markets."
     )
     description_min_length: int = 60
+    failure_memory_path: str | None = None
+    failure_memory_examples: int = 5
+    failure_memory_clusters: int = 5
 
 
 @dataclass(frozen=True)

@@ -16,8 +16,9 @@ from .backtest import run_formula_backtest
 from .config import ProjectConfig, load_config
 from .data import load_market_frame, slice_window
 from .evaluator import AlphaResult
+from .fsa import frequent_subtrees
 from .io_utils import append_jsonl, safe_write_csv, safe_write_json
-from .lab import row_from_alpha, run_brutal_filter
+from .lab import kill_reasons, row_from_alpha, run_brutal_filter
 from .llm import FormulaGenerator
 from .mcts import AlphaMCTS
 
@@ -60,6 +61,7 @@ class ResearchSession:
         self.train_data: pd.DataFrame | None = None
         self.validation_data: pd.DataFrame | None = None
         self.brutal_results: dict[str, dict] = {}
+        self.rewrite_attempted: set[str] = set()
 
     def start(self, hours: float = 24.0, use_llm: bool = True) -> dict:
         with self.lock:
@@ -281,6 +283,10 @@ class ResearchSession:
                         dimensions=item.get("dimensions", {}),
                         metrics=item.get("metrics", {}),
                         description=item.get("description", ""),
+                        hypothesis=item.get("hypothesis", ""),
+                        expected_edge=item.get("expected_edge", ""),
+                        expected_failure_mode=item.get("expected_failure_mode", ""),
+                        rewrite_plan_if_killed=item.get("rewrite_plan_if_killed", ""),
                         depth=item.get("depth", 0),
                         operators=item.get("operators", 0),
                         generated_at=item.get("generated_at", _now()),
@@ -347,6 +353,7 @@ class ResearchSession:
         from .lab import FilterThresholds
         thresholds = FilterThresholds.from_config(self.cfg.filter)
         accepted = [formula for formula, item in self.brutal_results.items() if item.get("passed")]
+        rewrite_queue: list[tuple[str, list[str], dict]] = []
         for alpha in self.mcts.zoo:
             if alpha.formula in self.brutal_results:
                 continue
@@ -362,8 +369,60 @@ class ResearchSession:
             )
             if self.brutal_results[alpha.formula]["passed"]:
                 accepted.append(alpha.formula)
+            else:
+                reasons = kill_reasons(self.brutal_results[alpha.formula]["gates"])
+                if alpha.depth > 0 and alpha.formula not in self.rewrite_attempted:
+                    rewrite_queue.append((alpha.formula, reasons, self.brutal_results[alpha.formula]))
+
+        self._rewrite_failed_alphas(rewrite_queue, accepted, thresholds)
         with self.lock:
             self.state.accepted_count = len(accepted)
+
+    def _rewrite_failed_alphas(
+        self,
+        rewrite_queue: list[tuple[str, list[str], dict]],
+        accepted: list[str],
+        thresholds,
+    ) -> None:
+        assert self.mcts is not None and self.cfg is not None and self.train_data is not None and self.validation_data is not None
+        if not rewrite_queue:
+            return
+        seed_formulas = set(self.cfg.mcts.seed_formulas)
+        for formula, reasons, detail in rewrite_queue:
+            if formula in seed_formulas or formula in self.rewrite_attempted:
+                continue
+            self.rewrite_attempted.add(formula)
+            forbidden = frequent_subtrees([a.formula for a in self.mcts.zoo], self.cfg.mcts.fsa_top_k)
+            forbidden = [item for item in forbidden if "funding_rate" not in item]
+            candidates = self.mcts.generator.rewrite(
+                formula,
+                reasons,
+                detail,
+                max(1, min(2, self.cfg.mcts.proposal_count)),
+                forbidden,
+            )
+            for candidate in candidates:
+                if any(alpha.formula == candidate for alpha in self.mcts.zoo):
+                    continue
+                try:
+                    alpha = self.mcts._evaluate_one(candidate)
+                except Exception:
+                    continue
+                self.mcts._maybe_add_to_zoo(alpha)
+                if alpha.formula in self.brutal_results:
+                    continue
+                self.brutal_results[alpha.formula] = run_brutal_filter(
+                    alpha.formula,
+                    self.train_data,
+                    self.validation_data,
+                    self.cfg.costs,
+                    self.cfg.execution,
+                    self.cfg.bar_hours,
+                    accepted,
+                    thresholds=thresholds,
+                )
+                if self.brutal_results[alpha.formula]["passed"]:
+                    accepted.append(alpha.formula)
 
     def _leaderboard_rows(self) -> list[dict]:
         if not self.mcts:

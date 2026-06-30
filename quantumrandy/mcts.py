@@ -55,6 +55,7 @@ class AlphaMCTS:
     def initialize(self) -> None:
         for formula in self.config.seed_formulas:
             description = self.generator.descriptions.get(formula, "Seed formula from the configured initial alpha set.")
+            metadata = self.generator.proposal_metadata.get(formula, {})
             result = evaluate_alpha(
                 formula,
                 self.data,
@@ -63,6 +64,10 @@ class AlphaMCTS:
                 self.bar_hours,
                 self.zoo,
                 description=description,
+                hypothesis=metadata.get("hypothesis", ""),
+                expected_edge=metadata.get("expected_edge", ""),
+                expected_failure_mode=metadata.get("expected_failure_mode", ""),
+                rewrite_plan_if_killed=metadata.get("rewrite_plan_if_killed", ""),
                 complexity_penalty=self.config.complexity_penalty,
             )
             node = Node(formula=result.formula, result=result, parent=None, action="seed", depth=0, value=result.score)
@@ -141,6 +146,7 @@ class AlphaMCTS:
         return sorted(results, key=lambda result: result.score, reverse=True)
 
     def _evaluate_one(self, formula: str) -> AlphaResult:
+        metadata = self.generator.proposal_metadata.get(formula, {})
         return evaluate_alpha(
             formula,
             self.data,
@@ -149,11 +155,20 @@ class AlphaMCTS:
             self.bar_hours,
             self.zoo,
             description=self.generator.descriptions.get(formula, ""),
+            hypothesis=metadata.get("hypothesis", ""),
+            expected_edge=metadata.get("expected_edge", ""),
+            expected_failure_mode=metadata.get("expected_failure_mode", ""),
+            rewrite_plan_if_killed=metadata.get("rewrite_plan_if_killed", ""),
             complexity_penalty=self.config.complexity_penalty,
         )
 
     def _sample_weak_dimension(self, dimensions: dict[str, float]) -> str:
-        weights = [max(1.0 - dimensions.get(dim, 0.5), 0.05) for dim in DIMENSIONS]
+        weights = []
+        for dim in DIMENSIONS:
+            value = float(dimensions.get(dim, 0.5))
+            if not math.isfinite(value):
+                value = 0.5
+            weights.append(max(1.0 - value, 0.05))
         return self.random.choices(DIMENSIONS, weights=weights, k=1)[0]
 
     def _backpropagate(self, idx: int, reward: float) -> None:
@@ -191,6 +206,10 @@ class AlphaMCTS:
                 {
                     "formula": alpha.formula,
                     "description": alpha.description,
+                    "hypothesis": alpha.hypothesis,
+                    "expected_edge": alpha.expected_edge,
+                    "expected_failure_mode": alpha.expected_failure_mode,
+                    "rewrite_plan_if_killed": alpha.rewrite_plan_if_killed,
                     "depth": alpha.depth,
                     "operators": alpha.operators,
                     "score": alpha.score,
@@ -204,6 +223,10 @@ class AlphaMCTS:
                 "id": i,
                 "formula": node.formula,
                 "description": node.result.description,
+                "hypothesis": node.result.hypothesis,
+                "expected_edge": node.result.expected_edge,
+                "expected_failure_mode": node.result.expected_failure_mode,
+                "rewrite_plan_if_killed": node.result.rewrite_plan_if_killed,
                 "depth": node.result.depth,
                 "operators": node.result.operators,
                 "parent": node.parent,
