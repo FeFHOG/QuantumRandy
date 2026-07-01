@@ -9,6 +9,7 @@ import yaml
 from quantumrandy.candidate_selector import write_candidate_selector_report
 from quantumrandy.selector_pipeline import (
     build_selector_pipeline_candidate_review,
+    build_selector_pipeline_candidate_highlights,
     build_selector_pipeline_review,
     render_review_report,
     run_selector_rewrite_pipeline,
@@ -123,6 +124,7 @@ def test_selector_rewrite_pipeline_runs_research_only_evidence_chain(tmp_path) -
     assert (tmp_path / "pipeline" / "portfolio_universe" / "portfolio_universe_summary.csv").exists()
     assert (tmp_path / "pipeline" / "review" / "selector_pipeline_review.csv").exists()
     assert (tmp_path / "pipeline" / "review" / "selector_pipeline_candidate_review.csv").exists()
+    assert (tmp_path / "pipeline" / "review" / "selector_pipeline_candidate_highlights.csv").exists()
 
     persisted = json.loads(
         (tmp_path / "pipeline" / "selector_rewrite_pipeline_manifest.json").read_text(encoding="utf-8")
@@ -130,6 +132,7 @@ def test_selector_rewrite_pipeline_runs_research_only_evidence_chain(tmp_path) -
     assert persisted["portfolio_universe"]["status"] == "completed"
     assert persisted["review"]["status"] == "completed"
     assert "pipeline_candidate_review" in persisted["outputs"]
+    assert "pipeline_candidate_highlights" in persisted["outputs"]
     report = (tmp_path / "pipeline" / "SELECTOR_REWRITE_PIPELINE_REPORT.md").read_text(encoding="utf-8")
     assert "research artifact only" in report
     review_report = (tmp_path / "pipeline" / "review" / "SELECTOR_PIPELINE_REVIEW.md").read_text(encoding="utf-8")
@@ -140,6 +143,7 @@ def test_selector_rewrite_pipeline_runs_research_only_evidence_chain(tmp_path) -
         (tmp_path / "pipeline" / "review" / "selector_pipeline_review_manifest.json").read_text(encoding="utf-8")
     )
     assert review_manifest["candidate_review_rows"] >= review_manifest["review_rows"]
+    assert "candidate_highlight_rows" in review_manifest
 
 
 def test_selector_rewrite_pipeline_can_stop_after_rewrite_without_configs(tmp_path) -> None:
@@ -319,6 +323,13 @@ def test_selector_pipeline_review_compares_parent_and_rewrite_evidence(tmp_path)
     assert by_candidate["rewrite_g"]["candidate_review_verdict"] == "improved"
     assert by_candidate["rewrite_g"]["pass_rate_delta"] == 0.2
     assert by_candidate["rewrite_g"]["mean_sharpe_delta"] == 0.1
+
+    highlights = build_selector_pipeline_candidate_highlights(candidate_review)
+    by_highlight = {row["factor_id"]: row for row in highlights.to_dict(orient="records")}
+    assert by_highlight["rewrite_a"]["highlight_type"] == "true_improved"
+    assert by_highlight["rewrite_f"]["highlight_type"] == "coverage_only_trap"
+    assert by_highlight["rewrite_e"]["highlight_type"] == "sharpe_improved_no_pass_lift"
+    assert by_highlight["rewrite_g"]["candidate_failed_assets"] == "ETHUSDT"
 
     report = render_review_report(
         {

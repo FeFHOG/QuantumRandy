@@ -135,6 +135,9 @@ def run_selector_rewrite_pipeline(
         manifest["outputs"]["pipeline_candidate_review"] = (
             out / "review" / "selector_pipeline_candidate_review.csv"
         ).as_posix()
+        manifest["outputs"]["pipeline_candidate_highlights"] = (
+            out / "review" / "selector_pipeline_candidate_highlights.csv"
+        ).as_posix()
     elif run_universe:
         manifest["universe"] = {"status": "skipped", "reason": "no asset config paths provided"}
         manifest["review"] = {"status": "skipped", "reason": "no universe evaluation"}
@@ -248,6 +251,8 @@ def render_pipeline_report(manifest: dict[str, Any]) -> str:
             "- `portfolio/portfolio_manifest.json`: fixed-blend research portfolio when configs are provided.",
             "- `portfolio_universe/portfolio_universe_summary.csv`: portfolio-level multi-asset evidence.",
             "- `review/selector_pipeline_review.csv`: parent-vs-rewrite evidence comparison.",
+            "- `review/selector_pipeline_candidate_review.csv`: candidate-level parent-vs-rewrite verdicts and deltas.",
+            "- `review/selector_pipeline_candidate_highlights.csv`: compact candidate-level audit queues.",
             "- `selector_rewrite_pipeline_manifest.json`: machine-readable stage provenance and safety metadata.",
         ]
     )
@@ -374,6 +379,52 @@ def build_selector_pipeline_candidate_review(
     ).reset_index(drop=True)
 
 
+def build_selector_pipeline_candidate_highlights(candidate_review: pd.DataFrame) -> pd.DataFrame:
+    if candidate_review.empty or "candidate_review_verdict" not in candidate_review.columns:
+        return pd.DataFrame()
+
+    highlight_labels = {
+        "improved": "true_improved",
+        "coverage_only": "coverage_only_trap",
+        "mixed": "sharpe_improved_no_pass_lift",
+    }
+    rows: list[dict[str, Any]] = []
+    for row in candidate_review.fillna("").to_dict(orient="records"):
+        verdict = str(row.get("candidate_review_verdict", ""))
+        highlight = highlight_labels.get(verdict)
+        if not highlight:
+            continue
+        rows.append(
+            {
+                "highlight_type": highlight,
+                "parent_factor_id": row.get("parent_factor_id", ""),
+                "factor_id": row.get("factor_id", ""),
+                "candidate_review_verdict": verdict,
+                "pass_rate_delta": _num(row.get("pass_rate_delta")),
+                "mean_sharpe_delta": _num(row.get("mean_sharpe_delta")),
+                "candidate_pass_rate": _num(row.get("candidate_pass_rate")),
+                "candidate_mean_sharpe": _num(row.get("candidate_mean_sharpe")),
+                "candidate_failed_assets": row.get("candidate_failed_assets", ""),
+                "formula": row.get("formula", ""),
+                "candidate_rank_reason": row.get("candidate_rank_reason", ""),
+            }
+        )
+
+    frame = pd.DataFrame(rows)
+    if frame.empty:
+        return frame
+    type_rank = {
+        "true_improved": 3,
+        "sharpe_improved_no_pass_lift": 2,
+        "coverage_only_trap": 1,
+    }
+    frame["highlight_rank"] = frame["highlight_type"].map(type_rank).fillna(0).astype(int)
+    return frame.sort_values(
+        ["highlight_rank", "pass_rate_delta", "mean_sharpe_delta", "candidate_mean_sharpe"],
+        ascending=[False, False, False, False],
+    ).reset_index(drop=True)
+
+
 def _load_assets(config_paths: list[str | Path], *, window: str) -> list[AssetDataset]:
     return [load_asset_dataset(path, window=window) for path in config_paths]
 
@@ -441,6 +492,7 @@ def _write_portfolio_outputs(
 def _write_review_outputs(out: Path, *, review: pd.DataFrame, candidate_review: pd.DataFrame | None = None) -> None:
     out.mkdir(parents=True, exist_ok=True)
     candidate_review = candidate_review if candidate_review is not None else pd.DataFrame()
+    candidate_highlights = build_selector_pipeline_candidate_highlights(candidate_review)
     manifest = {
         "artifact_type": "quantumrandy_selector_rewrite_pipeline_review",
         "schema_version": 1,
@@ -452,11 +504,14 @@ def _write_review_outputs(out: Path, *, review: pd.DataFrame, candidate_review: 
         },
         "review_rows": len(review),
         "candidate_review_rows": len(candidate_review),
+        "candidate_highlight_rows": len(candidate_highlights),
         "verdict_counts": _value_counts(review, "review_verdict"),
         "candidate_verdict_counts": _value_counts(candidate_review, "candidate_review_verdict"),
+        "candidate_highlight_counts": _value_counts(candidate_highlights, "highlight_type"),
     }
     safe_write_csv(out / "selector_pipeline_review.csv", review, out / "events.jsonl")
     safe_write_csv(out / "selector_pipeline_candidate_review.csv", candidate_review, out / "events.jsonl")
+    safe_write_csv(out / "selector_pipeline_candidate_highlights.csv", candidate_highlights, out / "events.jsonl")
     safe_write_json(out / "selector_pipeline_review_manifest.json", manifest, out / "events.jsonl")
     safe_write_text(
         out / "SELECTOR_PIPELINE_REVIEW.md",
@@ -551,6 +606,7 @@ def render_review_report(
             "",
             "- `selector_pipeline_review.csv`: parent-level best-candidate summary.",
             "- `selector_pipeline_candidate_review.csv`: candidate-level parent-vs-rewrite verdicts and deltas.",
+            "- `selector_pipeline_candidate_highlights.csv`: compact queues for true improvements, coverage traps, and Sharpe-improved/no-pass-lift candidates.",
             "- `selector_pipeline_review_manifest.json`: machine-readable review counts and safety metadata.",
         ]
     )
