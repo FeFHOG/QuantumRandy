@@ -28,6 +28,9 @@ this should not be treated as LLM policy evidence.
 Future pipeline manifests expose `llm_rewrite_accepted`, `fallback_rewrite_accepted`, and `is_llm_policy_evidence` so
 this distinction is visible in machine-readable artifacts.
 
+For future LLM-only evidence runs, prefer adding `--require-llm-evidence` to the pipeline command. The command will exit
+non-zero if the run falls back to local rewrites without accepting any LLM rewrite candidates.
+
 ## Outputs
 
 Local output directory:

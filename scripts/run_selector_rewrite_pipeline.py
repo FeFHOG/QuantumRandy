@@ -30,6 +30,11 @@ def main() -> None:
     )
     parser.add_argument("--max-corr", type=float, help="Portfolio factor correlation cap")
     parser.add_argument("--min-portfolio-factors", type=int, default=1)
+    parser.add_argument(
+        "--require-llm-evidence",
+        action="store_true",
+        help="Exit non-zero unless --use-llm produced at least one accepted LLM rewrite.",
+    )
     args = parser.parse_args()
 
     manifest = run_selector_rewrite_pipeline(
@@ -47,9 +52,19 @@ def main() -> None:
         max_corr=args.max_corr,
         min_portfolio_factors=args.min_portfolio_factors,
     )
+    if args.require_llm_evidence and not manifest["rewrite"].get("is_llm_policy_evidence", False):
+        print(
+            "Selector rewrite pipeline did not produce LLM policy evidence: "
+            f"use_llm={manifest['rewrite'].get('use_llm_requested')} "
+            f"llm_accepted={manifest['rewrite'].get('llm_rewrite_accepted', 0)} "
+            f"fallback_accepted={manifest['rewrite'].get('fallback_rewrite_accepted', 0)}",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
     print(
         "Selector rewrite pipeline: "
         f"rewrite={manifest['rewrite']['candidate_count']} "
+        f"llm_evidence={manifest['rewrite'].get('is_llm_policy_evidence', False)} "
         f"universe={manifest['universe']['status']} "
         f"portfolio_universe={manifest['portfolio_universe']['status']} "
         f"out={Path(args.out).resolve()}"

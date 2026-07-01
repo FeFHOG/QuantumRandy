@@ -564,6 +564,8 @@ Expected value:
     proxy variables were available in the session.
   - selector rewrite manifests and pipeline reports now expose LLM/fallback accepted counts and an explicit
     `is_llm_policy_evidence` flag, so fallback runs cannot be mistaken for LLM rewrite validation.
+  - `scripts/run_selector_rewrite_pipeline.py --require-llm-evidence` exits non-zero unless `--use-llm` produced at
+    least one accepted LLM rewrite, which makes future LLM-vs-local comparisons less ambiguous.
   - the mining dashboard surfaces the same LLM evidence flag and accepted-count split in its selector pipeline review
     panel.
   - selector rewrite prompts now ask LLM candidates to optimize both `pass_rate_delta > 0` and
