@@ -506,6 +506,8 @@ HTML = r"""<!doctype html>
         '<div class="muted" style="font-size:11px;margin-bottom:8px">candidate verdicts: improved=' + (data.candidate_improved ?? 0) +
         ' coverage=' + (data.candidate_coverage_only ?? 0) + ' mixed=' + (data.candidate_mixed ?? 0) +
         ' not=' + (data.candidate_not_improved ?? 0) + '</div>' +
+        '<div class="muted" style="font-size:11px;margin-bottom:8px">llm_evidence=' + (data.is_llm_policy_evidence ? 'true' : 'false') +
+        ' llm_accepted=' + (data.llm_rewrite_accepted ?? 0) + ' fallback_accepted=' + (data.fallback_rewrite_accepted ?? 0) + '</div>' +
         (highlightRows.length ? '<div class="muted" style="font-size:11px;margin-bottom:8px">highlight queues: true=' +
           (data.candidate_true_improved ?? 0) + ' traps=' + (data.candidate_coverage_traps ?? 0) +
           ' sharpe_only=' + (data.candidate_sharpe_improved_no_pass_lift ?? 0) + '</div>' : '') +
@@ -988,6 +990,16 @@ def _read_optional_csv(path: Path) -> pd.DataFrame:
         return pd.DataFrame()
 
 
+def _read_optional_json(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
 def _data_readiness_payload(path: Path | None) -> dict:
     if path is None:
         return {"available": False}
@@ -1096,6 +1108,8 @@ def _selector_pipeline_review_payload(path: Path | None) -> dict:
         return {"available": False, "source": str(path), "error": str(exc)}
     candidate_frame = _read_optional_csv(path.with_name("selector_pipeline_candidate_review.csv"))
     highlight_frame = _read_optional_csv(path.with_name("selector_pipeline_candidate_highlights.csv"))
+    pipeline_manifest = _read_optional_json(path.parents[1] / "selector_rewrite_pipeline_manifest.json")
+    rewrite_manifest = pipeline_manifest.get("rewrite", {}) if isinstance(pipeline_manifest, dict) else {}
     verdicts = frame.get("review_verdict", pd.Series(dtype=str)).fillna("")
     candidate_verdicts = candidate_frame.get("candidate_review_verdict", pd.Series(dtype=str)).fillna("")
     highlight_types = highlight_frame.get("highlight_type", pd.Series(dtype=str)).fillna("")
@@ -1171,6 +1185,10 @@ def _selector_pipeline_review_payload(path: Path | None) -> dict:
         "candidate_sharpe_improved_no_pass_lift": int(
             (highlight_types == "sharpe_improved_no_pass_lift").sum()
         ),
+        "llm_requested": bool(rewrite_manifest.get("use_llm_requested", False)),
+        "llm_rewrite_accepted": int(_num(rewrite_manifest.get("llm_rewrite_accepted"))),
+        "fallback_rewrite_accepted": int(_num(rewrite_manifest.get("fallback_rewrite_accepted"))),
+        "is_llm_policy_evidence": bool(rewrite_manifest.get("is_llm_policy_evidence", False)),
         "top": [
             {
                 "parent_factor_id": row.get("parent_factor_id", ""),

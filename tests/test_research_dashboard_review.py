@@ -133,6 +133,19 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
 
     selector_review = reports / "selector_rewrite_pipeline_smoke" / "review"
     selector_review.mkdir(parents=True)
+    (selector_review.parent / "selector_rewrite_pipeline_manifest.json").write_text(
+        json.dumps(
+            {
+                "rewrite": {
+                    "use_llm_requested": True,
+                    "llm_rewrite_accepted": 0,
+                    "fallback_rewrite_accepted": 3,
+                    "is_llm_policy_evidence": False,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
     pd.DataFrame(
         [
             {
@@ -349,6 +362,10 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
     assert payload["selector_pipeline_review"]["candidate_improved"] == 1
     assert payload["selector_pipeline_review"]["candidate_coverage_only"] == 1
     assert payload["selector_pipeline_review"]["candidate_not_improved"] == 1
+    assert payload["selector_pipeline_review"]["llm_requested"] is True
+    assert payload["selector_pipeline_review"]["llm_rewrite_accepted"] == 0
+    assert payload["selector_pipeline_review"]["fallback_rewrite_accepted"] == 3
+    assert payload["selector_pipeline_review"]["is_llm_policy_evidence"] is False
     assert payload["selector_pipeline_review"]["top"][0]["parent_factor_id"] == "carry_parent"
     assert payload["selector_pipeline_review"]["top"][0]["best_candidate_factor_id"] == "carry_rewrite"
     assert payload["selector_pipeline_review"]["top"][0]["candidate_verdict_counts"] == "improved:1|not_improved:1"

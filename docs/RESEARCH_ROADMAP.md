@@ -564,6 +564,8 @@ Expected value:
     proxy variables were available in the session.
   - selector rewrite manifests and pipeline reports now expose LLM/fallback accepted counts and an explicit
     `is_llm_policy_evidence` flag, so fallback runs cannot be mistaken for LLM rewrite validation.
+  - the mining dashboard surfaces the same LLM evidence flag and accepted-count split in its selector pipeline review
+    panel.
   - selector rewrite prompts now ask LLM candidates to optimize both `pass_rate_delta > 0` and
     `mean_sharpe_delta >= 0`, justify normalized range/volatility profitability, and predict likely cross-asset failure
     modes before evaluation;
