@@ -485,6 +485,14 @@ def render_review_report(manifest: dict[str, Any], review: pd.DataFrame) -> str:
     else:
         lines.append("| none | 0 |")
 
+    lines.extend(["", "## Candidate Verdict Counts", "", "| Verdict | Count |", "|---|---:|"])
+    candidate_counts = manifest.get("candidate_verdict_counts") or {}
+    if candidate_counts:
+        for verdict, count in candidate_counts.items():
+            lines.append(f"| `{verdict}` | {count} |")
+    else:
+        lines.append("| none | 0 |")
+
     lines.extend(["", "## Parent vs Rewrite Evidence", ""])
     if review.empty:
         lines.append("No reviewed rewrite candidates.")

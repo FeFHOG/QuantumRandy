@@ -133,6 +133,7 @@ def test_selector_rewrite_pipeline_runs_research_only_evidence_chain(tmp_path) -
     assert "research artifact only" in report
     review_report = (tmp_path / "pipeline" / "review" / "SELECTOR_PIPELINE_REVIEW.md").read_text(encoding="utf-8")
     assert "research comparison artifact only" in review_report
+    assert "Candidate Verdict Counts" in review_report
     review_manifest = json.loads(
         (tmp_path / "pipeline" / "review" / "selector_pipeline_review_manifest.json").read_text(encoding="utf-8")
     )
