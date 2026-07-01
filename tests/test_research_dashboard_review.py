@@ -131,6 +131,46 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
         ]
     ).to_csv(portfolio_universe / "portfolio_universe_summary.csv", index=False)
 
+    selector_evidence = reports / "selector_pipeline_evidence_v082_summary"
+    selector_evidence.mkdir()
+    (selector_evidence / "selector_pipeline_evidence_manifest.json").write_text(
+        json.dumps(
+            {
+                "run_count": 3,
+                "llm_policy_evidence_runs": 3,
+                "llm_true_improvement_evidence_runs": 2,
+                "coverage_only_trap_runs": 0,
+            }
+        ),
+        encoding="utf-8",
+    )
+    pd.DataFrame(
+        [
+            {
+                "run_id": "evidence4",
+                "is_llm_policy_evidence": True,
+                "is_llm_true_improvement_evidence": False,
+                "llm_true_improved_count": 0,
+                "coverage_only_trap_count": 0,
+                "candidate_source_mix": "llm_rewrite:4|local_rewrite:2",
+                "candidate_highlight_source_mix": "local_rewrite:1",
+                "best_llm_true_improved_factor_id": "",
+                "best_llm_true_improved_formula": "",
+            },
+            {
+                "run_id": "evidence6",
+                "is_llm_policy_evidence": True,
+                "is_llm_true_improvement_evidence": True,
+                "llm_true_improved_count": 1,
+                "coverage_only_trap_count": 0,
+                "candidate_source_mix": "llm_rewrite:4",
+                "candidate_highlight_source_mix": "llm_rewrite:1",
+                "best_llm_true_improved_factor_id": "qr_d907a41282",
+                "best_llm_true_improved_formula": "neg(zscore(sma(funding_rate,48),120))",
+            },
+        ]
+    ).to_csv(selector_evidence / "selector_pipeline_evidence_summary.csv", index=False)
+
     selector_review = reports / "selector_rewrite_pipeline_smoke" / "review"
     selector_review.mkdir(parents=True)
     (selector_review.parent / "selector_rewrite_pipeline_manifest.json").write_text(
@@ -353,6 +393,15 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
     assert payload["portfolio_universe"]["best_pass_rate"] == 0.4
     assert payload["portfolio_universe"]["max_pass_rate"] == 0.4
     assert payload["portfolio_universe"]["top"][0]["portfolio_id"] == "equal_weight_accepted"
+    assert payload["selector_pipeline_evidence"]["runs"] == 3
+    assert payload["selector_pipeline_evidence"]["llm_policy_evidence_runs"] == 3
+    assert payload["selector_pipeline_evidence"]["llm_true_improvement_evidence_runs"] == 2
+    assert payload["selector_pipeline_evidence"]["coverage_only_trap_runs"] == 0
+    assert payload["selector_pipeline_evidence"]["top"][0]["run_id"] == "evidence6"
+    assert payload["selector_pipeline_evidence"]["top"][0]["is_llm_true_improvement_evidence"] is True
+    assert payload["selector_pipeline_evidence"]["top"][0]["best_llm_true_improved_factor_id"] == "qr_d907a41282"
+    assert payload["selector_pipeline_evidence"]["top"][1]["run_id"] == "evidence4"
+    assert payload["selector_pipeline_evidence"]["top"][1]["best_llm_true_improved_factor_id"] == ""
     assert payload["selector_pipeline_review"]["parents"] == 5
     assert payload["selector_pipeline_review"]["candidates"] == 7
     assert payload["selector_pipeline_review"]["evaluated_candidates"] == 6

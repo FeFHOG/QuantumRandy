@@ -427,6 +427,7 @@ HTML = r"""<!doctype html>
       const dataReadiness = review.data_readiness || {};
       const universe = review.universe_robustness || {};
       const portfolioUniverse = review.portfolio_universe || {};
+      const selectorEvidence = review.selector_pipeline_evidence || {};
       const selectorPipeline = review.selector_pipeline_review || {};
       const admission = review.admission || {};
       const failure = review.failure_memory || {};
@@ -436,6 +437,7 @@ HTML = r"""<!doctype html>
         reviewDataReadinessCard(dataReadiness) +
         reviewUniverseCard(universe) +
         reviewPortfolioUniverseCard(portfolioUniverse) +
+        reviewSelectorEvidenceCard(selectorEvidence) +
         reviewSelectorPipelineCard(selectorPipeline) +
         reviewAdmissionCard(admission) +
         reviewFailureCard(failure) +
@@ -539,6 +541,29 @@ HTML = r"""<!doctype html>
           '</span><br><span class="muted">failed_assets=' + escapeHtml(r.candidate_failed_assets || 'none') +
           '</span><br><span class="muted">' + escapeHtml(r.formula || '-') + '</span></div>'
         ).join('') + '</div>' : '') + '</div>';
+    }
+
+    function reviewSelectorEvidenceCard(data) {
+      const rows = data.top || [];
+      return '<div class="review-card"><h3>Selector Evidence Runs</h3>' +
+        '<div class="review-stats">' +
+        '<div class="review-stat"><span>Runs</span><strong>' + (data.runs ?? 0) + '</strong></div>' +
+        '<div class="review-stat"><span>LLM Evidence</span><strong style="color:var(--warn)">' + (data.llm_policy_evidence_runs ?? 0) + '</strong></div>' +
+        '<div class="review-stat"><span>LLM Improved</span><strong style="color:var(--good)">' + (data.llm_true_improvement_evidence_runs ?? 0) + '</strong></div>' +
+        '<div class="review-stat"><span>Trap Runs</span><strong style="color:var(--bad)">' + (data.coverage_only_trap_runs ?? 0) + '</strong></div>' +
+        '</div><div class="muted" style="font-size:11px;margin-bottom:8px">' + (data.source || 'No selector evidence summary artifact') + '</div>' +
+        '<div class="review-list">' + rows.map(r =>
+          '<div class="review-row"><strong class="' + (r.is_llm_true_improvement_evidence ? 'pass' : '') + '">' +
+          escapeHtml(r.run_id || '-') + '</strong><br><span class="muted">llm=' + (r.is_llm_policy_evidence ? 'true' : 'false') +
+          ' llm_improved=' + (r.is_llm_true_improvement_evidence ? 'true' : 'false') +
+          ' llm_true=' + (r.llm_true_improved_count ?? 0) +
+          ' traps=' + (r.coverage_only_trap_count ?? 0) +
+          '</span><br><span class="muted">sources=' + escapeHtml(r.candidate_source_mix || 'none') +
+          ' highlights=' + escapeHtml(r.candidate_highlight_source_mix || 'none') +
+          '</span><br><span style="font-family:Consolas,monospace;color:var(--gold)">' +
+          escapeHtml(r.best_llm_true_improved_factor_id || '-') + '</span><br><span class="muted">' +
+          escapeHtml(r.best_llm_true_improved_formula || '-') + '</span></div>'
+        ).join('') + '</div></div>';
     }
 
     function reviewAdmissionCard(data) {
@@ -953,6 +978,9 @@ def build_research_review_payload(output_dir: str | Path) -> dict:
     selector_pipeline = _selector_pipeline_review_payload(
         _latest_artifact(reports_root, "selector_rewrite_pipeline*/review", "selector_pipeline_review.csv")
     )
+    selector_evidence = _selector_pipeline_evidence_payload(
+        _latest_artifact(reports_root, "selector_pipeline_evidence*", "selector_pipeline_evidence_summary.csv")
+    )
     admission = _admission_payload(_latest_artifact(reports_root, "admission*", "admission_decisions.csv"))
     failure = _failure_payload(
         _latest_artifact(reports_root, "failure_memory*", "failure_memory.csv"),
@@ -962,13 +990,24 @@ def build_research_review_payload(output_dir: str | Path) -> dict:
         _latest_artifact(reports_root, "portfolio_walk_forward*", "portfolio_walk_forward_summary.csv")
     )
     pareto = _pareto_payload(_latest_artifact(reports_root, "*", "pareto_archive.json"))
-    sections = (data_readiness, universe, portfolio_universe, selector_pipeline, admission, failure, portfolio, pareto)
+    sections = (
+        data_readiness,
+        universe,
+        portfolio_universe,
+        selector_evidence,
+        selector_pipeline,
+        admission,
+        failure,
+        portfolio,
+        pareto,
+    )
     available = any(section.get("available") for section in sections)
     return {
         "available": available,
         "data_readiness": data_readiness,
         "universe_robustness": universe,
         "portfolio_universe": portfolio_universe,
+        "selector_pipeline_evidence": selector_evidence,
         "selector_pipeline_review": selector_pipeline,
         "admission": admission,
         "failure_memory": failure,
@@ -1245,6 +1284,60 @@ def _selector_pipeline_review_payload(path: Path | None) -> dict:
     }
 
 
+def _selector_pipeline_evidence_payload(path: Path | None) -> dict:
+    if path is None:
+        return {"available": False}
+    try:
+        frame = pd.read_csv(path)
+    except Exception as exc:
+        return {"available": False, "source": str(path), "error": str(exc)}
+    manifest = _read_optional_json(path.with_name("selector_pipeline_evidence_manifest.json"))
+    if not frame.empty:
+        for column in ("is_llm_true_improvement_evidence", "is_llm_policy_evidence"):
+            if column not in frame.columns:
+                frame[column] = False
+            frame[column] = frame[column].map(_bool)
+        for column in ("llm_true_improved_count", "coverage_only_trap_count"):
+            if column not in frame.columns:
+                frame[column] = 0
+            frame[column] = pd.to_numeric(frame[column], errors="coerce").fillna(0)
+        frame = frame.sort_values(
+            ["is_llm_true_improvement_evidence", "is_llm_policy_evidence", "llm_true_improved_count"],
+            ascending=[False, False, False],
+        )
+    return {
+        "available": True,
+        "source": _display_path(path),
+        "runs": int(manifest.get("run_count", len(frame))),
+        "llm_policy_evidence_runs": int(
+            manifest.get("llm_policy_evidence_runs", _bool_count(frame, "is_llm_policy_evidence"))
+        ),
+        "llm_true_improvement_evidence_runs": int(
+            manifest.get(
+                "llm_true_improvement_evidence_runs",
+                _bool_count(frame, "is_llm_true_improvement_evidence"),
+            )
+        ),
+        "coverage_only_trap_runs": int(
+            manifest.get("coverage_only_trap_runs", _positive_count(frame, "coverage_only_trap_count"))
+        ),
+        "top": [
+            {
+                "run_id": _text(row.get("run_id", "")),
+                "is_llm_policy_evidence": _bool(row.get("is_llm_policy_evidence")),
+                "is_llm_true_improvement_evidence": _bool(row.get("is_llm_true_improvement_evidence")),
+                "llm_true_improved_count": int(_num(row.get("llm_true_improved_count"))),
+                "coverage_only_trap_count": int(_num(row.get("coverage_only_trap_count"))),
+                "candidate_source_mix": _text(row.get("candidate_source_mix", "")),
+                "candidate_highlight_source_mix": _text(row.get("candidate_highlight_source_mix", "")),
+                "best_llm_true_improved_factor_id": _text(row.get("best_llm_true_improved_factor_id", "")),
+                "best_llm_true_improved_formula": _text(row.get("best_llm_true_improved_formula", "")),
+            }
+            for row in frame.head(5).to_dict(orient="records")
+        ],
+    }
+
+
 def _admission_payload(path: Path | None) -> dict:
     if path is None:
         return {"available": False}
@@ -1367,6 +1460,35 @@ def _num(value: object) -> float:
     except (TypeError, ValueError):
         return 0.0
     return number if pd.notna(number) else 0.0
+
+
+def _text(value: object) -> str:
+    if value is None or not pd.notna(value):
+        return ""
+    return str(value)
+
+
+def _bool(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if text in {"true", "1", "yes", "y"}:
+        return True
+    if text in {"false", "0", "no", "n", "", "nan", "none"}:
+        return False
+    return bool(value)
+
+
+def _bool_count(frame: pd.DataFrame, column: str) -> int:
+    if frame.empty or column not in frame.columns:
+        return 0
+    return sum(1 for value in frame[column].tolist() if _bool(value))
+
+
+def _positive_count(frame: pd.DataFrame, column: str) -> int:
+    if frame.empty or column not in frame.columns:
+        return 0
+    return sum(1 for value in frame[column].tolist() if _num(value) > 0)
 
 
 def _max_num(frame: pd.DataFrame, column: str) -> float:

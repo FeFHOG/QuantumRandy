@@ -420,3 +420,8 @@ For the v0.8.2 attempt 4/5/6 comparison, the summary reported:
 Interpretation: the aggregate artifact preserves the same source attribution rule as the single-run review. Mixed-source
 runs can prove the LLM path works, but only highlights sourced from `llm_rewrite` count toward LLM true-improvement
 evidence.
+
+The read-only research review dashboard payload now also loads the latest `selector_pipeline_evidence*` summary and
+surfaces run counts, LLM true-improvement evidence counts, coverage-only trap runs, source mixes, and top LLM-sourced
+true-improved candidates. This is display-only review context and does not change admission, publishing, or runtime
+state.
