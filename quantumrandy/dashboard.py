@@ -426,6 +426,7 @@ HTML = r"""<!doctype html>
       panel.style.display = '';
       const dataReadiness = review.data_readiness || {};
       const universe = review.universe_robustness || {};
+      const portfolioUniverse = review.portfolio_universe || {};
       const admission = review.admission || {};
       const failure = review.failure_memory || {};
       const portfolio = review.portfolio_walk_forward || {};
@@ -433,6 +434,7 @@ HTML = r"""<!doctype html>
       box.innerHTML =
         reviewDataReadinessCard(dataReadiness) +
         reviewUniverseCard(universe) +
+        reviewPortfolioUniverseCard(portfolioUniverse) +
         reviewAdmissionCard(admission) +
         reviewFailureCard(failure) +
         reviewPortfolioCard(portfolio) +
@@ -460,12 +462,27 @@ HTML = r"""<!doctype html>
       return '<div class="review-card"><h3>Universe Robustness</h3>' +
         '<div class="review-stats">' +
         '<div class="review-stat"><span>Formulas</span><strong>' + (data.formulas ?? 0) + '</strong></div>' +
-        '<div class="review-stat"><span>Best Pass</span><strong style="color:var(--warn)">' + fmt(data.best_pass_rate, 2) + '</strong></div>' +
+        '<div class="review-stat"><span>Best Pass</span><strong style="color:var(--warn)">' + fmt(data.max_pass_rate ?? data.best_pass_rate, 2) + '</strong></div>' +
         '<div class="review-stat"><span>Assets</span><strong>' + (data.assets ?? 0) + '</strong></div>' +
         '</div><div class="muted" style="font-size:11px;margin-bottom:8px">' + (data.source || 'No universe artifact') + '</div>' +
         '<div class="review-list">' + rows.map(r =>
           '<div class="review-row"><span style="font-family:Consolas,monospace;color:var(--gold)">' + escapeHtml(r.factor_id || '-') +
           '</span><br><span class="muted">pass=' + fmt(r.pass_rate, 2) + ' sharpe=' + fmt(r.mean_sharpe, 2) +
+          ' rank_ic=' + fmt(r.median_rank_ic, 4) + '</span></div>'
+        ).join('') + '</div></div>';
+    }
+
+    function reviewPortfolioUniverseCard(data) {
+      const rows = data.top || [];
+      return '<div class="review-card"><h3>Portfolio Universe</h3>' +
+        '<div class="review-stats">' +
+        '<div class="review-stat"><span>Portfolios</span><strong>' + (data.portfolios ?? 0) + '</strong></div>' +
+        '<div class="review-stat"><span>Best Pass</span><strong style="color:var(--warn)">' + fmt(data.max_pass_rate ?? data.best_pass_rate, 2) + '</strong></div>' +
+        '<div class="review-stat"><span>Assets</span><strong>' + (data.assets ?? 0) + '</strong></div>' +
+        '</div><div class="muted" style="font-size:11px;margin-bottom:8px">' + (data.source || 'No portfolio universe artifact') + '</div>' +
+        '<div class="review-list">' + rows.map(r =>
+          '<div class="review-row"><strong>' + escapeHtml(r.portfolio_id || '-') +
+          '</strong><br><span class="muted">pass=' + fmt(r.pass_rate, 2) + ' sharpe=' + fmt(r.mean_sharpe, 2) +
           ' rank_ic=' + fmt(r.median_rank_ic, 4) + '</span></div>'
         ).join('') + '</div></div>';
     }
@@ -876,6 +893,9 @@ def build_research_review_payload(output_dir: str | Path) -> dict:
         _latest_artifact(reports_root, "data*", "data_readiness.csv")
     )
     universe = _universe_payload(_latest_artifact(reports_root, "universe*", "universe_summary.csv"))
+    portfolio_universe = _portfolio_universe_payload(
+        _latest_artifact(reports_root, "portfolio_universe*", "portfolio_universe_summary.csv")
+    )
     admission = _admission_payload(_latest_artifact(reports_root, "admission*", "admission_decisions.csv"))
     failure = _failure_payload(
         _latest_artifact(reports_root, "failure_memory*", "failure_memory.csv"),
@@ -885,12 +905,13 @@ def build_research_review_payload(output_dir: str | Path) -> dict:
         _latest_artifact(reports_root, "portfolio_walk_forward*", "portfolio_walk_forward_summary.csv")
     )
     pareto = _pareto_payload(_latest_artifact(reports_root, "*", "pareto_archive.json"))
-    sections = (data_readiness, universe, admission, failure, portfolio, pareto)
+    sections = (data_readiness, universe, portfolio_universe, admission, failure, portfolio, pareto)
     available = any(section.get("available") for section in sections)
     return {
         "available": available,
         "data_readiness": data_readiness,
         "universe_robustness": universe,
+        "portfolio_universe": portfolio_universe,
         "admission": admission,
         "failure_memory": failure,
         "portfolio_walk_forward": portfolio,
@@ -954,11 +975,46 @@ def _universe_payload(path: Path | None) -> dict:
         "formulas": int(len(frame)),
         "assets": int(_num(best.get("asset_count"))),
         "best_pass_rate": _num(best.get("pass_rate")),
+        "max_pass_rate": _max_num(frame, "pass_rate"),
         "best_robustness_score": _num(best.get("robustness_score")),
         "top": [
             {
                 "factor_id": row.get("factor_id", ""),
                 "formula": row.get("formula", ""),
+                "pass_rate": _num(row.get("pass_rate")),
+                "mean_sharpe": _num(row.get("mean_sharpe")),
+                "median_rank_ic": _num(row.get("median_rank_ic")),
+                "robustness_score": _num(row.get("robustness_score")),
+            }
+            for row in frame.head(5).to_dict(orient="records")
+        ],
+    }
+
+
+def _portfolio_universe_payload(path: Path | None) -> dict:
+    if path is None:
+        return {"available": False}
+    try:
+        frame = pd.read_csv(path)
+    except Exception as exc:
+        return {"available": False, "source": str(path), "error": str(exc)}
+    if "robustness_score" in frame.columns:
+        frame = frame.sort_values(
+            ["robustness_score", "pass_rate", "mean_sharpe", "median_rank_ic"],
+            ascending=[False, False, False, False],
+        )
+    best = frame.iloc[0].to_dict() if not frame.empty else {}
+    return {
+        "available": True,
+        "source": _display_path(path),
+        "portfolios": int(len(frame)),
+        "assets": int(_num(best.get("asset_count"))),
+        "best_pass_rate": _num(best.get("pass_rate")),
+        "max_pass_rate": _max_num(frame, "pass_rate"),
+        "best_robustness_score": _num(best.get("robustness_score")),
+        "top": [
+            {
+                "portfolio_id": row.get("portfolio_id", ""),
                 "pass_rate": _num(row.get("pass_rate")),
                 "mean_sharpe": _num(row.get("mean_sharpe")),
                 "median_rank_ic": _num(row.get("median_rank_ic")),
@@ -1091,6 +1147,12 @@ def _num(value: object) -> float:
     except (TypeError, ValueError):
         return 0.0
     return number if pd.notna(number) else 0.0
+
+
+def _max_num(frame: pd.DataFrame, column: str) -> float:
+    if column not in frame.columns or frame.empty:
+        return 0.0
+    return max(_num(value) for value in frame[column])
 
 
 def run_dashboard(config: str, out: str, host: str = "127.0.0.1", port: int = 8765) -> None:

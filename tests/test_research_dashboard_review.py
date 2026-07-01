@@ -108,6 +108,29 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
         ]
     ).to_csv(universe / "universe_summary.csv", index=False)
 
+    portfolio_universe = reports / "portfolio_universe_archive_eval"
+    portfolio_universe.mkdir()
+    pd.DataFrame(
+        [
+            {
+                "portfolio_id": "equal_weight_accepted",
+                "asset_count": 5,
+                "pass_rate": 0.4,
+                "mean_sharpe": 0.2,
+                "median_rank_ic": 0.01,
+                "robustness_score": 0.5,
+            },
+            {
+                "portfolio_id": "sharpe_weight_accepted",
+                "asset_count": 5,
+                "pass_rate": 0.0,
+                "mean_sharpe": -0.1,
+                "median_rank_ic": -0.01,
+                "robustness_score": -1.0,
+            },
+        ]
+    ).to_csv(portfolio_universe / "portfolio_universe_summary.csv", index=False)
+
     research = reports / "research_live"
     (research / "pareto_archive.json").write_text(
         json.dumps(
@@ -143,7 +166,12 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
     assert payload["data_readiness"]["max_missing_bars"] == 12
     assert payload["universe_robustness"]["formulas"] == 2
     assert payload["universe_robustness"]["best_pass_rate"] == 0.6
+    assert payload["universe_robustness"]["max_pass_rate"] == 0.6
     assert payload["universe_robustness"]["top"][0]["factor_id"] == "carry"
+    assert payload["portfolio_universe"]["portfolios"] == 2
+    assert payload["portfolio_universe"]["best_pass_rate"] == 0.4
+    assert payload["portfolio_universe"]["max_pass_rate"] == 0.4
+    assert payload["portfolio_universe"]["top"][0]["portfolio_id"] == "equal_weight_accepted"
 
 
 def test_research_review_payload_hides_when_no_artifacts(tmp_path) -> None:
