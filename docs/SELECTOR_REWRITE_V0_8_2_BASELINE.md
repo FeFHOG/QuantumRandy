@@ -383,3 +383,40 @@ Interpretation: attempt 6 confirms the automated gate works end-to-end: a run ca
 but an LLM-sourced true-improved highlight after multi-asset review. The resulting candidate still fails four assets and
 does not qualify for admission or runtime publishing. It is process evidence for cleaner LLM rewrite audits, not a
 strategy promotion claim.
+
+## Multi-Run Evidence Summary
+
+Date: 2026-07-02
+
+Selector rewrite evidence can now be summarized across multiple pipeline output directories with:
+
+```bash
+.venv/bin/python scripts/summarize_selector_evidence.py \
+  reports/selector_rewrite_pipeline_llm_v082_evidence4 \
+  reports/selector_rewrite_pipeline_llm_v082_evidence5_llm_only \
+  reports/selector_rewrite_pipeline_llm_v082_evidence6_llm_only_required \
+  --out reports/selector_pipeline_evidence_v082_summary
+```
+
+This writes:
+
+- `selector_pipeline_evidence_summary.csv`
+- `selector_pipeline_evidence_manifest.json`
+- `SELECTOR_PIPELINE_EVIDENCE_SUMMARY.md`
+
+The summary is research-only and does not admit, publish, or update runtime state. Its main purpose is attribution
+discipline across repeated selector rewrite experiments.
+
+For the v0.8.2 attempt 4/5/6 comparison, the summary reported:
+
+- Runs: `3`
+- LLM policy evidence runs: `3`
+- LLM true-improvement evidence runs: `2`
+- Runs with coverage-only traps: `0`
+- Attempt 4: `is_llm_true_improvement_evidence=false` because its only true-improved highlight was `local_rewrite`
+- Attempt 5: `is_llm_true_improvement_evidence=true` with candidate `qr_cd595899ee`
+- Attempt 6: `is_llm_true_improvement_evidence=true` with candidate `qr_d907a41282`
+
+Interpretation: the aggregate artifact preserves the same source attribution rule as the single-run review. Mixed-source
+runs can prove the LLM path works, but only highlights sourced from `llm_rewrite` count toward LLM true-improvement
+evidence.
