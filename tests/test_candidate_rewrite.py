@@ -227,7 +227,42 @@ def test_selector_rewrite_merges_selector_forbidden_subtrees_into_generation(tmp
     assert generator.last_failure_detail["universe"]["mean_sharpe"] == 0.3
     assert generator.last_failure_detail["rewrite_objective"]["target_pass_rate_delta"] == "> 0"
     assert generator.last_failure_detail["rewrite_objective"]["target_mean_sharpe_delta"] == ">= 0"
+    assert generator.last_failure_detail["rewrite_objective"]["parent_formula_family"] == "price"
+    assert generator.last_failure_detail["rewrite_objective"]["max_pure_funding_candidates"] == 0
+    assert "Pure funding-rate-only rewrites are disallowed" in (
+        generator.last_failure_detail["rewrite_objective"]["formula_family_constraint"]
+    )
     assert "BTCUSDT,ETHUSDT" in generator.last_failure_detail["rewrite_objective"]["failed_assets_instruction"]
+    assert candidates.iloc[0]["parent_formula_family"] == "price"
+    assert candidates.iloc[0]["max_pure_funding_candidates"] == 0
+    assert events.iloc[0]["parent_formula_family"] == "price"
+    assert events.iloc[0]["max_pure_funding_candidates"] == 0
+
+
+def test_selector_rewrite_allows_one_pure_funding_rewrite_for_funding_parent(tmp_path) -> None:
+    targets = [
+        {
+            "factor_id": "weak_funding",
+            "formula": "neg(zscore(sma(funding_rate,48),120))",
+            "selector_verdict": "rewrite",
+            "rewrite_focus": "improve_cross_asset_robustness",
+            "universe_pass_rate": 0.2,
+            "universe_mean_sharpe": 0.3,
+            "failed_assets": "BTCUSDT,ETHUSDT",
+        }
+    ]
+    generator = _RecordingRewriteGenerator()
+
+    candidates, events, _ = build_selector_rewrite_candidates(
+        targets,
+        generator,
+        policy=CandidateRewritePolicy(max_targets=1, candidates_per_target=1),
+    )
+
+    assert generator.last_failure_detail["rewrite_objective"]["parent_formula_family"] == "pure_funding"
+    assert generator.last_failure_detail["rewrite_objective"]["max_pure_funding_candidates"] == 1
+    assert candidates.iloc[0]["parent_formula_family"] == "pure_funding"
+    assert events.iloc[0]["max_pure_funding_candidates"] == 1
 
 
 def test_selector_rewrite_policy_can_disable_local_fallback(tmp_path) -> None:

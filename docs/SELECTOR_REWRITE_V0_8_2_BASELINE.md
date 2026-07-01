@@ -558,3 +558,74 @@ were cleanly rejected by the hard gate, and every highlighted candidate still fa
 algorithm step is not runtime promotion; it is to revise selector rewrite prompting or target selection so LLM repeats
 are less likely to collapse into weak slow-funding variants and more likely to produce repeatable, profitability-aware
 cross-asset improvements.
+
+## Policy-Guarded LLM-Only Repeat 9
+
+Date: 2026-07-02
+
+After attempts 7 and 8 drifted toward weak slow-funding variants, the selector rewrite generation policy was tightened
+without touching admission, publishing, or runtime behavior:
+
+- selector rewrite artifacts now classify each parent formula family;
+- non-funding parents default to `max_pure_funding_candidates=0`;
+- pure funding parents still allow at most one pure funding-rate-only rewrite;
+- the same family limit is included in the LLM rewrite prompt and enforced by the LLM candidate parser;
+- prompt examples were corrected so non-funding family examples obey the current DSL depth limit.
+
+The first policy-guarded attempt exposed an invalid prompt-example issue: the LLM copied range-normalization formulas
+such as `zscore(div(sub(high,low),close),96)`, which exceed the current `max_depth=4` shape rule. That run produced no
+accepted LLM candidates and was treated as a prompt-shape negative control rather than selector evidence. The prompt was
+then corrected to use valid examples such as `zscore(sub(high,low),96)` and `zscore(std(close,24),96)`.
+
+The corrected run used:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence9_policy_guarded_shape_fixed \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke
+```
+
+Attempt 9 completed the full research pipeline and produced valid LLM policy evidence, but exited with code `3`
+because the hard gate correctly rejected a run with no LLM-sourced true-improved highlight:
+
+- `allow_local_fallback`: `false`
+- `llm_rewrite_accepted`: `3`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- Candidate generation source counts: `llm_rewrite:3`
+- Candidate verdicts: `not_improved:3`
+- Candidate highlights: `0`
+- `llm_true_improved_count`: `0`
+- `is_llm_true_improvement_evidence`: `false`
+- Coverage-only traps: `0`
+
+The policy guard changed the failure mode in a useful way: the LLM no longer collapsed into pure funding-only rewrites
+for non-funding parents. Instead, the accepted candidates shifted toward realized-volatility stress proxies such as
+`neg(zscore(std(close,24),96))`, `neg(zscore(std(close,12),120))`, and `neg(zscore(std(close,24),120))`. These were
+cleanly evaluated but materially underperformed their parents on five-asset review, so the hard gate still rejected the
+run.
+
+The multi-run summary was refreshed with attempts 4 through 9:
+
+- Runs: `6`
+- LLM policy evidence runs: `6`
+- LLM true-improvement evidence runs: `2`
+- Runs with coverage-only traps: `0`
+- Highlighted candidate rows: `3`
+- Distinct highlighted candidates: `3`
+
+Interpretation: the policy guard improved attribution and candidate-family discipline, but it did not improve selector
+rewrite quality yet. The next useful algorithm step is to make the rewrite objective more asset-specific or to add
+negative evidence memory for failed realized-volatility rewrites, not to relax the hard gate or publish any candidate.

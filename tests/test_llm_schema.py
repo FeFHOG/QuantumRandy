@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import os
+import json
 
 import pandas as pd
 
 from quantumrandy.candidate_selector import write_candidate_selector_report
 from quantumrandy.config import PromptConfig
+from quantumrandy.expression import validate_formula_shape
 from quantumrandy.failure_memory import write_failure_memory
 from quantumrandy.llm import FormulaGenerator, LLMSettings, _llm_api_key
 
@@ -292,7 +294,8 @@ def test_llm_rewrite_prompt_uses_failed_gate_guidance(monkeypatch) -> None:
     assert "invalid_examples" in captured["prompt"]
     assert "neg(zscore(ema(winsorize(funding_rate,5),96),168))" in captured["prompt"]
     assert "candidate_diversity" in captured["prompt"]
-    assert "At most one returned candidate may be funding_rate-only" in captured["prompt"]
+    assert "max_pure_funding_candidates" in captured["prompt"]
+    assert "Pure funding-rate-only candidate limit for this parent" in captured["prompt"]
     assert "rewrite_objective" in captured["prompt"]
     assert "pass_rate_delta > 0" in captured["prompt"]
     assert "mean_sharpe_delta >= 0" in captured["prompt"]
@@ -300,6 +303,9 @@ def test_llm_rewrite_prompt_uses_failed_gate_guidance(monkeypatch) -> None:
     assert "likely cross-asset failure pattern" in captured["prompt"]
     assert "friction_audit" in captured["prompt"]
     assert "Reduce turnover" in captured["prompt"]
+    prompt = json.loads(captured["prompt"])
+    for example in prompt["candidate_diversity"]["non_funding_family_examples"]:
+        validate_formula_shape(example)
     assert generator.events[-1]["source"] == "llm_rewrite"
     os.environ.pop("LLM_API_KEY", None)
 
@@ -371,7 +377,32 @@ def test_llm_rewrite_parser_limits_pure_funding_candidates() -> None:
     )
 
     assert out == ["neg(zscore(funding_rate,168))", "zscore(volume,96)"]
-    assert rejected[-1]["reason"] == "too many pure funding-only candidates"
+    assert rejected[-1]["reason"] == "pure funding-only candidate exceeds family limit (1)"
+
+
+def test_llm_rewrite_parser_can_disallow_pure_funding_candidates() -> None:
+    generator = FormulaGenerator(use_llm=False)
+
+    out, rejected = generator._parse_candidate_payload(
+        {
+            "candidates": [
+                {
+                    "formula": "neg(zscore(funding_rate,168))",
+                    "description": "Funding pressure mean reversion captures crowded carry and possible reversal.",
+                },
+                {
+                    "formula": "zscore(volume,96)",
+                    "description": "Volume pressure can proxy liquidity regime changes across crypto markets.",
+                },
+            ]
+        },
+        2,
+        [],
+        max_pure_funding=0,
+    )
+
+    assert out == ["zscore(volume,96)"]
+    assert rejected[0]["reason"] == "pure funding-only candidate exceeds family limit (0)"
 
 
 def test_llm_rewrite_prompt_includes_candidate_selector_context(monkeypatch, tmp_path) -> None:

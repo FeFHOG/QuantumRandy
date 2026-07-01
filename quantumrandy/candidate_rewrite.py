@@ -20,6 +20,7 @@ class CandidateRewritePolicy:
     avoid_selector_failed_subtrees: bool = True
     max_selector_forbidden_subtrees: int = 8
     allow_local_fallback: bool = True
+    disallow_pure_funding_rewrite_for_non_funding_parent: bool = True
 
 
 def load_rewrite_targets(path: str | Path, *, max_targets: int | None = None) -> list[dict[str, Any]]:
@@ -76,7 +77,12 @@ def build_selector_rewrite_candidates(
         if not formula:
             continue
         failed_gates = _failed_gates_for_focus(str(target.get("rewrite_focus", "")))
-        detail = _target_failure_detail(target)
+        detail = _target_failure_detail(
+            target,
+            disallow_pure_funding_for_non_funding_parent=(
+                policy.disallow_pure_funding_rewrite_for_non_funding_parent
+            ),
+        )
         target_failed_subtrees = _split_subtrees(target.get("matched_failed_subtrees", ""))
         effective_forbidden = _dedupe_subtrees(
             [
@@ -112,6 +118,11 @@ def build_selector_rewrite_candidates(
                     "selector_forbidden_subtrees": "|".join(effective_forbidden[:10]),
                     "known_selector_formula_count": len(known_selector_formulas),
                     "disallowed_formula_count": event.get("disallowed_formula_count", len(known_selector_formulas)),
+                    "parent_formula_family": detail.get("rewrite_objective", {}).get("parent_formula_family", ""),
+                    "max_pure_funding_candidates": detail.get("rewrite_objective", {}).get(
+                        "max_pure_funding_candidates",
+                        "",
+                    ),
                 }
             )
         for proposal in proposals:
@@ -139,6 +150,11 @@ def build_selector_rewrite_candidates(
                     "selector_forbidden_subtrees": "|".join(effective_forbidden[:10]),
                     "known_selector_formula_count": len(known_selector_formulas),
                     "rewrite_failed_gates": ",".join(failed_gates),
+                    "parent_formula_family": detail.get("rewrite_objective", {}).get("parent_formula_family", ""),
+                    "max_pure_funding_candidates": detail.get("rewrite_objective", {}).get(
+                        "max_pure_funding_candidates",
+                        "",
+                    ),
                     "hypothesis": metadata.get("hypothesis", ""),
                     "expected_edge": metadata.get("expected_edge", ""),
                     "expected_failure_mode": metadata.get("expected_failure_mode", ""),
@@ -355,8 +371,18 @@ def _failed_gates_for_focus(rewrite_focus: str) -> list[str]:
     return ["predictive_power"]
 
 
-def _target_failure_detail(target: dict[str, Any]) -> dict[str, Any]:
+def _target_failure_detail(
+    target: dict[str, Any],
+    *,
+    disallow_pure_funding_for_non_funding_parent: bool = True,
+) -> dict[str, Any]:
     failed_assets = target.get("failed_assets", "")
+    formula = str(target.get("formula", ""))
+    parent_family = _formula_family(formula)
+    disallow_pure_funding = (
+        disallow_pure_funding_for_non_funding_parent
+        and parent_family != "pure_funding"
+    )
     return {
         "passed": False,
         "selector_verdict": target.get("selector_verdict", ""),
@@ -370,6 +396,19 @@ def _target_failure_detail(target: dict[str, Any]) -> dict[str, Any]:
         "rewrite_objective": {
             "target_pass_rate_delta": "> 0",
             "target_mean_sharpe_delta": ">= 0",
+            "parent_formula_family": parent_family,
+            "max_pure_funding_candidates": 0 if disallow_pure_funding else 1,
+            "formula_family_constraint": (
+                "Pure funding-rate-only rewrites are disallowed for this non-funding parent. Use funding only as an "
+                "interaction with price, range, or volume, or choose a non-funding economic family."
+                if disallow_pure_funding
+                else "At most one pure funding-rate-only rewrite may be returned for this parent."
+            ),
+            "negative_repeat_memory": (
+                "Recent hard-gated selector repeats showed that slow pure funding-only variants can pass LLM parsing "
+                "while materially reducing five-asset mean Sharpe. Do not use slow funding carry as a generic escape "
+                "from weak price, volume, or range parents."
+            ),
             "profitability_gate": (
                 "A rewrite is not a useful improvement if it only raises pass_rate while mean Sharpe falls versus "
                 "the parent. Normalized range, volatility, and liquidity candidates must justify expected Sharpe."
@@ -381,6 +420,24 @@ def _target_failure_detail(target: dict[str, Any]) -> dict[str, Any]:
             ),
         },
     }
+
+
+def _formula_family(formula: str) -> str:
+    text = str(formula)
+    has_funding = "funding_rate" in text
+    has_price = any(field in text for field in ("open", "high", "low", "close"))
+    has_volume = "volume" in text
+    if has_funding and not has_price and not has_volume:
+        return "pure_funding"
+    if has_funding:
+        return "funding_interaction"
+    if has_volume:
+        return "volume_liquidity"
+    if any(field in text for field in ("high", "low")):
+        return "range_volatility"
+    if has_price:
+        return "price"
+    return "other"
 
 
 def _cluster_subtrees(path: Path) -> list[str]:

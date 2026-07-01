@@ -590,6 +590,24 @@ Expected value:
 - Current interpretation: the LLM-only audit path is repeatable and attribution-clean, but the positive candidates are
   not stable across repeats. Attempts 7 and 8 drifted toward weak slow-funding variants and should be treated as
   research-only negative controls, not admission or runtime publish evidence.
+- Tightened selector rewrite family discipline after the slow-funding drift:
+  - non-funding selector parents now default to `max_pure_funding_candidates=0`;
+  - pure funding parents still allow at most one pure funding-rate-only rewrite;
+  - the family limit is included in LLM rewrite prompts and enforced by the parser;
+  - rewrite artifacts record `parent_formula_family` and `max_pure_funding_candidates`;
+  - invalid non-funding prompt examples that exceeded the DSL depth limit were replaced with shape-valid range and
+    realized-volatility examples.
+- Ran a policy-guarded LLM-only repeat:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence9_policy_guarded_shape_fixed`;
+  - `llm_rewrite_accepted=3`, `fallback_rewrite_accepted=0`, `is_llm_policy_evidence=true`;
+  - all candidates were still `not_improved`, with no LLM true-improved highlight;
+  - the failure mode shifted from weak pure funding variants to weak realized-volatility stress proxies, so the hard gate
+    again rejected the run correctly.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 9:
+  - runs: `6`;
+  - LLM policy evidence runs: `6`;
+  - LLM true-improvement evidence runs: `2`;
+  - coverage-only trap runs: `0`.
 
 ## Next Session Prompt
 

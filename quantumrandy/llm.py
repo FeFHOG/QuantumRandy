@@ -474,11 +474,13 @@ class FormulaGenerator:
         evidence_gaps = selector_context.get("evidence_gaps", [])
         selector_clusters = selector_context.get("clusters", [])
         parent_selector_target = _matching_selector_target(formula, rewrite_targets)
+        max_pure_funding = _max_pure_funding_candidates(failure_detail, count)
         detail["failure_memory_examples"] = len(failure_examples)
         detail["failure_memory_clusters"] = len(failure_clusters)
         detail["candidate_selector_rewrite_targets"] = len(rewrite_targets)
         detail["candidate_selector_evidence_gaps"] = len(evidence_gaps)
         detail["candidate_selector_clusters"] = len(selector_clusters)
+        detail["max_pure_funding_candidates"] = max_pure_funding
         pc = self.prompt_config
         desc_len = pc.description_min_length if pc else DESCRIPTION_MIN_LENGTH
         temp = pc.temperature if pc else 0.7
@@ -539,16 +541,28 @@ class FormulaGenerator:
             },
             "candidate_diversity": {
                 "instruction": (
-                    "Do not return a batch where every candidate is funding_rate-only. At most one candidate may be "
-                    "a pure funding/carry transform. Include at least one volatility, range, volume, or liquidity-regime "
-                    "candidate when generating multiple candidates."
+                    "Do not return a batch where every candidate is funding_rate-only. Obey max_pure_funding_candidates "
+                    "exactly. Include volatility, range, volume, liquidity-regime, or price-regime candidates when "
+                    "pure funding-only rewrites are capped or disallowed."
+                ),
+                "max_pure_funding_candidates": max_pure_funding,
+                "formula_family_constraint": (
+                    failure_detail.get("rewrite_objective", {}).get("formula_family_constraint", "")
+                    if isinstance(failure_detail, dict)
+                    else ""
+                ),
+                "negative_repeat_memory": (
+                    failure_detail.get("rewrite_objective", {}).get("negative_repeat_memory", "")
+                    if isinstance(failure_detail, dict)
+                    else ""
                 ),
                 "funding_family_examples": [
                     "neg(zscore(funding_rate,168))",
                     "neg(zscore(sma(funding_rate,72),168))",
                 ],
                 "non_funding_family_examples": [
-                    "zscore(div(sub(high,low),close),96)",
+                    "zscore(sub(high,low),96)",
+                    "zscore(std(close,24),96)",
                     "zscore(ema(volume,48),120)",
                     "zscore(ret(close,24),96)",
                 ],
@@ -571,7 +585,8 @@ class FormulaGenerator:
                     "violate them are rejected before backtesting."
                 ),
                 "Prefer 1-3 operator formulas. Before returning JSON, self-check every formula against max_depth and max_operators.",
-                "At most one returned candidate may be funding_rate-only; diversify across funding, volatility/range, volume/liquidity, or price-regime families.",
+                f"Pure funding-rate-only candidate limit for this parent: {max_pure_funding}.",
+                "Diversify across funding interactions, volatility/range, volume/liquidity, or price-regime families.",
                 (
                     "A higher pass_rate alone is not enough. Prefer candidates that can plausibly improve both "
                     "cross-asset pass_rate and mean Sharpe versus the parent evidence in failure_detail."
@@ -612,7 +627,7 @@ class FormulaGenerator:
             count,
             forbidden,
             disallow=disallowed_formulas,
-            max_pure_funding=1 if count > 1 else None,
+            max_pure_funding=max_pure_funding,
         )
         if rejected:
             self.events.append({"source": "rewrite_validator", "accepted": len(out), "rejected": rejected[:20]})
@@ -661,7 +676,15 @@ class FormulaGenerator:
                 continue
             if max_pure_funding is not None and _is_pure_funding_formula(canonical):
                 if pure_funding_count >= max_pure_funding:
-                    rejected.append({"formula": canonical, "reason": "too many pure funding-only candidates"})
+                    rejected.append(
+                        {
+                            "formula": canonical,
+                            "reason": (
+                                "pure funding-only candidate exceeds family limit "
+                                f"({max_pure_funding})"
+                            ),
+                        }
+                    )
                     continue
                 pure_funding_count += 1
             self.descriptions[canonical] = desc_text
@@ -883,11 +906,13 @@ def _shape_constraints(max_depth: int, max_operators: int) -> dict[str, Any]:
             "zscore(ema(field, short_window), long_window)",
             "zscore(sma(field, short_window), long_window)",
             "zscore(ret(close, window), long_window)",
-            "zscore(div(sub(high,low), close), window)",
+            "zscore(sub(high,low), window)",
+            "zscore(std(close, short_window), long_window)",
             "corr(field_a, field_b, window)",
         ],
         "invalid_examples": [
             "neg(zscore(ema(winsorize(funding_rate,5),96),168))",
+            "zscore(div(sub(high,low),close),96)",
             "neg(zscore(div(sma(funding_rate,96),std(funding_rate,192)),192))",
             "neg(zscore(sma(div(sub(high,low),close),96),192))",
         ],
@@ -972,9 +997,28 @@ def _compact_failure_detail(detail: dict[str, Any]) -> dict[str, Any]:
                 for key in [
                     "target_pass_rate_delta",
                     "target_mean_sharpe_delta",
+                    "parent_formula_family",
+                    "max_pure_funding_candidates",
+                    "formula_family_constraint",
+                    "negative_repeat_memory",
                     "profitability_gate",
                     "failed_assets_instruction",
                 ]
                 if key in objective
             }
     return out
+
+
+def _max_pure_funding_candidates(failure_detail: dict[str, Any], count: int) -> int | None:
+    if not isinstance(failure_detail, dict):
+        return 1 if count > 1 else None
+    objective = failure_detail.get("rewrite_objective")
+    if not isinstance(objective, dict):
+        return 1 if count > 1 else None
+    raw = objective.get("max_pure_funding_candidates")
+    if raw is None or raw == "":
+        return 1 if count > 1 else None
+    try:
+        return max(0, int(float(raw)))
+    except (TypeError, ValueError):
+        return 1 if count > 1 else None
