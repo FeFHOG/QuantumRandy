@@ -132,6 +132,11 @@ def run_selector_rewrite_pipeline(
         review = build_selector_pipeline_review_from_candidates(candidate_review)
         _write_review_outputs(out / "review", review=review, candidate_review=candidate_review)
         candidate_highlights = build_selector_pipeline_candidate_highlights(candidate_review)
+        llm_true_improved_count = _highlight_count(
+            candidate_highlights,
+            highlight_type="true_improved",
+            generation_source="llm_rewrite",
+        )
         manifest["universe"] = {
             "status": "completed",
             "out_dir": universe_out.as_posix(),
@@ -151,6 +156,10 @@ def run_selector_rewrite_pipeline(
             "candidate_highlight_generation_source_counts": _value_counts(
                 candidate_highlights,
                 "rewrite_generation_source",
+            ),
+            "llm_true_improved_count": llm_true_improved_count,
+            "is_llm_true_improvement_evidence": bool(
+                manifest["rewrite"].get("is_llm_policy_evidence", False) and llm_true_improved_count > 0
             ),
         }
         manifest["outputs"]["universe_summary"] = (universe_out / "universe_summary.csv").as_posix()
@@ -280,6 +289,10 @@ def render_pipeline_report(manifest: dict[str, Any]) -> str:
         source_counts = review.get("candidate_generation_source_counts") or {}
         highlight_counts = review.get("candidate_highlight_counts") or {}
         highlight_source_counts = review.get("candidate_highlight_generation_source_counts") or {}
+        lines.append(f"- LLM true-improved highlights: `{review.get('llm_true_improved_count', 0)}`")
+        lines.append(
+            f"- LLM true-improvement evidence: `{review.get('is_llm_true_improvement_evidence', False)}`"
+        )
         if candidate_counts:
             lines.append(f"- Candidate verdict mix: `{_format_counts(candidate_counts)}`")
         if source_counts:
@@ -662,6 +675,11 @@ def _write_review_outputs(out: Path, *, review: pd.DataFrame, candidate_review: 
     out.mkdir(parents=True, exist_ok=True)
     candidate_review = candidate_review if candidate_review is not None else pd.DataFrame()
     candidate_highlights = build_selector_pipeline_candidate_highlights(candidate_review)
+    llm_true_improved_count = _highlight_count(
+        candidate_highlights,
+        highlight_type="true_improved",
+        generation_source="llm_rewrite",
+    )
     manifest = {
         "artifact_type": "quantumrandy_selector_rewrite_pipeline_review",
         "schema_version": 1,
@@ -682,6 +700,8 @@ def _write_review_outputs(out: Path, *, review: pd.DataFrame, candidate_review: 
             candidate_highlights,
             "rewrite_generation_source",
         ),
+        "llm_true_improved_count": llm_true_improved_count,
+        "is_llm_true_improvement_evidence": llm_true_improved_count > 0,
         "outputs": {
             "candidate_highlight_summary": (out / "SELECTOR_CANDIDATE_HIGHLIGHTS.md").as_posix(),
             "candidate_highlight_summary_manifest": (
@@ -696,6 +716,7 @@ def _write_review_outputs(out: Path, *, review: pd.DataFrame, candidate_review: 
         "source_review_dir": out.as_posix(),
         "highlight_rows": len(candidate_highlights),
         "highlight_counts": _value_counts(candidate_highlights, "highlight_type"),
+        "llm_true_improved_count": llm_true_improved_count,
         "outputs": {
             "summary_markdown": (out / "SELECTOR_CANDIDATE_HIGHLIGHTS.md").as_posix(),
             "summary_manifest": (out / "selector_candidate_highlight_summary_manifest.json").as_posix(),
@@ -754,6 +775,16 @@ def render_review_report(
             lines.append(f"| `{verdict}` | {count} |")
     else:
         lines.append("| none | 0 |")
+
+    lines.extend(
+        [
+            "",
+            "## LLM Improvement Evidence",
+            "",
+            f"- LLM true-improved highlights: `{manifest.get('llm_true_improved_count', 0)}`",
+            f"- LLM true-improvement evidence: `{manifest.get('is_llm_true_improvement_evidence', False)}`",
+        ]
+    )
 
     source_counts = manifest.get("candidate_generation_source_counts") or {}
     if source_counts:
@@ -978,3 +1009,16 @@ def _value_counts(frame: pd.DataFrame, column: str) -> dict[str, int]:
     if frame.empty or column not in frame.columns:
         return {}
     return {str(key): int(value) for key, value in frame[column].value_counts().to_dict().items()}
+
+
+def _highlight_count(frame: pd.DataFrame, *, highlight_type: str, generation_source: str) -> int:
+    if frame.empty or not {"highlight_type", "rewrite_generation_source"}.issubset(frame.columns):
+        return 0
+    count = 0
+    for row in frame.fillna("").to_dict(orient="records"):
+        if str(row.get("highlight_type", "")) != highlight_type:
+            continue
+        if str(row.get("rewrite_generation_source", "")) != generation_source:
+            continue
+        count += 1
+    return count

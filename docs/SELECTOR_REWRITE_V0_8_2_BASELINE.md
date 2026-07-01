@@ -319,3 +319,67 @@ Interpretation: attempt 5 is the first clean run in this sequence where a true-i
 from an LLM-generated candidate rather than local fallback. The improvement is still modest and fails four of five
 assets, so it is not admission evidence and must not be published to runtime. The useful result is process-level:
 LLM-only evidence can now be generated and audited without mixed-source attribution ambiguity.
+
+## Required LLM True-Improvement Gate
+
+Date: 2026-07-02
+
+The selector rewrite pipeline now exposes a stricter research-only CLI gate:
+
+```bash
+--require-llm-true-improvement
+```
+
+This is intentionally stronger than `--require-llm-evidence`. `--require-llm-evidence` only verifies that at least one
+LLM rewrite candidate was accepted. `--require-llm-true-improvement` exits non-zero unless the completed review stage
+contains at least one `true_improved` highlight whose `rewrite_generation_source` is `llm_rewrite`.
+
+The pipeline and review manifests now include:
+
+- `llm_true_improved_count`
+- `is_llm_true_improvement_evidence`
+
+Attempt 6 used the new hard gate:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence6_llm_only_required \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke
+```
+
+Attempt 6 completed successfully:
+
+- `allow_local_fallback`: `false`
+- `llm_rewrite_accepted`: `4`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- `llm_true_improved_count`: `1`
+- `is_llm_true_improvement_evidence`: `true`
+- Candidate generation source counts: `llm_rewrite:4`
+- Candidate verdicts: `not_improved:3|improved:1`
+- Candidate highlights: `true_improved:1`
+- Candidate highlight source counts: `llm_rewrite:1`
+- Coverage-only traps: `0`
+
+The true improved LLM candidate was:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_7a765d304b` | `qr_d907a41282` | `llm_rewrite` | 0.20 | 0.02518252 | BTCUSDT,SOLUSDT,BNBUSDT,AVAXUSDT | `neg(zscore(sma(funding_rate,48),120))` |
+
+Interpretation: attempt 6 confirms the automated gate works end-to-end: a run can now require not just LLM participation
+but an LLM-sourced true-improved highlight after multi-asset review. The resulting candidate still fails four assets and
+does not qualify for admission or runtime publishing. It is process evidence for cleaner LLM rewrite audits, not a
+strategy promotion claim.

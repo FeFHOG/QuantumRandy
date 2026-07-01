@@ -143,6 +143,8 @@ def test_selector_rewrite_pipeline_runs_research_only_evidence_chain(tmp_path) -
     assert persisted["review"]["candidate_review_rows"] >= persisted["review"]["review_rows"]
     assert "candidate_verdict_counts" in persisted["review"]
     assert "candidate_highlight_counts" in persisted["review"]
+    assert "llm_true_improved_count" in persisted["review"]
+    assert "is_llm_true_improvement_evidence" in persisted["review"]
     assert "pipeline_candidate_review" in persisted["outputs"]
     assert "pipeline_candidate_highlights" in persisted["outputs"]
     assert "pipeline_candidate_highlight_summary" in persisted["outputs"]
@@ -150,6 +152,7 @@ def test_selector_rewrite_pipeline_runs_research_only_evidence_chain(tmp_path) -
     report = (tmp_path / "pipeline" / "SELECTOR_REWRITE_PIPELINE_REPORT.md").read_text(encoding="utf-8")
     assert "research artifact only" in report
     assert "LLM policy evidence" in report
+    assert "LLM true-improvement evidence" in report
     assert "Reviewed candidates" in report
     assert "Candidate highlight mix" in report
     review_report = (tmp_path / "pipeline" / "review" / "SELECTOR_PIPELINE_REVIEW.md").read_text(encoding="utf-8")
@@ -161,6 +164,7 @@ def test_selector_rewrite_pipeline_runs_research_only_evidence_chain(tmp_path) -
     )
     assert review_manifest["candidate_review_rows"] >= review_manifest["review_rows"]
     assert "candidate_highlight_rows" in review_manifest
+    assert "llm_true_improved_count" in review_manifest
     assert "candidate_highlight_summary" in review_manifest["outputs"]
 
 
@@ -409,6 +413,8 @@ def test_selector_pipeline_review_compares_parent_and_rewrite_evidence(tmp_path)
             "candidate_verdict_counts": {"improved": 2, "coverage_only": 2, "mixed": 1},
             "candidate_generation_source_counts": {"llm_rewrite": 4, "local_rewrite": 3},
             "candidate_highlight_generation_source_counts": {"llm_rewrite": 3, "local_rewrite": 3},
+            "llm_true_improved_count": 2,
+            "is_llm_true_improvement_evidence": True,
         },
         review,
         candidate_review=candidate_review,
@@ -416,6 +422,7 @@ def test_selector_pipeline_review_compares_parent_and_rewrite_evidence(tmp_path)
     assert "True Improved Candidates" in report
     assert "Candidate Source Counts" in report
     assert "Candidate Highlight Source Counts" in report
+    assert "LLM true-improvement evidence" in report
     assert "`rewrite_g`" in report
     assert "ETHUSDT" in report
     assert "Coverage-Only Traps" in report

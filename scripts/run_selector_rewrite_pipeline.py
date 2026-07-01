@@ -40,6 +40,11 @@ def main() -> None:
         action="store_true",
         help="Exit non-zero unless --use-llm produced at least one accepted LLM rewrite.",
     )
+    parser.add_argument(
+        "--require-llm-true-improvement",
+        action="store_true",
+        help="Exit non-zero unless review highlights include a true_improved candidate from llm_rewrite.",
+    )
     args = parser.parse_args()
 
     manifest = run_selector_rewrite_pipeline(
@@ -67,10 +72,23 @@ def main() -> None:
             file=sys.stderr,
         )
         raise SystemExit(2)
+    if args.require_llm_true_improvement and not manifest.get("review", {}).get(
+        "is_llm_true_improvement_evidence", False
+    ):
+        review = manifest.get("review", {})
+        print(
+            "Selector rewrite pipeline did not produce LLM true-improvement evidence: "
+            f"review_status={review.get('status')} "
+            f"llm_true_improved={review.get('llm_true_improved_count', 0)} "
+            f"highlight_sources={review.get('candidate_highlight_generation_source_counts', {})}",
+            file=sys.stderr,
+        )
+        raise SystemExit(3)
     print(
         "Selector rewrite pipeline: "
         f"rewrite={manifest['rewrite']['candidate_count']} "
         f"llm_evidence={manifest['rewrite'].get('is_llm_policy_evidence', False)} "
+        f"llm_true_improvement={manifest.get('review', {}).get('is_llm_true_improvement_evidence', False)} "
         f"universe={manifest['universe']['status']} "
         f"portfolio_universe={manifest['portfolio_universe']['status']} "
         f"out={Path(args.out).resolve()}"
