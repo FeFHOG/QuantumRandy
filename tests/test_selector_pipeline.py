@@ -192,6 +192,24 @@ def test_selector_pipeline_review_compares_parent_and_rewrite_evidence(tmp_path)
                 "parent_universe_pass_rate": 0.2,
                 "parent_universe_mean_sharpe": -0.3,
             },
+            {
+                "factor_id": "rewrite_f",
+                "formula": "zscore(volume,72)",
+                "parent_factor_id": "parent_e",
+                "parent_formula": "zscore(volume,24)",
+                "parent_rewrite_focus": "improve_cross_asset_robustness",
+                "parent_universe_pass_rate": 0.2,
+                "parent_universe_mean_sharpe": 0.1,
+            },
+            {
+                "factor_id": "rewrite_g",
+                "formula": "zscore(volume,96)",
+                "parent_factor_id": "parent_e",
+                "parent_formula": "zscore(volume,24)",
+                "parent_rewrite_focus": "improve_cross_asset_robustness",
+                "parent_universe_pass_rate": 0.2,
+                "parent_universe_mean_sharpe": 0.1,
+            },
         ]
     )
     candidate_path = tmp_path / "selector_rewrite_candidates.csv"
@@ -243,6 +261,24 @@ def test_selector_pipeline_review_compares_parent_and_rewrite_evidence(tmp_path)
                 "failed_assets": "BTCUSDT",
                 "evaluated_assets": 5,
             },
+            {
+                "factor_id": "rewrite_f",
+                "pass_rate": 0.6,
+                "mean_sharpe": -0.1,
+                "median_rank_ic": 0.02,
+                "robustness_score": 0.8,
+                "failed_assets": "BTCUSDT",
+                "evaluated_assets": 5,
+            },
+            {
+                "factor_id": "rewrite_g",
+                "pass_rate": 0.4,
+                "mean_sharpe": 0.2,
+                "median_rank_ic": 0.01,
+                "robustness_score": 0.5,
+                "failed_assets": "ETHUSDT",
+                "evaluated_assets": 5,
+            },
         ]
     )
 
@@ -258,3 +294,5 @@ def test_selector_pipeline_review_compares_parent_and_rewrite_evidence(tmp_path)
     assert by_parent["parent_c"]["pass_rate_delta"] == 0.4
     assert by_parent["parent_c"]["mean_sharpe_delta"] == -0.2
     assert by_parent["parent_d"]["review_verdict"] == "mixed"
+    assert by_parent["parent_e"]["best_candidate_factor_id"] == "rewrite_g"
+    assert by_parent["parent_e"]["review_verdict"] == "improved"

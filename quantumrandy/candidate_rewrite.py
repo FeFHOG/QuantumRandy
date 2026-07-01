@@ -245,7 +245,7 @@ def _failed_gates_for_focus(rewrite_focus: str) -> list[str]:
     if rewrite_focus == "avoid_repeated_failed_subtrees":
         return ["cross_asset_robustness", "homogeneity"]
     if rewrite_focus == "improve_cross_asset_robustness":
-        return ["cross_asset_robustness", "lifetime"]
+        return ["cross_asset_profitability", "cross_asset_robustness", "lifetime"]
     if rewrite_focus == "improve_cross_asset_profitability":
         return ["cross_asset_profitability", "predictive_power"]
     if rewrite_focus == "abandon_or_change_economic_family":

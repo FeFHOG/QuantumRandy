@@ -164,6 +164,9 @@ def test_selector_rewrite_merges_selector_forbidden_subtrees_into_generation(tmp
     assert "corr(funding_rate,volume,72)" in candidates.iloc[0]["selector_forbidden_subtrees"]
     assert "zscore(ret(close,6),48)" in candidates.iloc[0]["parent_matched_failed_subtrees"]
     assert events.iloc[0]["selector_forbidden_subtree_count"] == 3
+    assert candidates.iloc[0]["rewrite_failed_gates"] == (
+        "cross_asset_profitability,cross_asset_robustness,lifetime"
+    )
     assert generator.last_failure_detail["universe"]["mean_sharpe"] == 0.3
     assert generator.last_failure_detail["rewrite_objective"]["target_pass_rate_delta"] == "> 0"
     assert generator.last_failure_detail["rewrite_objective"]["target_mean_sharpe_delta"] == ">= 0"

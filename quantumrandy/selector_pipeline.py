@@ -283,18 +283,14 @@ def build_selector_pipeline_review(
 
     review_rows: list[dict[str, Any]] = []
     for parent_factor_id, rows in grouped.items():
+        parent_pass_rate = _num(rows[0].get("parent_universe_pass_rate"))
+        parent_mean_sharpe = _num(rows[0].get("parent_universe_mean_sharpe"))
         ranked = sorted(
             rows,
-            key=lambda row: (
-                float(row.get("candidate_pass_rate", 0.0)),
-                float(row.get("candidate_mean_sharpe", 0.0)),
-                float(row.get("candidate_robustness_score", 0.0)),
-            ),
+            key=lambda row: _candidate_review_rank(row, parent_pass_rate, parent_mean_sharpe),
             reverse=True,
         )
         best = ranked[0]
-        parent_pass_rate = _num(best.get("parent_universe_pass_rate"))
-        parent_mean_sharpe = _num(best.get("parent_universe_mean_sharpe"))
         best_pass_rate = _num(best.get("candidate_pass_rate"))
         best_mean_sharpe = _num(best.get("candidate_mean_sharpe"))
         pass_rate_delta = round(best_pass_rate - parent_pass_rate, 8)
@@ -469,6 +465,33 @@ def _review_verdict(*, evaluated: int, pass_rate_delta: float, mean_sharpe_delta
     if mean_sharpe_delta > 0:
         return "mixed"
     return "not_improved"
+
+
+def _candidate_review_rank(row: dict[str, Any], parent_pass_rate: float, parent_mean_sharpe: float) -> tuple[int, float, float, float, float]:
+    evaluated = int(row.get("candidate_evaluated_assets", 0))
+    pass_rate = _num(row.get("candidate_pass_rate"))
+    mean_sharpe = _num(row.get("candidate_mean_sharpe"))
+    pass_rate_delta = round(pass_rate - parent_pass_rate, 8)
+    mean_sharpe_delta = round(mean_sharpe - parent_mean_sharpe, 8)
+    verdict = _review_verdict(
+        evaluated=evaluated,
+        pass_rate_delta=pass_rate_delta,
+        mean_sharpe_delta=mean_sharpe_delta,
+    )
+    verdict_rank = {
+        "improved": 4,
+        "mixed": 3,
+        "coverage_only": 2,
+        "not_improved": 1,
+        "needs_evaluation": 0,
+    }.get(verdict, 0)
+    return (
+        verdict_rank,
+        pass_rate_delta,
+        mean_sharpe_delta,
+        mean_sharpe,
+        _num(row.get("candidate_robustness_score")),
+    )
 
 
 def _read_csv(path: str | Path) -> pd.DataFrame:
