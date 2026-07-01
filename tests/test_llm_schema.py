@@ -144,6 +144,7 @@ def test_llm_prompt_includes_failure_memory(monkeypatch, tmp_path) -> None:
 
     assert formulas == ["neg(zscore(funding_rate,42))"]
     assert "failure_memory" in captured["prompt"]
+    assert "shape_constraints" in captured["prompt"]
     assert "zscore(ret(close,6),48)" in captured["prompt"]
     assert "friction_audit" in captured["prompt"]
     assert generator.events[-1]["failure_memory_examples"] == 1
@@ -286,10 +287,45 @@ def test_llm_rewrite_prompt_uses_failed_gate_guidance(monkeypatch) -> None:
 
     assert formulas == ["zscore(ema(ret(close,6),48),72)"]
     assert "Rewrite a failed crypto alpha factor" in captured["prompt"]
+    assert "shape_constraints" in captured["prompt"]
+    assert "max_depth" in captured["prompt"]
+    assert "invalid_examples" in captured["prompt"]
+    assert "neg(zscore(ema(winsorize(funding_rate,5),96),168))" in captured["prompt"]
+    assert "candidate_diversity" in captured["prompt"]
+    assert "At most one returned candidate may be funding_rate-only" in captured["prompt"]
     assert "friction_audit" in captured["prompt"]
     assert "Reduce turnover" in captured["prompt"]
     assert generator.events[-1]["source"] == "llm_rewrite"
     os.environ.pop("LLM_API_KEY", None)
+
+
+def test_llm_rewrite_parser_limits_pure_funding_candidates() -> None:
+    generator = FormulaGenerator(use_llm=False)
+
+    out, rejected = generator._parse_candidate_payload(
+        {
+            "candidates": [
+                {
+                    "formula": "neg(zscore(funding_rate,168))",
+                    "description": "Funding pressure mean reversion captures crowded carry and possible reversal.",
+                },
+                {
+                    "formula": "neg(zscore(sma(funding_rate,72),168))",
+                    "description": "Funding carry pressure remains a crowding proxy but should be capped per batch.",
+                },
+                {
+                    "formula": "zscore(volume,96)",
+                    "description": "Volume pressure can proxy liquidity regime changes across crypto markets.",
+                },
+            ]
+        },
+        3,
+        [],
+        max_pure_funding=1,
+    )
+
+    assert out == ["neg(zscore(funding_rate,168))", "zscore(volume,96)"]
+    assert rejected[-1]["reason"] == "too many pure funding-only candidates"
 
 
 def test_llm_rewrite_prompt_includes_candidate_selector_context(monkeypatch, tmp_path) -> None:

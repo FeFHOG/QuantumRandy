@@ -189,7 +189,7 @@ class FormulaGenerator:
                         "candidate_selector_clusters": llm_detail.get("candidate_selector_clusters", 0),
                     }
                 )
-                return formulas
+                return self._fill_rewrite_candidates(formulas, formula, failed_gates, count, forbidden)
             self.events.append(
                 {
                     "source": "rewrite_fallback",
@@ -203,26 +203,47 @@ class FormulaGenerator:
                 }
             )
 
-        formulas = []
-        for candidate in self.local.rewrite_for_failure(formula, failed_gates, count, forbidden):
+        return self._fill_rewrite_candidates([], formula, failed_gates, count, forbidden)
+
+    def _fill_rewrite_candidates(
+        self,
+        formulas: list[str],
+        base_formula: str,
+        failed_gates: list[str],
+        count: int,
+        forbidden: list[str],
+    ) -> list[str]:
+        out = list(formulas)
+        need_non_funding = len(out) < count and any(_is_pure_funding_formula(item) for item in out)
+        local_added: list[str] = []
+        local_requested = max(count * 4, count)
+        for candidate in self.local.rewrite_for_failure(base_formula, failed_gates, local_requested, forbidden):
+            if len(out) >= count:
+                break
             try:
                 canonical = validate_formula_shape(candidate, self.max_formula_depth, self.max_formula_operators).canonical()
             except ValueError:
                 continue
-            self.descriptions.setdefault(canonical, _local_rewrite_description(canonical, formula, failed_gates))
-            self.proposal_metadata.setdefault(canonical, _local_rewrite_metadata(canonical, formula, failed_gates))
-            formulas.append(canonical)
-        self.events.append(
-            {
-                "source": "local_rewrite",
-                "base_formula": formula,
-                "failed_gates": failed_gates,
-                "requested": count,
-                "accepted": len(formulas),
-                "error": None,
-            }
-        )
-        return formulas
+            if canonical in out:
+                continue
+            if need_non_funding and _is_pure_funding_formula(canonical):
+                continue
+            self.descriptions.setdefault(canonical, _local_rewrite_description(canonical, base_formula, failed_gates))
+            self.proposal_metadata.setdefault(canonical, _local_rewrite_metadata(canonical, base_formula, failed_gates))
+            out.append(canonical)
+            local_added.append(canonical)
+        if local_added or not formulas:
+            self.events.append(
+                {
+                    "source": "local_rewrite",
+                    "base_formula": base_formula,
+                    "failed_gates": failed_gates,
+                    "requested": max(0, count - len(formulas)),
+                    "accepted": len(local_added),
+                    "error": None,
+                }
+            )
+        return out
 
     def _llm_propose(self, base_formula: str, dimension: str, count: int, forbidden: list[str], existing: list[str] | None = None) -> tuple[list[str], str | None, dict]:
         detail: dict = {"response_snippet": "", "duration_s": 0}
@@ -298,6 +319,7 @@ class FormulaGenerator:
                 "skew": "rolling skewness to detect asymmetric return or flow regimes",
                 "kurtosis": "rolling kurtosis to detect fat-tailed or jumpy regimes",
             },
+            "shape_constraints": _shape_constraints(self.max_formula_depth, self.max_formula_operators),
             "avoid_subtrees": truncated_forbidden,
             "failure_memory": {
                 "source": failure_context.get("source", ""),
@@ -331,7 +353,13 @@ class FormulaGenerator:
                     "\"rewrite_plan_if_killed\":\"<how to revise after a failed gate>\"}]}. "
                     "The four schema-v2 fields are required for every candidate."
                 ),
-                f"Max formula depth {self.max_formula_depth}, max {self.max_formula_operators} operators. Each description MUST be >= {desc_len} characters.",
+                (
+                    f"Hard shape rule: max formula depth {self.max_formula_depth}, "
+                    f"max {self.max_formula_operators} operators. Obey shape_constraints exactly; formulas that "
+                    "violate them are rejected before backtesting."
+                ),
+                "Prefer 1-3 operator formulas. Before returning JSON, self-check every formula against max_depth and max_operators.",
+                f"Each description MUST be >= {desc_len} characters.",
                 "Description must cite specific market behaviors: momentum continuation / mean reversion / funding pressure / volatility regime / liquidity dynamics.",
                 "Prefer interpretable structures. Do NOT stack meaningless transforms like log(abs(exp(...))). Each operator must serve an economic purpose.",
                 "Generate formulas that are DIFFERENT from already_in_zoo. Vary the operators, fields, and window lengths.",
@@ -441,6 +469,7 @@ class FormulaGenerator:
                 "funding_rate": "perpetual funding rate",
             },
             "available_operators": sorted(OPERATORS),
+            "shape_constraints": _shape_constraints(self.max_formula_depth, self.max_formula_operators),
             "avoid_subtrees": truncated_forbidden,
             "already_in_zoo": existing[-10:],
             "failure_memory": {
@@ -459,6 +488,22 @@ class FormulaGenerator:
                     "the economic family rather than only changing windows."
                 ),
             },
+            "candidate_diversity": {
+                "instruction": (
+                    "Do not return a batch where every candidate is funding_rate-only. At most one candidate may be "
+                    "a pure funding/carry transform. Include at least one volatility, range, volume, or liquidity-regime "
+                    "candidate when generating multiple candidates."
+                ),
+                "funding_family_examples": [
+                    "neg(zscore(funding_rate,168))",
+                    "neg(zscore(sma(funding_rate,72),168))",
+                ],
+                "non_funding_family_examples": [
+                    "zscore(div(sub(high,low),close),96)",
+                    "zscore(ema(volume,48),120)",
+                    "zscore(ret(close,24),96)",
+                ],
+            },
             "requirements": [
                 (
                     "Return valid JSON: "
@@ -471,7 +516,13 @@ class FormulaGenerator:
                     "The four schema-v2 fields are required for every candidate."
                 ),
                 f"Generate up to {count} candidates. Each description MUST be >= {desc_len} characters.",
-                f"Max formula depth {self.max_formula_depth}, max {self.max_formula_operators} operators.",
+                (
+                    f"Hard shape rule: max formula depth {self.max_formula_depth}, "
+                    f"max {self.max_formula_operators} operators. Obey shape_constraints exactly; formulas that "
+                    "violate them are rejected before backtesting."
+                ),
+                "Prefer 1-3 operator formulas. Before returning JSON, self-check every formula against max_depth and max_operators.",
+                "At most one returned candidate may be funding_rate-only; diversify across funding, volatility/range, volume/liquidity, or price-regime families.",
                 "Do not copy the failed formula. Preserve economic intent only if the failed gate suggests it is salvageable.",
                 "Prefer simple, interpretable changes: horizon, smoothing, field substitution, sign flip, or regime proxy.",
             ],
@@ -497,7 +548,13 @@ class FormulaGenerator:
             detail["error_full"] = str(exc)[:300]
             return [], str(exc), detail
 
-        out, rejected = self._parse_candidate_payload(data, count, forbidden, disallow={formula})
+        out, rejected = self._parse_candidate_payload(
+            data,
+            count,
+            forbidden,
+            disallow={formula},
+            max_pure_funding=1 if count > 1 else None,
+        )
         if rejected:
             self.events.append({"source": "rewrite_validator", "accepted": len(out), "rejected": rejected[:20]})
         if not out:
@@ -512,9 +569,11 @@ class FormulaGenerator:
         forbidden: list[str],
         *,
         disallow: set[str] | None = None,
+        max_pure_funding: int | None = None,
     ) -> tuple[list[str], list[dict[str, str]]]:
         disallow = disallow or set()
         out: list[str] = []
+        pure_funding_count = 0
         raw_candidates = data.get("candidates")
         if raw_candidates is None:
             raw_candidates = [{"formula": formula, "description": ""} for formula in data.get("formulas", [])]
@@ -541,6 +600,11 @@ class FormulaGenerator:
             if violates_forbidden(canonical, forbidden):
                 rejected.append({"formula": canonical, "reason": "violates forbidden subtree"})
                 continue
+            if max_pure_funding is not None and _is_pure_funding_formula(canonical):
+                if pure_funding_count >= max_pure_funding:
+                    rejected.append({"formula": canonical, "reason": "too many pure funding-only candidates"})
+                    continue
+                pure_funding_count += 1
             self.descriptions[canonical] = desc_text
             self.proposal_metadata[canonical] = metadata
             out.append(canonical)
@@ -747,6 +811,38 @@ def _local_rewrite_metadata(formula: str, base_formula: str, failed_gates: list[
         "expected_failure_mode": "It may still fail if the original economic relation was spurious or if the rewrite remains too correlated or costly.",
         "rewrite_plan_if_killed": "Use the next failed gate to change horizon, smoothing, field family, or abandon the original economic idea.",
     }
+
+
+def _shape_constraints(max_depth: int, max_operators: int) -> dict[str, Any]:
+    return {
+        "max_depth": max_depth,
+        "max_operators": max_operators,
+        "preferred_operator_count": "1 to 3 operators whenever possible",
+        "preferred_templates": [
+            "zscore(field, window)",
+            "neg(zscore(field, window))",
+            "zscore(ema(field, short_window), long_window)",
+            "zscore(sma(field, short_window), long_window)",
+            "zscore(ret(close, window), long_window)",
+            "zscore(div(sub(high,low), close), window)",
+            "corr(field_a, field_b, window)",
+        ],
+        "invalid_examples": [
+            "neg(zscore(ema(winsorize(funding_rate,5),96),168))",
+            "neg(zscore(div(sma(funding_rate,96),std(funding_rate,192)),192))",
+            "neg(zscore(sma(div(sub(high,low),close),96),192))",
+        ],
+        "self_check": (
+            "Count nested DSL function calls before returning. If a formula resembles an invalid example or exceeds "
+            "max_depth/max_operators, simplify it instead of returning it."
+        ),
+    }
+
+
+def _is_pure_funding_formula(formula: str) -> bool:
+    if "funding_rate" not in formula:
+        return False
+    return not any(field in formula for field in ("open", "high", "low", "close", "volume"))
 
 
 def _rewrite_guidance(failed_gates: list[str]) -> dict[str, str]:
