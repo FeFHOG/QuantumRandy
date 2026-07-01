@@ -525,6 +525,16 @@ Expected value:
     BTC/ETH/SOL/BNB/AVAX into `reports/selector_rewrite_universe_archive_eval`;
   - the local fallback rewrite smoke did not improve robustness materially: best pass rate was `0.20`, so the next
     useful experiment should be a small LLM rewrite batch with selector context or a stronger local rewrite policy.
+- Strengthened and orchestrated the selector rewrite evidence loop:
+  - selector rewrite now converts selector weak clusters and matched failed subtrees into forbidden rewrite evidence;
+  - local fallback rewrite has explicit cross-asset robustness/profitability gates biased toward funding, volatility,
+    and liquidity regime hypotheses rather than repeating fragile price-only structures;
+  - added `QuantumRandy/quantumrandy/selector_pipeline.py`;
+  - added `QuantumRandy/scripts/run_selector_rewrite_pipeline.py`;
+  - added tests in `QuantumRandy/tests/test_selector_pipeline.py`;
+  - the pipeline writes a research-only selector rewrite batch and, when asset configs are provided, evaluates the
+    candidates through universe evidence plus fixed-blend portfolio-universe evidence;
+  - all outputs remain offline research artifacts and do not admit, publish, or update runtime strategies.
 
 ## Next Session Prompt
 
