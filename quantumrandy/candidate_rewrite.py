@@ -19,6 +19,7 @@ class CandidateRewritePolicy:
     candidates_per_target: int = 2
     avoid_selector_failed_subtrees: bool = True
     max_selector_forbidden_subtrees: int = 8
+    allow_local_fallback: bool = True
 
 
 def load_rewrite_targets(path: str | Path, *, max_targets: int | None = None) -> list[dict[str, Any]]:
@@ -92,6 +93,7 @@ def build_selector_rewrite_candidates(
             policy.candidates_per_target,
             effective_forbidden,
             disallowed_formulas=known_selector_formulas,
+            allow_local_fallback=policy.allow_local_fallback,
         )
         for event in generator.events[before_events:]:
             event_rows.append(
@@ -161,6 +163,7 @@ def build_selector_rewrite_candidates(
         "event_count": len(events),
         "event_source_counts": _event_source_counts(events),
         "candidate_generation_source_counts": _value_counts(candidates, "rewrite_generation_source"),
+        "allow_local_fallback": policy.allow_local_fallback,
         "llm_error_count": _llm_error_count(events),
         "llm_error_summary": _llm_error_summary(events),
         "llm_rewrite_accepted": _accepted_by_source(events, {"llm_rewrite"}),
@@ -223,6 +226,7 @@ def render_selector_rewrite_report(manifest: dict[str, Any], candidates: pd.Data
         f"- Candidate formulas: `{manifest['candidate_count']}`",
         f"- Known selector formulas disallowed: `{manifest.get('known_selector_formula_count', 0)}`",
         f"- Selector forbidden subtrees: `{manifest.get('selector_forbidden_subtree_count', 0)}`",
+        f"- Local fallback allowed: `{manifest.get('allow_local_fallback', True)}`",
         f"- LLM rewrite accepted: `{manifest.get('llm_rewrite_accepted', 0)}`",
         f"- Fallback/local accepted: `{manifest.get('fallback_rewrite_accepted', 0)}`",
     ]

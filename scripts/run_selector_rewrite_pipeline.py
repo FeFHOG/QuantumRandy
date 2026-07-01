@@ -20,6 +20,11 @@ def main() -> None:
     parser.add_argument("--max-targets", type=int, default=5)
     parser.add_argument("--candidates-per-target", type=int, default=2)
     parser.add_argument("--use-llm", action="store_true", help="Call the configured LLM if LLM_API_KEY is configured")
+    parser.add_argument(
+        "--llm-only",
+        action="store_true",
+        help="Do not fill missing LLM rewrite slots with local fallback candidates.",
+    )
     parser.add_argument("--failure-memory-path", help="Optional failure memory artifact path for prompt context")
     parser.add_argument("--timeout-seconds", type=int, default=120)
     parser.add_argument("--skip-universe", action="store_true", help="Generate rewrite candidates without universe eval")
@@ -47,6 +52,7 @@ def main() -> None:
         use_llm=args.use_llm,
         failure_memory_path=args.failure_memory_path,
         timeout_seconds=args.timeout_seconds,
+        allow_local_fallback=not args.llm_only,
         run_universe=not args.skip_universe,
         run_portfolio_universe=not args.skip_portfolio_universe,
         max_corr=args.max_corr,

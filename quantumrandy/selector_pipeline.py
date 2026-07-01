@@ -31,6 +31,7 @@ def run_selector_rewrite_pipeline(
     use_llm: bool = False,
     failure_memory_path: str | Path | None = None,
     timeout_seconds: int = 120,
+    allow_local_fallback: bool = True,
     run_universe: bool = True,
     run_portfolio_universe: bool = True,
     max_corr: float | None = None,
@@ -44,7 +45,11 @@ def run_selector_rewrite_pipeline(
     portfolio_universe_out = out / "portfolio_universe"
     out.mkdir(parents=True, exist_ok=True)
 
-    policy = CandidateRewritePolicy(max_targets=max_targets, candidates_per_target=candidates_per_target)
+    policy = CandidateRewritePolicy(
+        max_targets=max_targets,
+        candidates_per_target=candidates_per_target,
+        allow_local_fallback=allow_local_fallback,
+    )
     targets = load_rewrite_targets(selector, max_targets=max_targets)
     selector_forbidden = load_selector_forbidden_subtrees(
         selector,
@@ -94,6 +99,7 @@ def run_selector_rewrite_pipeline(
             "llm_error_summary": rewrite_manifest.get("llm_error_summary", []),
             "llm_rewrite_accepted": rewrite_manifest.get("llm_rewrite_accepted", 0),
             "fallback_rewrite_accepted": rewrite_manifest.get("fallback_rewrite_accepted", 0),
+            "allow_local_fallback": rewrite_manifest.get("allow_local_fallback", True),
             "is_llm_policy_evidence": bool(use_llm and rewrite_manifest.get("llm_rewrite_accepted", 0) > 0),
         },
         "universe": {"status": "skipped", "reason": ""},
@@ -253,6 +259,7 @@ def render_pipeline_report(manifest: dict[str, Any]) -> str:
         f"- Rewrite candidates: `{manifest['rewrite']['candidate_count']}`",
         f"- Selector forbidden subtrees: `{manifest['rewrite']['selector_forbidden_subtree_count']}`",
         f"- LLM requested: `{manifest['rewrite'].get('use_llm_requested', False)}`",
+        f"- Local fallback allowed: `{manifest['rewrite'].get('allow_local_fallback', True)}`",
         f"- LLM rewrite accepted: `{manifest['rewrite'].get('llm_rewrite_accepted', 0)}`",
         f"- Fallback/local accepted: `{manifest['rewrite'].get('fallback_rewrite_accepted', 0)}`",
         f"- LLM policy evidence: `{manifest['rewrite'].get('is_llm_policy_evidence', False)}`",

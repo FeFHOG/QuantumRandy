@@ -29,6 +29,11 @@ def main() -> None:
     parser.add_argument("--max-targets", type=int, default=5)
     parser.add_argument("--candidates-per-target", type=int, default=2)
     parser.add_argument("--use-llm", action="store_true", help="Call the configured LLM if LLM_API_KEY is configured")
+    parser.add_argument(
+        "--llm-only",
+        action="store_true",
+        help="Do not fill missing LLM rewrite slots with local fallback candidates.",
+    )
     parser.add_argument("--candidate-selector-path", help="Optional selector artifact path to include in LLM prompt")
     parser.add_argument("--failure-memory-path", help="Optional failure memory artifact path to include in LLM prompt")
     parser.add_argument(
@@ -45,6 +50,7 @@ def main() -> None:
         candidates_per_target=args.candidates_per_target,
         avoid_selector_failed_subtrees=not args.no_selector_forbidden_subtrees,
         max_selector_forbidden_subtrees=args.max_selector_forbidden_subtrees,
+        allow_local_fallback=not args.llm_only,
     )
     prompt = PromptConfig(
         candidate_selector_path=args.candidate_selector_path or args.selector,

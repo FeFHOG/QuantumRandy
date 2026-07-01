@@ -159,6 +159,7 @@ class FormulaGenerator:
         count: int,
         forbidden: list[str],
         disallowed_formulas: list[str] | None = None,
+        allow_local_fallback: bool = True,
     ) -> list[str]:
         disallowed = set(disallowed_formulas or [])
         disallowed.add(formula)
@@ -194,6 +195,10 @@ class FormulaGenerator:
                         "disallowed_formula_count": llm_detail.get("disallowed_formula_count", 0),
                     }
                 )
+                if not allow_local_fallback:
+                    for candidate in formulas:
+                        self.proposal_metadata.setdefault(candidate, {})["generation_source"] = "llm_rewrite"
+                    return formulas[:count]
                 return self._fill_rewrite_candidates(
                     formulas,
                     formula,
@@ -216,6 +221,8 @@ class FormulaGenerator:
                 }
             )
 
+        if not allow_local_fallback:
+            return []
         return self._fill_rewrite_candidates([], formula, failed_gates, count, forbidden, disallowed)
 
     def _fill_rewrite_candidates(

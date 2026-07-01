@@ -304,6 +304,47 @@ def test_llm_rewrite_prompt_uses_failed_gate_guidance(monkeypatch) -> None:
     os.environ.pop("LLM_API_KEY", None)
 
 
+def test_llm_rewrite_can_disable_local_fill(monkeypatch) -> None:
+    def fake_call_llm(messages, *args, **kwargs) -> str:
+        import json
+
+        return json.dumps(
+            {
+                "candidates": [
+                    {
+                        "formula": "zscore(ema(ret(close,6),48),72)",
+                        "description": (
+                            "Momentum continuation with slower EMA smoothing reduces turnover while preserving "
+                            "the trend-following behavior of short-horizon price pressure."
+                        ),
+                        "hypothesis": "Smoothing momentum can preserve edge with lower trading churn.",
+                        "expected_edge": "Trend pressure may persist after smoothing removes noisy flips.",
+                        "expected_failure_mode": "The smoother signal may lag abrupt regime changes.",
+                        "rewrite_plan_if_killed": "If killed again, switch fields or abandon price momentum.",
+                    }
+                ]
+            }
+        )
+
+    monkeypatch.setattr("quantumrandy.llm.call_llm", fake_call_llm)
+    monkeypatch.setenv("LLM_API_KEY", "test-key")
+    generator = FormulaGenerator(use_llm=True, settings=LLMSettings(max_retries=0))
+
+    formulas = generator.rewrite(
+        "zscore(ret(close,6),48)",
+        ["friction_audit"],
+        {"passed": False},
+        2,
+        [],
+        allow_local_fallback=False,
+    )
+
+    assert formulas == ["zscore(ema(ret(close,6),48),72)"]
+    assert [event["source"] for event in generator.events] == ["llm_rewrite"]
+    assert generator.proposal_metadata[formulas[0]]["generation_source"] == "llm_rewrite"
+    os.environ.pop("LLM_API_KEY", None)
+
+
 def test_llm_rewrite_parser_limits_pure_funding_candidates() -> None:
     generator = FormulaGenerator(use_llm=False)
 

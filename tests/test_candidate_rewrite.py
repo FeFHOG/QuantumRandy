@@ -120,11 +120,22 @@ class _RecordingRewriteGenerator(FormulaGenerator):
         super().__init__(use_llm=False)
         self.last_forbidden: list[str] = []
         self.last_disallowed: list[str] = []
+        self.last_allow_local_fallback = True
         self.last_failure_detail = {}
 
-    def rewrite(self, formula, failed_gates, failure_detail, count, forbidden, disallowed_formulas=None):
+    def rewrite(
+        self,
+        formula,
+        failed_gates,
+        failure_detail,
+        count,
+        forbidden,
+        disallowed_formulas=None,
+        allow_local_fallback=True,
+    ):
         self.last_forbidden = list(forbidden)
         self.last_disallowed = list(disallowed_formulas or [])
+        self.last_allow_local_fallback = allow_local_fallback
         self.last_failure_detail = failure_detail
         proposal = "neg(zscore(funding_rate,42))"
         self.descriptions[proposal] = "Funding pressure rewrite for broad cross-asset carry regime evidence."
@@ -142,7 +153,16 @@ class _FailingThenLocalRewriteGenerator(FormulaGenerator):
     def __init__(self) -> None:
         super().__init__(use_llm=False)
 
-    def rewrite(self, formula, failed_gates, failure_detail, count, forbidden, disallowed_formulas=None):
+    def rewrite(
+        self,
+        formula,
+        failed_gates,
+        failure_detail,
+        count,
+        forbidden,
+        disallowed_formulas=None,
+        allow_local_fallback=True,
+    ):
         proposal = "neg(zscore(funding_rate,42))"
         self.descriptions[proposal] = "Funding pressure rewrite for broad cross-asset carry regime evidence."
         self.proposal_metadata[proposal] = {
@@ -208,6 +228,31 @@ def test_selector_rewrite_merges_selector_forbidden_subtrees_into_generation(tmp
     assert generator.last_failure_detail["rewrite_objective"]["target_pass_rate_delta"] == "> 0"
     assert generator.last_failure_detail["rewrite_objective"]["target_mean_sharpe_delta"] == ">= 0"
     assert "BTCUSDT,ETHUSDT" in generator.last_failure_detail["rewrite_objective"]["failed_assets_instruction"]
+
+
+def test_selector_rewrite_policy_can_disable_local_fallback(tmp_path) -> None:
+    targets = [
+        {
+            "factor_id": "weak_price",
+            "formula": "zscore(ret(close,6),48)",
+            "selector_verdict": "rewrite",
+            "rewrite_focus": "improve_cross_asset_robustness",
+            "universe_pass_rate": 0.2,
+            "universe_mean_sharpe": 0.3,
+        }
+    ]
+    generator = _RecordingRewriteGenerator()
+
+    candidates, _, manifest = build_selector_rewrite_candidates(
+        targets,
+        generator,
+        policy=CandidateRewritePolicy(max_targets=1, candidates_per_target=1, allow_local_fallback=False),
+    )
+
+    assert generator.last_allow_local_fallback is False
+    assert manifest["policy"]["allow_local_fallback"] is False
+    assert manifest["allow_local_fallback"] is False
+    assert candidates.iloc[0]["rewrite_generation_source"] == ""
 
 
 def test_write_selector_rewrite_report_outputs_leaderboard_style_json(tmp_path) -> None:

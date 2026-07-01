@@ -266,3 +266,56 @@ errors, but the single highlighted improvement came from the local fallback fill
 be treated as LLM-path evidence plus a local-improvement repeat, not as evidence that the LLM policy itself generated a
 new true-improved selector rewrite. The candidate-level source provenance is doing its job: it prevents a mixed batch
 from over-attributing local improvements to LLM rewrites.
+
+## LLM-Only Evidence Repeat 5
+
+Date: 2026-07-02
+
+After attempt 4 showed that mixed-source batches still require careful attribution, the selector rewrite pipeline gained
+an explicit research-only LLM-only mode. Passing `--llm-only` disables local fallback fills when LLM output produces
+fewer candidates than requested. Default behavior is unchanged: local fallback remains enabled unless this flag is
+provided.
+
+Command:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence5_llm_only \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke
+```
+
+Attempt 5 completed as a research-only LLM-only evidence run:
+
+- `allow_local_fallback`: `false`
+- `known_selector_formula_count`: `3`
+- `llm_rewrite_accepted`: `5`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- `llm_error_count`: `0`
+- Candidate generation source counts: `llm_rewrite:5`
+- Candidate verdicts: `not_improved:4|improved:1`
+- Candidate highlights: `true_improved:1`
+- Candidate highlight source counts: `llm_rewrite:1`
+- Coverage-only traps: `0`
+
+The true improved LLM candidate was:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_7a765d304b` | `qr_cd595899ee` | `llm_rewrite` | 0.20 | 0.04900644 | BTCUSDT,ETHUSDT,BNBUSDT,AVAXUSDT | `zscore(corr(sub(close,open),volume,36),96)` |
+
+Interpretation: attempt 5 is the first clean run in this sequence where a true-improved selector rewrite highlight comes
+from an LLM-generated candidate rather than local fallback. The improvement is still modest and fails four of five
+assets, so it is not admission evidence and must not be published to runtime. The useful result is process-level:
+LLM-only evidence can now be generated and audited without mixed-source attribution ambiguity.
