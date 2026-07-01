@@ -546,6 +546,8 @@ Expected value:
     with per-candidate verdicts and deltas before parent-level best-candidate aggregation;
   - the review stage also writes `selector_pipeline_candidate_highlights.csv`, a compact machine-readable audit queue
     for true improvements, coverage-only traps, and Sharpe-improved/no-pass-lift candidates;
+  - `scripts/summarize_selector_highlights.py` can turn a selector pipeline review directory into
+    `SELECTOR_CANDIDATE_HIGHLIGHTS.md`, a standalone research-only handoff summary of those compact queues;
   - the top-level selector rewrite pipeline manifest and report summarize candidate verdict and highlight mixes so a
     handoff can audit rewrite quality without opening the review subdirectory first;
   - the mining dashboard review payload reads the candidate-level selector review when present and summarizes

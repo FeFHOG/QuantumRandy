@@ -13,6 +13,7 @@ from quantumrandy.selector_pipeline import (
     build_selector_pipeline_review,
     render_review_report,
     run_selector_rewrite_pipeline,
+    write_selector_candidate_highlight_summary,
 )
 
 
@@ -353,3 +354,16 @@ def test_selector_pipeline_review_compares_parent_and_rewrite_evidence(tmp_path)
     assert "`rewrite_f`" in report
     assert "Sharpe-Improved Without Pass-Rate Lift" in report
     assert "`rewrite_e`" in report
+
+    review_dir = tmp_path / "review_summary"
+    review_dir.mkdir()
+    candidate_review.to_csv(review_dir / "selector_pipeline_candidate_review.csv", index=False)
+    highlights.to_csv(review_dir / "selector_pipeline_candidate_highlights.csv", index=False)
+    summary_manifest = write_selector_candidate_highlight_summary(review_dir)
+    summary_report = (review_dir / "SELECTOR_CANDIDATE_HIGHLIGHTS.md").read_text(encoding="utf-8")
+    assert summary_manifest["safety"]["does_not_auto_admit_factors"] is True
+    assert summary_manifest["highlight_rows"] == len(highlights)
+    assert "true_improved" in summary_manifest["highlight_counts"]
+    assert "Selector Candidate Highlights" in summary_report
+    assert "Coverage-Only Traps" in summary_report
+    assert "`rewrite_f`" in summary_report

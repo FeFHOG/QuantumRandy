@@ -440,6 +440,114 @@ def build_selector_pipeline_candidate_highlights(candidate_review: pd.DataFrame)
     ).reset_index(drop=True)
 
 
+def write_selector_candidate_highlight_summary(
+    review_dir: str | Path,
+    out_dir: str | Path | None = None,
+) -> dict[str, Any]:
+    review_path = Path(review_dir)
+    out = Path(out_dir) if out_dir is not None else review_path
+    out.mkdir(parents=True, exist_ok=True)
+    highlights = _read_csv(review_path / "selector_pipeline_candidate_highlights.csv")
+    if highlights.empty:
+        candidate_review = _read_csv(review_path / "selector_pipeline_candidate_review.csv")
+        highlights = build_selector_pipeline_candidate_highlights(candidate_review)
+
+    manifest = {
+        "artifact_type": "quantumrandy_selector_candidate_highlight_summary",
+        "schema_version": 1,
+        "safety": {
+            "research_only": True,
+            "not_runtime_publish_payload": True,
+            "does_not_update_runtime": True,
+            "does_not_auto_admit_factors": True,
+        },
+        "source_review_dir": review_path.as_posix(),
+        "highlight_rows": len(highlights),
+        "highlight_counts": _value_counts(highlights, "highlight_type"),
+        "outputs": {
+            "summary_markdown": (out / "SELECTOR_CANDIDATE_HIGHLIGHTS.md").as_posix(),
+            "summary_manifest": (out / "selector_candidate_highlight_summary_manifest.json").as_posix(),
+        },
+    }
+    safe_write_json(out / "selector_candidate_highlight_summary_manifest.json", manifest, out / "events.jsonl")
+    safe_write_text(
+        out / "SELECTOR_CANDIDATE_HIGHLIGHTS.md",
+        render_candidate_highlight_summary(manifest, highlights),
+        out / "events.jsonl",
+    )
+    return manifest
+
+
+def render_candidate_highlight_summary(manifest: dict[str, Any], highlights: pd.DataFrame) -> str:
+    lines = [
+        "# QuantumRandy Selector Candidate Highlights",
+        "",
+        "This is a research audit artifact only. It is not an admission decision or runtime publish payload.",
+        "",
+        "## Summary",
+        "",
+        f"- Highlight rows: `{manifest.get('highlight_rows', 0)}`",
+    ]
+    counts = manifest.get("highlight_counts") or {}
+    if counts:
+        lines.append(f"- Highlight mix: `{_format_counts(counts)}`")
+    lines.extend(["", "## Highlight Queues", ""])
+    if highlights.empty:
+        lines.append("No selector candidate highlights available.")
+    else:
+        for highlight_type, title in [
+            ("true_improved", "True Improved Candidates"),
+            ("coverage_only_trap", "Coverage-Only Traps"),
+            ("sharpe_improved_no_pass_lift", "Sharpe-Improved Without Pass-Rate Lift"),
+        ]:
+            lines.extend(_render_highlight_summary_table(highlights, highlight_type=highlight_type, title=title))
+    lines.extend(
+        [
+            "",
+            "## Files",
+            "",
+            "- `selector_pipeline_candidate_highlights.csv`: source compact candidate audit queues.",
+            "- `selector_candidate_highlight_summary_manifest.json`: machine-readable summary metadata.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _render_highlight_summary_table(
+    highlights: pd.DataFrame,
+    *,
+    highlight_type: str,
+    title: str,
+    limit: int = 10,
+) -> list[str]:
+    lines = [f"### {title}", ""]
+    if "highlight_type" not in highlights.columns:
+        lines.extend(["No candidates in this queue.", ""])
+        return lines
+    rows = highlights[highlights["highlight_type"].fillna("") == highlight_type].copy()
+    if rows.empty:
+        lines.extend(["No candidates in this queue.", ""])
+        return lines
+    for column in ("pass_rate_delta", "mean_sharpe_delta", "candidate_mean_sharpe"):
+        if column not in rows.columns:
+            rows[column] = 0.0
+    rows = rows.sort_values(
+        ["pass_rate_delta", "mean_sharpe_delta", "candidate_mean_sharpe"],
+        ascending=[False, False, False],
+    )
+    lines.append("| Parent | Candidate | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |")
+    lines.append("|---|---|---:|---:|---|---|")
+    for row in rows.head(limit).to_dict(orient="records"):
+        lines.append(
+            "| "
+            f"`{row.get('parent_factor_id', '')}` | `{row.get('factor_id', '')}` | "
+            f"{_num(row.get('pass_rate_delta')):.2f} | {_num(row.get('mean_sharpe_delta')):.2f} | "
+            f"{_md_cell(row.get('candidate_failed_assets', ''))} | `{_short_formula(row.get('formula', ''))}` |"
+        )
+    lines.append("")
+    return lines
+
+
 def _load_assets(config_paths: list[str | Path], *, window: str) -> list[AssetDataset]:
     return [load_asset_dataset(path, window=window) for path in config_paths]
 
