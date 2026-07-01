@@ -149,7 +149,7 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
             },
             {
                 "parent_factor_id": "trend_parent",
-                "review_verdict": "mixed",
+                "review_verdict": "coverage_only",
                 "candidate_count": 1,
                 "evaluated_candidate_count": 1,
                 "best_candidate_factor_id": "trend_rewrite",
@@ -158,6 +158,18 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
                 "best_candidate_mean_sharpe": 0.1,
                 "pass_rate_delta": 0.2,
                 "mean_sharpe_delta": -0.1,
+            },
+            {
+                "parent_factor_id": "profit_parent",
+                "review_verdict": "mixed",
+                "candidate_count": 1,
+                "evaluated_candidate_count": 1,
+                "best_candidate_factor_id": "profit_rewrite",
+                "best_candidate_formula": "zscore(volume,120)",
+                "best_candidate_pass_rate": 0.2,
+                "best_candidate_mean_sharpe": 0.1,
+                "pass_rate_delta": 0.0,
+                "mean_sharpe_delta": 0.2,
             },
             {
                 "parent_factor_id": "range_parent",
@@ -227,10 +239,11 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
     assert payload["portfolio_universe"]["best_pass_rate"] == 0.4
     assert payload["portfolio_universe"]["max_pass_rate"] == 0.4
     assert payload["portfolio_universe"]["top"][0]["portfolio_id"] == "equal_weight_accepted"
-    assert payload["selector_pipeline_review"]["parents"] == 4
-    assert payload["selector_pipeline_review"]["candidates"] == 6
-    assert payload["selector_pipeline_review"]["evaluated_candidates"] == 5
+    assert payload["selector_pipeline_review"]["parents"] == 5
+    assert payload["selector_pipeline_review"]["candidates"] == 7
+    assert payload["selector_pipeline_review"]["evaluated_candidates"] == 6
     assert payload["selector_pipeline_review"]["improved"] == 1
+    assert payload["selector_pipeline_review"]["coverage_only"] == 1
     assert payload["selector_pipeline_review"]["mixed"] == 1
     assert payload["selector_pipeline_review"]["not_improved"] == 1
     assert payload["selector_pipeline_review"]["needs_evaluation"] == 1

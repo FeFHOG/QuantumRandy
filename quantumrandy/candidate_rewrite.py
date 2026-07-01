@@ -254,6 +254,7 @@ def _failed_gates_for_focus(rewrite_focus: str) -> list[str]:
 
 
 def _target_failure_detail(target: dict[str, Any]) -> dict[str, Any]:
+    failed_assets = target.get("failed_assets", "")
     return {
         "passed": False,
         "selector_verdict": target.get("selector_verdict", ""),
@@ -262,7 +263,20 @@ def _target_failure_detail(target: dict[str, Any]) -> dict[str, Any]:
             "pass_rate": target.get("universe_pass_rate", ""),
             "mean_sharpe": target.get("universe_mean_sharpe", ""),
             "median_rank_ic": target.get("universe_median_rank_ic", ""),
-            "failed_assets": target.get("failed_assets", ""),
+            "failed_assets": failed_assets,
+        },
+        "rewrite_objective": {
+            "target_pass_rate_delta": "> 0",
+            "target_mean_sharpe_delta": ">= 0",
+            "profitability_gate": (
+                "A rewrite is not a useful improvement if it only raises pass_rate while mean Sharpe falls versus "
+                "the parent. Normalized range, volatility, and liquidity candidates must justify expected Sharpe."
+            ),
+            "failed_assets_instruction": (
+                f"Predict and address why the parent failed on these assets: {failed_assets}."
+                if failed_assets
+                else "Predict which assets or regimes are most likely to fail before returning the candidate."
+            ),
         },
     }
 

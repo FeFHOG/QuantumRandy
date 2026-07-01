@@ -494,6 +494,7 @@ HTML = r"""<!doctype html>
       return '<div class="review-card"><h3>Selector Pipeline Review</h3>' +
         '<div class="review-stats">' +
         '<div class="review-stat"><span>Improved</span><strong style="color:var(--good)">' + (data.improved ?? 0) + '</strong></div>' +
+        '<div class="review-stat"><span>Coverage Only</span><strong style="color:var(--warn)">' + (data.coverage_only ?? 0) + '</strong></div>' +
         '<div class="review-stat"><span>Mixed</span><strong style="color:var(--warn)">' + (data.mixed ?? 0) + '</strong></div>' +
         '<div class="review-stat"><span>Not Improved</span><strong style="color:var(--bad)">' + (data.not_improved ?? 0) + '</strong></div>' +
         '<div class="review-stat"><span>Needs Eval</span><strong>' + (data.needs_evaluation ?? 0) + '</strong></div>' +
@@ -1075,6 +1076,7 @@ def _selector_pipeline_review_payload(path: Path | None) -> dict:
             sum(_num(value) for value in frame.get("evaluated_candidate_count", pd.Series(dtype=float)))
         ),
         "improved": int((verdicts == "improved").sum()),
+        "coverage_only": int((verdicts == "coverage_only").sum()),
         "mixed": int((verdicts == "mixed").sum()),
         "not_improved": int((verdicts == "not_improved").sum()),
         "needs_evaluation": int((verdicts == "needs_evaluation").sum()),

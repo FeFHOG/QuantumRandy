@@ -317,6 +317,7 @@ def build_selector_pipeline_review(
                 "best_candidate_failed_assets": best.get("candidate_failed_assets", ""),
                 "pass_rate_delta": pass_rate_delta,
                 "mean_sharpe_delta": mean_sharpe_delta,
+                "improvement_gate": "pass_rate_delta > 0 and mean_sharpe_delta >= 0",
                 "review_verdict": _review_verdict(
                     evaluated=sum(1 for row in rows if int(row.get("candidate_evaluated_assets", 0)) > 0),
                     pass_rate_delta=pass_rate_delta,
@@ -422,6 +423,7 @@ def render_review_report(manifest: dict[str, Any], review: pd.DataFrame) -> str:
         "# QuantumRandy Selector Rewrite Pipeline Review",
         "",
         "This is a research comparison artifact only. It is not an admission decision or runtime publish payload.",
+        "A rewrite is considered improved only when pass-rate delta is positive and mean-Sharpe delta is non-negative.",
         "",
         "## Summary",
         "",
@@ -462,7 +464,9 @@ def _review_verdict(*, evaluated: int, pass_rate_delta: float, mean_sharpe_delta
         return "needs_evaluation"
     if pass_rate_delta > 0 and mean_sharpe_delta >= 0:
         return "improved"
-    if pass_rate_delta > 0 or mean_sharpe_delta > 0:
+    if pass_rate_delta > 0 and mean_sharpe_delta < 0:
+        return "coverage_only"
+    if mean_sharpe_delta > 0:
         return "mixed"
     return "not_improved"
 

@@ -441,6 +441,7 @@ class FormulaGenerator:
         rewrite_targets = selector_context.get("rewrite_targets", [])
         evidence_gaps = selector_context.get("evidence_gaps", [])
         selector_clusters = selector_context.get("clusters", [])
+        parent_selector_target = _matching_selector_target(formula, rewrite_targets)
         detail["failure_memory_examples"] = len(failure_examples)
         detail["failure_memory_clusters"] = len(failure_clusters)
         detail["candidate_selector_rewrite_targets"] = len(rewrite_targets)
@@ -459,6 +460,20 @@ class FormulaGenerator:
             "failed_formula": formula,
             "failed_gates": failed_gates,
             "failure_detail": _compact_failure_detail(failure_detail),
+            "rewrite_objective": {
+                "primary_goal": (
+                    "Improve cross-asset robustness without sacrificing profitability. A useful rewrite should target "
+                    "pass_rate_delta > 0 and mean_sharpe_delta >= 0 versus the parent when universe evidence is available."
+                ),
+                "profitability_gate": (
+                    "Do not treat a higher cross-asset pass count as sufficient if mean Sharpe falls below the parent. "
+                    "Normalized range, volatility, and liquidity-regime candidates need an explicit Sharpe/profitability rationale."
+                ),
+                "failure_mode_prediction": (
+                    "For every candidate, use expected_failure_mode to predict its most likely cross-asset failure mode, "
+                    "including which field family or asset regime may break it."
+                ),
+            },
             "gate_rewrite_guidance": _rewrite_guidance(failed_gates),
             "available_fields": {
                 "open": "opening price",
@@ -479,6 +494,7 @@ class FormulaGenerator:
             },
             "multi_asset_candidate_evidence": {
                 "source": selector_context.get("source", ""),
+                "parent_selector_target_evidence": parent_selector_target,
                 "rewrite_targets": rewrite_targets,
                 "evidence_gaps": evidence_gaps,
                 "weak_cross_asset_clusters": selector_clusters,
@@ -523,6 +539,15 @@ class FormulaGenerator:
                 ),
                 "Prefer 1-3 operator formulas. Before returning JSON, self-check every formula against max_depth and max_operators.",
                 "At most one returned candidate may be funding_rate-only; diversify across funding, volatility/range, volume/liquidity, or price-regime families.",
+                (
+                    "A higher pass_rate alone is not enough. Prefer candidates that can plausibly improve both "
+                    "cross-asset pass_rate and mean Sharpe versus the parent evidence in failure_detail."
+                ),
+                (
+                    "For normalized high-low range, volatility, or volume/liquidity candidates, explain why the signal "
+                    "should be profitable after costs rather than merely present on more assets."
+                ),
+                "In expected_failure_mode, name the likely cross-asset failure pattern before backtesting.",
                 "Do not copy the failed formula. Preserve economic intent only if the failed gate suggests it is salvageable.",
                 "Prefer simple, interpretable changes: horizon, smoothing, field substitution, sign flip, or regime proxy.",
             ],
@@ -845,6 +870,26 @@ def _is_pure_funding_formula(formula: str) -> bool:
     return not any(field in formula for field in ("open", "high", "low", "close", "volume"))
 
 
+def _matching_selector_target(formula: str, rewrite_targets: list[Any]) -> dict[str, Any]:
+    for target in rewrite_targets:
+        if not isinstance(target, dict) or str(target.get("formula", "")) != formula:
+            continue
+        return {
+            key: target.get(key)
+            for key in [
+                "factor_id",
+                "selector_verdict",
+                "rewrite_focus",
+                "universe_pass_rate",
+                "universe_mean_sharpe",
+                "universe_median_rank_ic",
+                "failed_assets",
+            ]
+            if key in target
+        }
+    return {}
+
+
 def _rewrite_guidance(failed_gates: list[str]) -> dict[str, str]:
     guidance = {
         "predictive_power": "Change the information source, sign, or horizon. Do not merely smooth a non-predictive signal.",
@@ -873,8 +918,29 @@ def _compact_failure_detail(detail: dict[str, Any]) -> dict[str, Any]:
                 for key in ["pass", "rank_ic", "directional_win_rate", "max_corr_to_library", "cost_sharpe", "halflife_bars", "validation_sharpe", "rule"]
                 if key in value
             }
-    return {
+    out = {
         "passed": detail.get("passed") if isinstance(detail, dict) else None,
         "brutal_score": detail.get("brutal_score") if isinstance(detail, dict) else None,
         "gates": compact,
     }
+    if isinstance(detail, dict):
+        universe = detail.get("universe")
+        if isinstance(universe, dict):
+            out["parent_multi_asset_evidence"] = {
+                key: universe.get(key)
+                for key in ["pass_rate", "mean_sharpe", "median_rank_ic", "failed_assets"]
+                if key in universe
+            }
+        objective = detail.get("rewrite_objective")
+        if isinstance(objective, dict):
+            out["rewrite_objective"] = {
+                key: objective.get(key)
+                for key in [
+                    "target_pass_rate_delta",
+                    "target_mean_sharpe_delta",
+                    "profitability_gate",
+                    "failed_assets_instruction",
+                ]
+                if key in objective
+            }
+    return out

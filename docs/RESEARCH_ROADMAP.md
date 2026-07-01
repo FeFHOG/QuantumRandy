@@ -536,6 +536,11 @@ Expected value:
     candidates through universe evidence plus fixed-blend portfolio-universe evidence;
   - writes `review/selector_pipeline_review.csv` and `SELECTOR_PIPELINE_REVIEW.md` to compare each parent target with
     its best rewrite candidate using pass-rate and mean-Sharpe deltas;
+  - review verdicts now separate `coverage_only` rewrites from true improvements, so candidates that raise cross-asset
+    pass rate while reducing parent mean Sharpe are not treated as acceptable improvements;
+  - selector rewrite prompts now ask LLM candidates to optimize both `pass_rate_delta > 0` and
+    `mean_sharpe_delta >= 0`, justify normalized range/volatility profitability, and predict likely cross-asset failure
+    modes before evaluation;
   - all outputs remain offline research artifacts and do not admit, publish, or update runtime strategies.
 
 ## Next Session Prompt

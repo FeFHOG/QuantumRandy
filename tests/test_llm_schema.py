@@ -293,6 +293,11 @@ def test_llm_rewrite_prompt_uses_failed_gate_guidance(monkeypatch) -> None:
     assert "neg(zscore(ema(winsorize(funding_rate,5),96),168))" in captured["prompt"]
     assert "candidate_diversity" in captured["prompt"]
     assert "At most one returned candidate may be funding_rate-only" in captured["prompt"]
+    assert "rewrite_objective" in captured["prompt"]
+    assert "pass_rate_delta > 0" in captured["prompt"]
+    assert "mean_sharpe_delta >= 0" in captured["prompt"]
+    assert "higher pass_rate alone is not enough" in captured["prompt"]
+    assert "likely cross-asset failure pattern" in captured["prompt"]
     assert "friction_audit" in captured["prompt"]
     assert "Reduce turnover" in captured["prompt"]
     assert generator.events[-1]["source"] == "llm_rewrite"
@@ -396,5 +401,7 @@ def test_llm_rewrite_prompt_includes_candidate_selector_context(monkeypatch, tmp
     assert formulas == ["winsorize(zscore(volume,96),96)"]
     assert "multi_asset_candidate_evidence" in captured["prompt"]
     assert "weak_conviction" in captured["prompt"]
+    assert "parent_selector_target_evidence" in captured["prompt"]
+    assert "universe_mean_sharpe" in captured["prompt"]
     assert generator.events[-1]["candidate_selector_rewrite_targets"] == 1
     os.environ.pop("LLM_API_KEY", None)

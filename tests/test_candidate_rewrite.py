@@ -114,9 +114,11 @@ class _RecordingRewriteGenerator(FormulaGenerator):
     def __init__(self) -> None:
         super().__init__(use_llm=False)
         self.last_forbidden: list[str] = []
+        self.last_failure_detail = {}
 
     def rewrite(self, formula, failed_gates, failure_detail, count, forbidden):
         self.last_forbidden = list(forbidden)
+        self.last_failure_detail = failure_detail
         proposal = "neg(zscore(funding_rate,42))"
         self.descriptions[proposal] = "Funding pressure rewrite for broad cross-asset carry regime evidence."
         self.proposal_metadata[proposal] = {
@@ -136,6 +138,9 @@ def test_selector_rewrite_merges_selector_forbidden_subtrees_into_generation(tmp
             "formula": "zscore(ret(close,6),48)",
             "selector_verdict": "rewrite",
             "rewrite_focus": "improve_cross_asset_robustness",
+            "universe_pass_rate": 0.2,
+            "universe_mean_sharpe": 0.3,
+            "failed_assets": "BTCUSDT,ETHUSDT",
             "matched_failed_subtrees": "zscore(ret(close,6),48)",
         }
     ]
@@ -159,6 +164,10 @@ def test_selector_rewrite_merges_selector_forbidden_subtrees_into_generation(tmp
     assert "corr(funding_rate,volume,72)" in candidates.iloc[0]["selector_forbidden_subtrees"]
     assert "zscore(ret(close,6),48)" in candidates.iloc[0]["parent_matched_failed_subtrees"]
     assert events.iloc[0]["selector_forbidden_subtree_count"] == 3
+    assert generator.last_failure_detail["universe"]["mean_sharpe"] == 0.3
+    assert generator.last_failure_detail["rewrite_objective"]["target_pass_rate_delta"] == "> 0"
+    assert generator.last_failure_detail["rewrite_objective"]["target_mean_sharpe_delta"] == ">= 0"
+    assert "BTCUSDT,ETHUSDT" in generator.last_failure_detail["rewrite_objective"]["failed_assets_instruction"]
 
 
 def test_write_selector_rewrite_report_outputs_leaderboard_style_json(tmp_path) -> None:

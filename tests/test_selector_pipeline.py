@@ -174,6 +174,24 @@ def test_selector_pipeline_review_compares_parent_and_rewrite_evidence(tmp_path)
                 "parent_universe_pass_rate": 0.6,
                 "parent_universe_mean_sharpe": 0.4,
             },
+            {
+                "factor_id": "rewrite_d",
+                "formula": "zscore(div(sub(high,low),close),168)",
+                "parent_factor_id": "parent_c",
+                "parent_formula": "zscore(corr(sub(close,open),volume,48),72)",
+                "parent_rewrite_focus": "improve_cross_asset_robustness",
+                "parent_universe_pass_rate": 0.2,
+                "parent_universe_mean_sharpe": 0.3,
+            },
+            {
+                "factor_id": "rewrite_e",
+                "formula": "zscore(volume,120)",
+                "parent_factor_id": "parent_d",
+                "parent_formula": "zscore(volume,48)",
+                "parent_rewrite_focus": "improve_cross_asset_profitability",
+                "parent_universe_pass_rate": 0.2,
+                "parent_universe_mean_sharpe": -0.3,
+            },
         ]
     )
     candidate_path = tmp_path / "selector_rewrite_candidates.csv"
@@ -207,6 +225,24 @@ def test_selector_pipeline_review_compares_parent_and_rewrite_evidence(tmp_path)
                 "failed_assets": "ETHUSDT,SOLUSDT",
                 "evaluated_assets": 5,
             },
+            {
+                "factor_id": "rewrite_d",
+                "pass_rate": 0.6,
+                "mean_sharpe": 0.1,
+                "median_rank_ic": 0.01,
+                "robustness_score": 0.6,
+                "failed_assets": "BTCUSDT,ETHUSDT",
+                "evaluated_assets": 5,
+            },
+            {
+                "factor_id": "rewrite_e",
+                "pass_rate": 0.2,
+                "mean_sharpe": -0.1,
+                "median_rank_ic": 0.01,
+                "robustness_score": 0.4,
+                "failed_assets": "BTCUSDT",
+                "evaluated_assets": 5,
+            },
         ]
     )
 
@@ -216,4 +252,9 @@ def test_selector_pipeline_review_compares_parent_and_rewrite_evidence(tmp_path)
     assert by_parent["parent_a"]["best_candidate_factor_id"] == "rewrite_a"
     assert by_parent["parent_a"]["review_verdict"] == "improved"
     assert by_parent["parent_a"]["pass_rate_delta"] == 0.4
+    assert by_parent["parent_a"]["improvement_gate"] == "pass_rate_delta > 0 and mean_sharpe_delta >= 0"
     assert by_parent["parent_b"]["review_verdict"] == "not_improved"
+    assert by_parent["parent_c"]["review_verdict"] == "coverage_only"
+    assert by_parent["parent_c"]["pass_rate_delta"] == 0.4
+    assert by_parent["parent_c"]["mean_sharpe_delta"] == -0.2
+    assert by_parent["parent_d"]["review_verdict"] == "mixed"
