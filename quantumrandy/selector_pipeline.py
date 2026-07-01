@@ -88,6 +88,11 @@ def run_selector_rewrite_pipeline(
             "target_count": rewrite_manifest.get("target_count", 0),
             "candidate_count": rewrite_manifest.get("candidate_count", 0),
             "selector_forbidden_subtree_count": rewrite_manifest.get("selector_forbidden_subtree_count", 0),
+            "use_llm_requested": bool(use_llm),
+            "event_source_counts": rewrite_manifest.get("event_source_counts", {}),
+            "llm_rewrite_accepted": rewrite_manifest.get("llm_rewrite_accepted", 0),
+            "fallback_rewrite_accepted": rewrite_manifest.get("fallback_rewrite_accepted", 0),
+            "is_llm_policy_evidence": bool(use_llm and rewrite_manifest.get("llm_rewrite_accepted", 0) > 0),
         },
         "universe": {"status": "skipped", "reason": ""},
         "portfolio": {"status": "skipped", "reason": ""},
@@ -240,6 +245,10 @@ def render_pipeline_report(manifest: dict[str, Any]) -> str:
         f"- Window: `{manifest['window']}`",
         f"- Rewrite candidates: `{manifest['rewrite']['candidate_count']}`",
         f"- Selector forbidden subtrees: `{manifest['rewrite']['selector_forbidden_subtree_count']}`",
+        f"- LLM requested: `{manifest['rewrite'].get('use_llm_requested', False)}`",
+        f"- LLM rewrite accepted: `{manifest['rewrite'].get('llm_rewrite_accepted', 0)}`",
+        f"- Fallback/local accepted: `{manifest['rewrite'].get('fallback_rewrite_accepted', 0)}`",
+        f"- LLM policy evidence: `{manifest['rewrite'].get('is_llm_policy_evidence', False)}`",
     ]
     review = manifest.get("review", {})
     if review.get("status") == "completed":

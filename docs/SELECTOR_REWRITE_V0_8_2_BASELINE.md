@@ -25,6 +25,9 @@ strategy promotion recommendation.
 The run used the local fallback rewrite path. No LLM API/proxy environment variables were present in this session, so
 this should not be treated as LLM policy evidence.
 
+Future pipeline manifests expose `llm_rewrite_accepted`, `fallback_rewrite_accepted`, and `is_llm_policy_evidence` so
+this distinction is visible in machine-readable artifacts.
+
 ## Outputs
 
 Local output directory:

@@ -78,6 +78,9 @@ def test_build_selector_rewrite_candidates_uses_local_generator(tmp_path) -> Non
 
     assert manifest["artifact_type"] == "quantumrandy_selector_rewrite_candidates"
     assert manifest["safety"]["not_runtime_publish_payload"] is True
+    assert manifest["llm_rewrite_accepted"] == 0
+    assert manifest["fallback_rewrite_accepted"] >= 1
+    assert manifest["event_source_counts"]
     assert len(candidates) >= 1
     assert not events.empty
     row = candidates.iloc[0].to_dict()
@@ -186,6 +189,8 @@ def test_write_selector_rewrite_report_outputs_leaderboard_style_json(tmp_path) 
     )
 
     assert manifest["candidate_count"] == 1
+    assert manifest["llm_rewrite_accepted"] == 0
+    assert manifest["fallback_rewrite_accepted"] == 1
     payload = json.loads((tmp_path / "rewrite" / "selector_rewrite_candidates.json").read_text(encoding="utf-8"))
     assert isinstance(payload, list)
     assert payload[0]["formula"]
@@ -193,3 +198,4 @@ def test_write_selector_rewrite_report_outputs_leaderboard_style_json(tmp_path) 
     assert (tmp_path / "rewrite" / "selector_rewrite_candidates.csv").exists()
     report = (tmp_path / "rewrite" / "SELECTOR_REWRITE_REPORT.md").read_text(encoding="utf-8")
     assert "research artifact only" in report
+    assert "LLM rewrite accepted" in report

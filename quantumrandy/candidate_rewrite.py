@@ -152,6 +152,12 @@ def build_selector_rewrite_candidates(
         "target_count": min(len(rewrite_targets), policy.max_targets),
         "candidate_count": len(candidates),
         "event_count": len(events),
+        "event_source_counts": _event_source_counts(events),
+        "llm_rewrite_accepted": _accepted_by_source(events, {"llm_rewrite"}),
+        "fallback_rewrite_accepted": _accepted_by_source(
+            events,
+            {"rewrite_fallback", "local_rewrite", "local", "fallback"},
+        ),
         "selector_forbidden_subtree_count": len(selector_forbidden_subtrees),
         "selector_forbidden_subtrees": selector_forbidden_subtrees[: policy.max_selector_forbidden_subtrees],
         "usage": [
@@ -204,6 +210,8 @@ def render_selector_rewrite_report(manifest: dict[str, Any], candidates: pd.Data
         f"- Rewrite targets: `{manifest['target_count']}`",
         f"- Candidate formulas: `{manifest['candidate_count']}`",
         f"- Selector forbidden subtrees: `{manifest.get('selector_forbidden_subtree_count', 0)}`",
+        f"- LLM rewrite accepted: `{manifest.get('llm_rewrite_accepted', 0)}`",
+        f"- Fallback/local accepted: `{manifest.get('fallback_rewrite_accepted', 0)}`",
         "",
         "## Candidates",
         "",
@@ -239,6 +247,26 @@ def load_json_rows(path: str | Path) -> list[dict[str, Any]]:
     if not isinstance(payload, list):
         raise ValueError(f"Expected JSON list: {path}")
     return [item for item in payload if isinstance(item, dict) and item.get("formula")]
+
+
+def _event_source_counts(events: pd.DataFrame) -> dict[str, int]:
+    if events.empty or "source" not in events.columns:
+        return {}
+    return {str(key): int(value) for key, value in events["source"].fillna("").value_counts().to_dict().items()}
+
+
+def _accepted_by_source(events: pd.DataFrame, sources: set[str]) -> int:
+    if events.empty or "source" not in events.columns or "accepted" not in events.columns:
+        return 0
+    total = 0
+    for row in events.fillna("").to_dict(orient="records"):
+        if str(row.get("source", "")) not in sources:
+            continue
+        try:
+            total += int(float(row.get("accepted", 0) or 0))
+        except (TypeError, ValueError):
+            continue
+    return total
 
 
 def _failed_gates_for_focus(rewrite_focus: str) -> list[str]:
