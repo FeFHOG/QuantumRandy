@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
+
 from .candidate_rewrite import (
     CandidateRewritePolicy,
     load_rewrite_targets,
@@ -90,6 +92,7 @@ def run_selector_rewrite_pipeline(
         "universe": {"status": "skipped", "reason": ""},
         "portfolio": {"status": "skipped", "reason": ""},
         "portfolio_universe": {"status": "skipped", "reason": ""},
+        "review": {"status": "skipped", "reason": ""},
         "outputs": {
             "rewrite_candidates": (rewrite_out / "selector_rewrite_candidates.json").as_posix(),
             "manifest": (out / "selector_rewrite_pipeline_manifest.json").as_posix(),
@@ -109,17 +112,28 @@ def run_selector_rewrite_pipeline(
             ascending=[False, False, False, False],
         )
         _write_universe_outputs(universe_out, details=details, summary=summary, assets=assets, window=window)
+        review = build_selector_pipeline_review(rewrite_out / "selector_rewrite_candidates.csv", summary)
+        _write_review_outputs(out / "review", review=review)
         manifest["universe"] = {
             "status": "completed",
             "out_dir": universe_out.as_posix(),
             "summary_rows": len(summary),
             "top_factor_ids": [str(row.get("factor_id", "")) for row in summary.head(10).to_dict(orient="records")],
         }
+        manifest["review"] = {
+            "status": "completed",
+            "out_dir": (out / "review").as_posix(),
+            "review_rows": len(review),
+            "verdict_counts": _value_counts(review, "review_verdict"),
+        }
         manifest["outputs"]["universe_summary"] = (universe_out / "universe_summary.csv").as_posix()
+        manifest["outputs"]["pipeline_review"] = (out / "review" / "selector_pipeline_review.csv").as_posix()
     elif run_universe:
         manifest["universe"] = {"status": "skipped", "reason": "no asset config paths provided"}
+        manifest["review"] = {"status": "skipped", "reason": "no universe evaluation"}
     else:
         manifest["universe"] = {"status": "skipped", "reason": "disabled by caller"}
+        manifest["review"] = {"status": "skipped", "reason": "universe evaluation disabled"}
 
     if candidates and run_portfolio_universe and assets:
         factors, selection, portfolios, contribution, portfolio_manifest = build_portfolio_research(
@@ -185,6 +199,9 @@ def run_selector_rewrite_pipeline(
         manifest["portfolio"] = {"status": "skipped", "reason": "disabled by caller"}
         manifest["portfolio_universe"] = {"status": "skipped", "reason": "disabled by caller"}
 
+    if manifest["review"]["status"] == "skipped" and not candidates:
+        manifest["review"] = {"status": "skipped", "reason": "selector rewrite produced no candidate formulas"}
+
     safe_write_json(out / "selector_rewrite_pipeline_manifest.json", manifest, out / "events.jsonl")
     safe_write_text(out / "SELECTOR_REWRITE_PIPELINE_REPORT.md", render_pipeline_report(manifest), out / "events.jsonl")
     return manifest
@@ -212,6 +229,8 @@ def render_pipeline_report(manifest: dict[str, Any]) -> str:
         payload = manifest.get(stage, {})
         detail = payload.get("out_dir") or payload.get("reason") or ""
         lines.append(f"| `{stage}` | `{payload.get('status', '')}` | `{detail}` |")
+    review = manifest.get("review", {})
+    lines.append(f"| `review` | `{review.get('status', '')}` | `{review.get('out_dir') or review.get('reason') or ''}` |")
     lines.extend(
         [
             "",
@@ -221,10 +240,98 @@ def render_pipeline_report(manifest: dict[str, Any]) -> str:
             "- `universe/universe_summary.csv`: formula-level multi-asset evidence when configs are provided.",
             "- `portfolio/portfolio_manifest.json`: fixed-blend research portfolio when configs are provided.",
             "- `portfolio_universe/portfolio_universe_summary.csv`: portfolio-level multi-asset evidence.",
+            "- `review/selector_pipeline_review.csv`: parent-vs-rewrite evidence comparison.",
             "- `selector_rewrite_pipeline_manifest.json`: machine-readable stage provenance and safety metadata.",
         ]
     )
     return "\n".join(lines) + "\n"
+
+
+def build_selector_pipeline_review(
+    rewrite_candidates_path: str | Path,
+    universe_summary: pd.DataFrame,
+) -> pd.DataFrame:
+    candidates = _read_csv(rewrite_candidates_path)
+    if candidates.empty:
+        return pd.DataFrame()
+    if universe_summary is None or universe_summary.empty:
+        summary_by_factor: dict[str, dict[str, Any]] = {}
+    else:
+        summary_by_factor = {
+            str(row.get("factor_id", "")): row for row in universe_summary.fillna("").to_dict(orient="records")
+        }
+
+    candidate_rows: list[dict[str, Any]] = []
+    for row in candidates.fillna("").to_dict(orient="records"):
+        factor_id = str(row.get("factor_id", ""))
+        evidence = summary_by_factor.get(factor_id, {})
+        candidate_rows.append(
+            {
+                **row,
+                "candidate_pass_rate": _num(evidence.get("pass_rate")),
+                "candidate_mean_sharpe": _num(evidence.get("mean_sharpe")),
+                "candidate_median_rank_ic": _num(evidence.get("median_rank_ic")),
+                "candidate_robustness_score": _num(evidence.get("robustness_score")),
+                "candidate_failed_assets": str(evidence.get("failed_assets", "")),
+                "candidate_evaluated_assets": int(_num(evidence.get("evaluated_assets"))),
+            }
+        )
+
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for row in candidate_rows:
+        grouped.setdefault(str(row.get("parent_factor_id", "")), []).append(row)
+
+    review_rows: list[dict[str, Any]] = []
+    for parent_factor_id, rows in grouped.items():
+        ranked = sorted(
+            rows,
+            key=lambda row: (
+                float(row.get("candidate_pass_rate", 0.0)),
+                float(row.get("candidate_mean_sharpe", 0.0)),
+                float(row.get("candidate_robustness_score", 0.0)),
+            ),
+            reverse=True,
+        )
+        best = ranked[0]
+        parent_pass_rate = _num(best.get("parent_universe_pass_rate"))
+        parent_mean_sharpe = _num(best.get("parent_universe_mean_sharpe"))
+        best_pass_rate = _num(best.get("candidate_pass_rate"))
+        best_mean_sharpe = _num(best.get("candidate_mean_sharpe"))
+        pass_rate_delta = round(best_pass_rate - parent_pass_rate, 8)
+        mean_sharpe_delta = round(best_mean_sharpe - parent_mean_sharpe, 8)
+        review_rows.append(
+            {
+                "parent_factor_id": parent_factor_id,
+                "parent_formula": best.get("parent_formula", ""),
+                "parent_rewrite_focus": best.get("parent_rewrite_focus", ""),
+                "parent_universe_pass_rate": parent_pass_rate,
+                "parent_universe_mean_sharpe": parent_mean_sharpe,
+                "candidate_count": len(rows),
+                "evaluated_candidate_count": sum(1 for row in rows if int(row.get("candidate_evaluated_assets", 0)) > 0),
+                "best_candidate_factor_id": best.get("factor_id", ""),
+                "best_candidate_formula": best.get("formula", ""),
+                "best_candidate_pass_rate": best_pass_rate,
+                "best_candidate_mean_sharpe": best_mean_sharpe,
+                "best_candidate_median_rank_ic": _num(best.get("candidate_median_rank_ic")),
+                "best_candidate_robustness_score": _num(best.get("candidate_robustness_score")),
+                "best_candidate_failed_assets": best.get("candidate_failed_assets", ""),
+                "pass_rate_delta": pass_rate_delta,
+                "mean_sharpe_delta": mean_sharpe_delta,
+                "review_verdict": _review_verdict(
+                    evaluated=sum(1 for row in rows if int(row.get("candidate_evaluated_assets", 0)) > 0),
+                    pass_rate_delta=pass_rate_delta,
+                    mean_sharpe_delta=mean_sharpe_delta,
+                ),
+            }
+        )
+
+    frame = pd.DataFrame(review_rows)
+    if frame.empty:
+        return frame
+    return frame.sort_values(
+        ["review_verdict", "pass_rate_delta", "mean_sharpe_delta"],
+        ascending=[True, False, False],
+    ).reset_index(drop=True)
 
 
 def _load_assets(config_paths: list[str | Path], *, window: str) -> list[AssetDataset]:
@@ -289,3 +396,97 @@ def _write_portfolio_outputs(
         render_portfolio_report(manifest, factors, selection, portfolios, contribution),
         out / "events.jsonl",
     )
+
+
+def _write_review_outputs(out: Path, *, review: pd.DataFrame) -> None:
+    out.mkdir(parents=True, exist_ok=True)
+    manifest = {
+        "artifact_type": "quantumrandy_selector_rewrite_pipeline_review",
+        "schema_version": 1,
+        "safety": {
+            "research_only": True,
+            "not_runtime_publish_payload": True,
+            "does_not_update_runtime": True,
+            "does_not_auto_admit_factors": True,
+        },
+        "review_rows": len(review),
+        "verdict_counts": _value_counts(review, "review_verdict"),
+    }
+    safe_write_csv(out / "selector_pipeline_review.csv", review, out / "events.jsonl")
+    safe_write_json(out / "selector_pipeline_review_manifest.json", manifest, out / "events.jsonl")
+    safe_write_text(out / "SELECTOR_PIPELINE_REVIEW.md", render_review_report(manifest, review), out / "events.jsonl")
+
+
+def render_review_report(manifest: dict[str, Any], review: pd.DataFrame) -> str:
+    lines = [
+        "# QuantumRandy Selector Rewrite Pipeline Review",
+        "",
+        "This is a research comparison artifact only. It is not an admission decision or runtime publish payload.",
+        "",
+        "## Summary",
+        "",
+        f"- Review rows: `{manifest['review_rows']}`",
+        "",
+        "## Verdict Counts",
+        "",
+        "| Verdict | Count |",
+        "|---|---:|",
+    ]
+    counts = manifest.get("verdict_counts") or {}
+    if counts:
+        for verdict, count in counts.items():
+            lines.append(f"| `{verdict}` | {count} |")
+    else:
+        lines.append("| none | 0 |")
+
+    lines.extend(["", "## Parent vs Rewrite Evidence", ""])
+    if review.empty:
+        lines.append("No reviewed rewrite candidates.")
+    else:
+        lines.append(
+            "| Parent | Verdict | Pass Rate Delta | Mean Sharpe Delta | Best Candidate | Best Pass Rate | Formula |"
+        )
+        lines.append("|---|---|---:|---:|---|---:|---|")
+        for row in review.head(30).to_dict(orient="records"):
+            lines.append(
+                "| "
+                f"`{row['parent_factor_id']}` | `{row['review_verdict']}` | {row['pass_rate_delta']:.2f} | "
+                f"{row['mean_sharpe_delta']:.2f} | `{row['best_candidate_factor_id']}` | "
+                f"{row['best_candidate_pass_rate']:.2f} | `{row['best_candidate_formula']}` |"
+            )
+    return "\n".join(lines) + "\n"
+
+
+def _review_verdict(*, evaluated: int, pass_rate_delta: float, mean_sharpe_delta: float) -> str:
+    if evaluated <= 0:
+        return "needs_evaluation"
+    if pass_rate_delta > 0 and mean_sharpe_delta >= 0:
+        return "improved"
+    if pass_rate_delta > 0 or mean_sharpe_delta > 0:
+        return "mixed"
+    return "not_improved"
+
+
+def _read_csv(path: str | Path) -> pd.DataFrame:
+    path = Path(path)
+    if not path.exists():
+        return pd.DataFrame()
+    try:
+        return pd.read_csv(path)
+    except pd.errors.EmptyDataError:
+        return pd.DataFrame()
+
+
+def _num(value: Any) -> float:
+    try:
+        if value == "":
+            return 0.0
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _value_counts(frame: pd.DataFrame, column: str) -> dict[str, int]:
+    if frame.empty or column not in frame.columns:
+        return {}
+    return {str(key): int(value) for key, value in frame[column].value_counts().to_dict().items()}

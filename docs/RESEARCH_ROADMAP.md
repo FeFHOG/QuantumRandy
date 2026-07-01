@@ -534,6 +534,8 @@ Expected value:
   - added tests in `QuantumRandy/tests/test_selector_pipeline.py`;
   - the pipeline writes a research-only selector rewrite batch and, when asset configs are provided, evaluates the
     candidates through universe evidence plus fixed-blend portfolio-universe evidence;
+  - writes `review/selector_pipeline_review.csv` and `SELECTOR_PIPELINE_REVIEW.md` to compare each parent target with
+    its best rewrite candidate using pass-rate and mean-Sharpe deltas;
   - all outputs remain offline research artifacts and do not admit, publish, or update runtime strategies.
 
 ## Next Session Prompt

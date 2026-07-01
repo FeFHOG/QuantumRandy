@@ -69,7 +69,8 @@ Implemented:
 - research-only selector rewrite batch artifacts for turning selector rewrite targets into downstream universe-evaluable
   candidate JSON files.
 - research-only selector rewrite evidence pipeline that can generate rewrite candidates and, when asset configs are
-  provided, immediately run universe and fixed-blend portfolio-universe evaluation artifacts.
+  provided, immediately run universe and fixed-blend portfolio-universe evaluation artifacts plus a parent-vs-rewrite
+  review artifact.
 
 What this means:
 

@@ -7,7 +7,7 @@ import pandas as pd
 import yaml
 
 from quantumrandy.candidate_selector import write_candidate_selector_report
-from quantumrandy.selector_pipeline import run_selector_rewrite_pipeline
+from quantumrandy.selector_pipeline import build_selector_pipeline_review, run_selector_rewrite_pipeline
 
 
 def _market(periods: int = 240, *, drift: float = 1.0) -> pd.DataFrame:
@@ -111,17 +111,22 @@ def test_selector_rewrite_pipeline_runs_research_only_evidence_chain(tmp_path) -
     assert manifest["universe"]["status"] == "completed"
     assert manifest["portfolio"]["status"] == "completed"
     assert manifest["portfolio_universe"]["status"] == "completed"
+    assert manifest["review"]["status"] == "completed"
     assert (tmp_path / "pipeline" / "rewrite" / "selector_rewrite_candidates.json").exists()
     assert (tmp_path / "pipeline" / "universe" / "universe_summary.csv").exists()
     assert (tmp_path / "pipeline" / "portfolio" / "portfolio_manifest.json").exists()
     assert (tmp_path / "pipeline" / "portfolio_universe" / "portfolio_universe_summary.csv").exists()
+    assert (tmp_path / "pipeline" / "review" / "selector_pipeline_review.csv").exists()
 
     persisted = json.loads(
         (tmp_path / "pipeline" / "selector_rewrite_pipeline_manifest.json").read_text(encoding="utf-8")
     )
     assert persisted["portfolio_universe"]["status"] == "completed"
+    assert persisted["review"]["status"] == "completed"
     report = (tmp_path / "pipeline" / "SELECTOR_REWRITE_PIPELINE_REPORT.md").read_text(encoding="utf-8")
     assert "research artifact only" in report
+    review_report = (tmp_path / "pipeline" / "review" / "SELECTOR_PIPELINE_REVIEW.md").read_text(encoding="utf-8")
+    assert "research comparison artifact only" in review_report
 
 
 def test_selector_rewrite_pipeline_can_stop_after_rewrite_without_configs(tmp_path) -> None:
@@ -135,4 +140,80 @@ def test_selector_rewrite_pipeline_can_stop_after_rewrite_without_configs(tmp_pa
     assert manifest["rewrite"]["candidate_count"] == 1
     assert manifest["universe"]["status"] == "skipped"
     assert manifest["universe"]["reason"] == "no asset config paths provided"
+    assert manifest["review"]["status"] == "skipped"
     assert manifest["portfolio_universe"]["status"] == "skipped"
+
+
+def test_selector_pipeline_review_compares_parent_and_rewrite_evidence(tmp_path) -> None:
+    candidates = pd.DataFrame(
+        [
+            {
+                "factor_id": "rewrite_a",
+                "formula": "neg(zscore(funding_rate,42))",
+                "parent_factor_id": "parent_a",
+                "parent_formula": "zscore(ret(close,6),48)",
+                "parent_rewrite_focus": "improve_cross_asset_robustness",
+                "parent_universe_pass_rate": 0.2,
+                "parent_universe_mean_sharpe": -0.1,
+            },
+            {
+                "factor_id": "rewrite_b",
+                "formula": "zscore(volume,48)",
+                "parent_factor_id": "parent_a",
+                "parent_formula": "zscore(ret(close,6),48)",
+                "parent_rewrite_focus": "improve_cross_asset_robustness",
+                "parent_universe_pass_rate": 0.2,
+                "parent_universe_mean_sharpe": -0.1,
+            },
+            {
+                "factor_id": "rewrite_c",
+                "formula": "zscore(close,48)",
+                "parent_factor_id": "parent_b",
+                "parent_formula": "zscore(close,12)",
+                "parent_rewrite_focus": "improve_cross_asset_profitability",
+                "parent_universe_pass_rate": 0.6,
+                "parent_universe_mean_sharpe": 0.4,
+            },
+        ]
+    )
+    candidate_path = tmp_path / "selector_rewrite_candidates.csv"
+    candidates.to_csv(candidate_path, index=False)
+    universe_summary = pd.DataFrame(
+        [
+            {
+                "factor_id": "rewrite_a",
+                "pass_rate": 0.6,
+                "mean_sharpe": 0.2,
+                "median_rank_ic": 0.01,
+                "robustness_score": 1.2,
+                "failed_assets": "SOLUSDT",
+                "evaluated_assets": 5,
+            },
+            {
+                "factor_id": "rewrite_b",
+                "pass_rate": 0.4,
+                "mean_sharpe": -0.2,
+                "median_rank_ic": 0.0,
+                "robustness_score": 0.1,
+                "failed_assets": "ETHUSDT,SOLUSDT",
+                "evaluated_assets": 5,
+            },
+            {
+                "factor_id": "rewrite_c",
+                "pass_rate": 0.4,
+                "mean_sharpe": 0.1,
+                "median_rank_ic": 0.0,
+                "robustness_score": 0.2,
+                "failed_assets": "ETHUSDT,SOLUSDT",
+                "evaluated_assets": 5,
+            },
+        ]
+    )
+
+    review = build_selector_pipeline_review(candidate_path, universe_summary)
+
+    by_parent = {row["parent_factor_id"]: row for row in review.to_dict(orient="records")}
+    assert by_parent["parent_a"]["best_candidate_factor_id"] == "rewrite_a"
+    assert by_parent["parent_a"]["review_verdict"] == "improved"
+    assert by_parent["parent_a"]["pass_rate_delta"] == 0.4
+    assert by_parent["parent_b"]["review_verdict"] == "not_improved"
