@@ -545,7 +545,8 @@ Expected value:
   - the review stage also writes `selector_pipeline_candidate_review.csv`, a candidate-level parent-vs-rewrite table
     with per-candidate verdicts and deltas before parent-level best-candidate aggregation;
   - the mining dashboard review payload reads the candidate-level selector review when present and summarizes
-    candidate verdict counts plus top candidate-level rows without changing runtime or admission behavior;
+    candidate verdict counts plus top candidate-level rows with failed-asset and formula context, without changing
+    runtime or admission behavior;
   - `SELECTOR_PIPELINE_REVIEW.md` now includes candidate-level verdict counts and highlight tables for true improved
     candidates, coverage-only traps, and Sharpe-improved/no-pass-lift candidates so the same review can be audited
     without opening the dashboard or raw CSV.

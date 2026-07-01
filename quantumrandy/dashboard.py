@@ -518,7 +518,9 @@ HTML = r"""<!doctype html>
           escapeHtml(r.verdict || '-') + '</strong> <span style="font-family:Consolas,monospace;color:var(--gold)">' +
           escapeHtml(r.factor_id || '-') + '</span><br><span class="muted">parent=' + escapeHtml(r.parent_factor_id || '-') +
           ' pass_delta=' + fmt(r.pass_rate_delta, 2) + ' sharpe_delta=' + fmt(r.mean_sharpe_delta, 2) +
-          '</span></div>'
+          ' pass=' + fmt(r.candidate_pass_rate, 2) + ' sharpe=' + fmt(r.candidate_mean_sharpe, 2) +
+          '</span><br><span class="muted">failed_assets=' + escapeHtml(r.candidate_failed_assets || 'none') +
+          '</span><br><span class="muted">' + escapeHtml(r.formula || '-') + '</span></div>'
         ).join('') + '</div>' : '') + '</div>';
     }
 
@@ -1150,6 +1152,7 @@ def _selector_pipeline_review_payload(path: Path | None) -> dict:
                 "best_candidate_formula": row.get("best_candidate_formula", ""),
                 "best_candidate_pass_rate": _num(row.get("best_candidate_pass_rate")),
                 "best_candidate_mean_sharpe": _num(row.get("best_candidate_mean_sharpe")),
+                "best_candidate_failed_assets": row.get("best_candidate_failed_assets", ""),
                 "candidate_verdict_counts": row.get("candidate_verdict_counts", ""),
                 "best_candidate_rank_reason": row.get("best_candidate_rank_reason", ""),
             }
@@ -1165,6 +1168,8 @@ def _selector_pipeline_review_payload(path: Path | None) -> dict:
                 "mean_sharpe_delta": _num(row.get("mean_sharpe_delta")),
                 "candidate_pass_rate": _num(row.get("candidate_pass_rate")),
                 "candidate_mean_sharpe": _num(row.get("candidate_mean_sharpe")),
+                "candidate_failed_assets": row.get("candidate_failed_assets", ""),
+                "candidate_rank_reason": row.get("candidate_rank_reason", ""),
             }
             for row in candidate_top.head(5).to_dict(orient="records")
         ],

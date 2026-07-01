@@ -218,6 +218,8 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
                 "mean_sharpe_delta": 0.3,
                 "candidate_pass_rate": 0.8,
                 "candidate_mean_sharpe": 0.7,
+                "candidate_failed_assets": "SOLUSDT",
+                "candidate_rank_reason": "verdict_rank=4; pass_rate_delta=0.40000000",
             },
             {
                 "parent_factor_id": "trend_parent",
@@ -229,6 +231,8 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
                 "mean_sharpe_delta": -0.1,
                 "candidate_pass_rate": 0.4,
                 "candidate_mean_sharpe": 0.1,
+                "candidate_failed_assets": "BTCUSDT,ETHUSDT",
+                "candidate_rank_reason": "verdict_rank=2; pass_rate_delta=0.20000000",
             },
             {
                 "parent_factor_id": "range_parent",
@@ -240,6 +244,8 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
                 "mean_sharpe_delta": -0.3,
                 "candidate_pass_rate": 0.0,
                 "candidate_mean_sharpe": -0.2,
+                "candidate_failed_assets": "BTCUSDT,ETHUSDT,SOLUSDT",
+                "candidate_rank_reason": "verdict_rank=1; pass_rate_delta=-0.20000000",
             },
         ]
     ).to_csv(selector_review / "selector_pipeline_candidate_review.csv", index=False)
@@ -303,6 +309,8 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
     assert "verdict_rank=4" in payload["selector_pipeline_review"]["top"][0]["best_candidate_rank_reason"]
     assert payload["selector_pipeline_review"]["candidate_top"][0]["factor_id"] == "carry_rewrite"
     assert payload["selector_pipeline_review"]["candidate_top"][0]["verdict"] == "improved"
+    assert payload["selector_pipeline_review"]["candidate_top"][0]["candidate_failed_assets"] == "SOLUSDT"
+    assert "verdict_rank=4" in payload["selector_pipeline_review"]["candidate_top"][0]["candidate_rank_reason"]
 
 
 def test_research_review_payload_hides_when_no_artifacts(tmp_path) -> None:
