@@ -491,6 +491,7 @@ HTML = r"""<!doctype html>
 
     function reviewSelectorPipelineCard(data) {
       const rows = data.top || [];
+      const candidateRows = data.candidate_top || [];
       return '<div class="review-card"><h3>Selector Pipeline Review</h3>' +
         '<div class="review-stats">' +
         '<div class="review-stat"><span>Improved</span><strong style="color:var(--good)">' + (data.improved ?? 0) + '</strong></div>' +
@@ -501,6 +502,9 @@ HTML = r"""<!doctype html>
         '</div><div class="muted" style="font-size:11px;margin-bottom:8px">' + (data.source || 'No selector pipeline review artifact') + '</div>' +
         '<div class="muted" style="font-size:11px;margin-bottom:8px">parents=' + (data.parents ?? 0) +
         ' candidates=' + (data.candidates ?? 0) + ' evaluated=' + (data.evaluated_candidates ?? 0) + '</div>' +
+        '<div class="muted" style="font-size:11px;margin-bottom:8px">candidate verdicts: improved=' + (data.candidate_improved ?? 0) +
+        ' coverage=' + (data.candidate_coverage_only ?? 0) + ' mixed=' + (data.candidate_mixed ?? 0) +
+        ' not=' + (data.candidate_not_improved ?? 0) + '</div>' +
         '<div class="review-list">' + rows.map(r =>
           '<div class="review-row"><strong class="' + (r.verdict === 'improved' ? 'pass' : r.verdict === 'not_improved' ? 'fail' : '') + '">' +
           escapeHtml(r.verdict || '-') + '</strong> <span class="muted">' + escapeHtml(r.parent_factor_id || '-') +
@@ -508,7 +512,14 @@ HTML = r"""<!doctype html>
           ' best_pass=' + fmt(r.best_candidate_pass_rate, 2) + ' best_sharpe=' + fmt(r.best_candidate_mean_sharpe, 2) +
           '</span><br><span style="font-family:Consolas,monospace;color:var(--gold)">' + escapeHtml(r.best_candidate_factor_id || '-') +
           '</span><br><span class="muted">' + escapeHtml(r.best_candidate_formula || '-') + '</span></div>'
-        ).join('') + '</div></div>';
+        ).join('') + '</div>' +
+        (candidateRows.length ? '<div class="review-list" style="margin-top:8px">' + candidateRows.map(r =>
+          '<div class="review-row"><strong class="' + (r.verdict === 'improved' ? 'pass' : r.verdict === 'not_improved' ? 'fail' : '') + '">' +
+          escapeHtml(r.verdict || '-') + '</strong> <span style="font-family:Consolas,monospace;color:var(--gold)">' +
+          escapeHtml(r.factor_id || '-') + '</span><br><span class="muted">parent=' + escapeHtml(r.parent_factor_id || '-') +
+          ' pass_delta=' + fmt(r.pass_rate_delta, 2) + ' sharpe_delta=' + fmt(r.mean_sharpe_delta, 2) +
+          '</span></div>'
+        ).join('') + '</div>' : '') + '</div>';
     }
 
     function reviewAdmissionCard(data) {
@@ -954,6 +965,15 @@ def _latest_artifact(root: Path, directory_glob: str, filename: str) -> Path | N
     return max(candidates, key=lambda path: path.stat().st_mtime)
 
 
+def _read_optional_csv(path: Path) -> pd.DataFrame:
+    if not path.exists():
+        return pd.DataFrame()
+    try:
+        return pd.read_csv(path)
+    except Exception:
+        return pd.DataFrame()
+
+
 def _data_readiness_payload(path: Path | None) -> dict:
     if path is None:
         return {"available": False}
@@ -1060,7 +1080,9 @@ def _selector_pipeline_review_payload(path: Path | None) -> dict:
         frame = pd.read_csv(path)
     except Exception as exc:
         return {"available": False, "source": str(path), "error": str(exc)}
+    candidate_frame = _read_optional_csv(path.with_name("selector_pipeline_candidate_review.csv"))
     verdicts = frame.get("review_verdict", pd.Series(dtype=str)).fillna("")
+    candidate_verdicts = candidate_frame.get("candidate_review_verdict", pd.Series(dtype=str)).fillna("")
     top = frame.copy()
     if not top.empty:
         for column in ("pass_rate_delta", "mean_sharpe_delta"):
@@ -1080,6 +1102,25 @@ def _selector_pipeline_review_payload(path: Path | None) -> dict:
             ["review_verdict_rank", "pass_rate_delta", "mean_sharpe_delta"],
             ascending=[False, False, False],
         )
+    candidate_top = candidate_frame.copy()
+    if not candidate_top.empty:
+        for column in ("pass_rate_delta", "mean_sharpe_delta"):
+            if column not in candidate_top.columns:
+                candidate_top[column] = 0.0
+        if "candidate_verdict_rank" not in candidate_top.columns:
+            candidate_top["candidate_verdict_rank"] = candidate_verdicts.map(
+                {
+                    "improved": 4,
+                    "mixed": 3,
+                    "coverage_only": 2,
+                    "not_improved": 1,
+                    "needs_evaluation": 0,
+                }
+            ).fillna(0)
+        candidate_top = candidate_top.sort_values(
+            ["candidate_verdict_rank", "pass_rate_delta", "mean_sharpe_delta"],
+            ascending=[False, False, False],
+        )
     return {
         "available": True,
         "source": _display_path(path),
@@ -1093,6 +1134,12 @@ def _selector_pipeline_review_payload(path: Path | None) -> dict:
         "mixed": int((verdicts == "mixed").sum()),
         "not_improved": int((verdicts == "not_improved").sum()),
         "needs_evaluation": int((verdicts == "needs_evaluation").sum()),
+        "candidate_review_available": not candidate_frame.empty,
+        "candidate_improved": int((candidate_verdicts == "improved").sum()),
+        "candidate_coverage_only": int((candidate_verdicts == "coverage_only").sum()),
+        "candidate_mixed": int((candidate_verdicts == "mixed").sum()),
+        "candidate_not_improved": int((candidate_verdicts == "not_improved").sum()),
+        "candidate_needs_evaluation": int((candidate_verdicts == "needs_evaluation").sum()),
         "top": [
             {
                 "parent_factor_id": row.get("parent_factor_id", ""),
@@ -1107,6 +1154,19 @@ def _selector_pipeline_review_payload(path: Path | None) -> dict:
                 "best_candidate_rank_reason": row.get("best_candidate_rank_reason", ""),
             }
             for row in top.head(5).to_dict(orient="records")
+        ],
+        "candidate_top": [
+            {
+                "parent_factor_id": row.get("parent_factor_id", ""),
+                "factor_id": row.get("factor_id", ""),
+                "formula": row.get("formula", ""),
+                "verdict": row.get("candidate_review_verdict", ""),
+                "pass_rate_delta": _num(row.get("pass_rate_delta")),
+                "mean_sharpe_delta": _num(row.get("mean_sharpe_delta")),
+                "candidate_pass_rate": _num(row.get("candidate_pass_rate")),
+                "candidate_mean_sharpe": _num(row.get("candidate_mean_sharpe")),
+            }
+            for row in candidate_top.head(5).to_dict(orient="records")
         ],
     }
 

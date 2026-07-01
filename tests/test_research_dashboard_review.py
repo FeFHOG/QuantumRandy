@@ -206,6 +206,43 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
             },
         ]
     ).to_csv(selector_review / "selector_pipeline_review.csv", index=False)
+    pd.DataFrame(
+        [
+            {
+                "parent_factor_id": "carry_parent",
+                "factor_id": "carry_rewrite",
+                "formula": "neg(zscore(funding_rate,72))",
+                "candidate_review_verdict": "improved",
+                "candidate_verdict_rank": 4,
+                "pass_rate_delta": 0.4,
+                "mean_sharpe_delta": 0.3,
+                "candidate_pass_rate": 0.8,
+                "candidate_mean_sharpe": 0.7,
+            },
+            {
+                "parent_factor_id": "trend_parent",
+                "factor_id": "trend_rewrite",
+                "formula": "zscore(ret(close,24),96)",
+                "candidate_review_verdict": "coverage_only",
+                "candidate_verdict_rank": 2,
+                "pass_rate_delta": 0.2,
+                "mean_sharpe_delta": -0.1,
+                "candidate_pass_rate": 0.4,
+                "candidate_mean_sharpe": 0.1,
+            },
+            {
+                "parent_factor_id": "range_parent",
+                "factor_id": "range_rewrite",
+                "formula": "zscore(sub(high,low),96)",
+                "candidate_review_verdict": "not_improved",
+                "candidate_verdict_rank": 1,
+                "pass_rate_delta": -0.2,
+                "mean_sharpe_delta": -0.3,
+                "candidate_pass_rate": 0.0,
+                "candidate_mean_sharpe": -0.2,
+            },
+        ]
+    ).to_csv(selector_review / "selector_pipeline_candidate_review.csv", index=False)
 
     research = reports / "research_live"
     (research / "pareto_archive.json").write_text(
@@ -256,10 +293,16 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
     assert payload["selector_pipeline_review"]["mixed"] == 1
     assert payload["selector_pipeline_review"]["not_improved"] == 1
     assert payload["selector_pipeline_review"]["needs_evaluation"] == 1
+    assert payload["selector_pipeline_review"]["candidate_review_available"] is True
+    assert payload["selector_pipeline_review"]["candidate_improved"] == 1
+    assert payload["selector_pipeline_review"]["candidate_coverage_only"] == 1
+    assert payload["selector_pipeline_review"]["candidate_not_improved"] == 1
     assert payload["selector_pipeline_review"]["top"][0]["parent_factor_id"] == "carry_parent"
     assert payload["selector_pipeline_review"]["top"][0]["best_candidate_factor_id"] == "carry_rewrite"
     assert payload["selector_pipeline_review"]["top"][0]["candidate_verdict_counts"] == "improved:1|not_improved:1"
     assert "verdict_rank=4" in payload["selector_pipeline_review"]["top"][0]["best_candidate_rank_reason"]
+    assert payload["selector_pipeline_review"]["candidate_top"][0]["factor_id"] == "carry_rewrite"
+    assert payload["selector_pipeline_review"]["candidate_top"][0]["verdict"] == "improved"
 
 
 def test_research_review_payload_hides_when_no_artifacts(tmp_path) -> None:
