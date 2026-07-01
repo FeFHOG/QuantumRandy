@@ -167,7 +167,9 @@ Priority: P0/P1.
 ### 3B. Factor Admission Policy
 
 Status: first implementation complete in `QuantumRandy/quantumrandy/admission.py` and
-`QuantumRandy/scripts/build_admission.py`.
+`QuantumRandy/scripts/build_admission.py`. A research-only candidate selector is also implemented in
+`QuantumRandy/quantumrandy/candidate_selector.py` and `QuantumRandy/scripts/build_candidate_selector.py` to rank
+leaderboard formulas with universe, portfolio-universe, and failure-memory evidence before further rewrite effort.
 
 Why it matters:
 
@@ -180,6 +182,8 @@ Deliverable:
 - `admission_decisions.csv`: implemented.
 - `admission_manifest.json`: implemented.
 - `ADMISSION_REPORT.md`: implemented.
+- `candidate_selector.csv`, `rewrite_targets.csv`, and `multi_asset_failure_clusters.csv`: implemented as research-only
+  evidence artifacts for rewrite prioritization and BTC-only pattern triage.
 - optional portfolio-level walk-forward evidence ingestion: implemented.
 - dashboard admission / failure-cluster / portfolio walk-forward review panel: implemented.
 
@@ -497,6 +501,15 @@ Expected value:
 - Added stable factor IDs and research-only manifest metadata to multi-asset universe artifacts. A formal
   BTC/ETH/SOL/BNB/AVAX archive evaluation of passed `reports/research_live/leaderboard.json` candidates was run locally
   into `reports/universe_archive_eval`, and its summary can now feed factor admission by stable factor ID.
+- Added a research-only candidate selector:
+  - added `QuantumRandy/quantumrandy/candidate_selector.py`;
+  - added `QuantumRandy/scripts/build_candidate_selector.py`;
+  - added tests in `QuantumRandy/tests/test_candidate_selector.py`;
+  - combines leaderboard, universe robustness, portfolio-universe robustness, and optional failure-memory evidence;
+  - writes `candidate_selector.csv`, `rewrite_targets.csv`, `multi_asset_failure_clusters.csv`,
+    `candidate_selector_manifest.json`, and `CANDIDATE_SELECTOR_REPORT.md`;
+  - separates `rewrite`, `deprioritize`, and `needs_evidence` verdicts without changing admission policy or runtime
+    state.
 
 ## Next Session Prompt
 
