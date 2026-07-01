@@ -249,6 +249,52 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
             },
         ]
     ).to_csv(selector_review / "selector_pipeline_candidate_review.csv", index=False)
+    pd.DataFrame(
+        [
+            {
+                "highlight_type": "true_improved",
+                "highlight_rank": 3,
+                "parent_factor_id": "carry_parent",
+                "factor_id": "carry_rewrite",
+                "formula": "neg(zscore(funding_rate,72))",
+                "candidate_review_verdict": "improved",
+                "pass_rate_delta": 0.4,
+                "mean_sharpe_delta": 0.3,
+                "candidate_pass_rate": 0.8,
+                "candidate_mean_sharpe": 0.7,
+                "candidate_failed_assets": "SOLUSDT",
+                "candidate_rank_reason": "verdict_rank=4; pass_rate_delta=0.40000000",
+            },
+            {
+                "highlight_type": "coverage_only_trap",
+                "highlight_rank": 1,
+                "parent_factor_id": "trend_parent",
+                "factor_id": "trend_rewrite",
+                "formula": "zscore(ret(close,24),96)",
+                "candidate_review_verdict": "coverage_only",
+                "pass_rate_delta": 0.2,
+                "mean_sharpe_delta": -0.1,
+                "candidate_pass_rate": 0.4,
+                "candidate_mean_sharpe": 0.1,
+                "candidate_failed_assets": "BTCUSDT,ETHUSDT",
+                "candidate_rank_reason": "verdict_rank=2; pass_rate_delta=0.20000000",
+            },
+            {
+                "highlight_type": "sharpe_improved_no_pass_lift",
+                "highlight_rank": 2,
+                "parent_factor_id": "profit_parent",
+                "factor_id": "profit_rewrite",
+                "formula": "zscore(volume,120)",
+                "candidate_review_verdict": "mixed",
+                "pass_rate_delta": 0.0,
+                "mean_sharpe_delta": 0.2,
+                "candidate_pass_rate": 0.2,
+                "candidate_mean_sharpe": 0.1,
+                "candidate_failed_assets": "BNBUSDT",
+                "candidate_rank_reason": "verdict_rank=3; mean_sharpe_delta=0.20000000",
+            },
+        ]
+    ).to_csv(selector_review / "selector_pipeline_candidate_highlights.csv", index=False)
 
     research = reports / "research_live"
     (research / "pareto_archive.json").write_text(
@@ -311,6 +357,13 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
     assert payload["selector_pipeline_review"]["candidate_top"][0]["verdict"] == "improved"
     assert payload["selector_pipeline_review"]["candidate_top"][0]["candidate_failed_assets"] == "SOLUSDT"
     assert "verdict_rank=4" in payload["selector_pipeline_review"]["candidate_top"][0]["candidate_rank_reason"]
+    assert payload["selector_pipeline_review"]["candidate_highlights_available"] is True
+    assert payload["selector_pipeline_review"]["candidate_true_improved"] == 1
+    assert payload["selector_pipeline_review"]["candidate_coverage_traps"] == 1
+    assert payload["selector_pipeline_review"]["candidate_sharpe_improved_no_pass_lift"] == 1
+    assert payload["selector_pipeline_review"]["candidate_highlights"][0]["highlight_type"] == "true_improved"
+    assert payload["selector_pipeline_review"]["candidate_highlights"][0]["factor_id"] == "carry_rewrite"
+    assert payload["selector_pipeline_review"]["candidate_highlights"][0]["candidate_failed_assets"] == "SOLUSDT"
 
 
 def test_research_review_payload_hides_when_no_artifacts(tmp_path) -> None:

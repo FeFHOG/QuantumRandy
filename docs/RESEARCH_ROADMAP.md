@@ -549,6 +549,8 @@ Expected value:
   - the mining dashboard review payload reads the candidate-level selector review when present and summarizes
     candidate verdict counts plus top candidate-level rows with failed-asset and formula context, without changing
     runtime or admission behavior;
+  - when `selector_pipeline_candidate_highlights.csv` is present, the dashboard surfaces those compact audit queues
+    directly before falling back to generic candidate-level rows;
   - `SELECTOR_PIPELINE_REVIEW.md` now includes candidate-level verdict counts and highlight tables for true improved
     candidates, coverage-only traps, and Sharpe-improved/no-pass-lift candidates so the same review can be audited
     without opening the dashboard or raw CSV.

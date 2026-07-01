@@ -492,6 +492,7 @@ HTML = r"""<!doctype html>
     function reviewSelectorPipelineCard(data) {
       const rows = data.top || [];
       const candidateRows = data.candidate_top || [];
+      const highlightRows = data.candidate_highlights || [];
       return '<div class="review-card"><h3>Selector Pipeline Review</h3>' +
         '<div class="review-stats">' +
         '<div class="review-stat"><span>Improved</span><strong style="color:var(--good)">' + (data.improved ?? 0) + '</strong></div>' +
@@ -505,6 +506,9 @@ HTML = r"""<!doctype html>
         '<div class="muted" style="font-size:11px;margin-bottom:8px">candidate verdicts: improved=' + (data.candidate_improved ?? 0) +
         ' coverage=' + (data.candidate_coverage_only ?? 0) + ' mixed=' + (data.candidate_mixed ?? 0) +
         ' not=' + (data.candidate_not_improved ?? 0) + '</div>' +
+        (highlightRows.length ? '<div class="muted" style="font-size:11px;margin-bottom:8px">highlight queues: true=' +
+          (data.candidate_true_improved ?? 0) + ' traps=' + (data.candidate_coverage_traps ?? 0) +
+          ' sharpe_only=' + (data.candidate_sharpe_improved_no_pass_lift ?? 0) + '</div>' : '') +
         '<div class="review-list">' + rows.map(r =>
           '<div class="review-row"><strong class="' + (r.verdict === 'improved' ? 'pass' : r.verdict === 'not_improved' ? 'fail' : '') + '">' +
           escapeHtml(r.verdict || '-') + '</strong> <span class="muted">' + escapeHtml(r.parent_factor_id || '-') +
@@ -513,7 +517,15 @@ HTML = r"""<!doctype html>
           '</span><br><span style="font-family:Consolas,monospace;color:var(--gold)">' + escapeHtml(r.best_candidate_factor_id || '-') +
           '</span><br><span class="muted">' + escapeHtml(r.best_candidate_formula || '-') + '</span></div>'
         ).join('') + '</div>' +
-        (candidateRows.length ? '<div class="review-list" style="margin-top:8px">' + candidateRows.map(r =>
+        (highlightRows.length ? '<div class="review-list" style="margin-top:8px">' + highlightRows.map(r =>
+          '<div class="review-row"><strong class="' + (r.highlight_type === 'true_improved' ? 'pass' : r.highlight_type === 'coverage_only_trap' ? 'fail' : '') + '">' +
+          escapeHtml(r.highlight_type || '-') + '</strong> <span style="font-family:Consolas,monospace;color:var(--gold)">' +
+          escapeHtml(r.factor_id || '-') + '</span><br><span class="muted">parent=' + escapeHtml(r.parent_factor_id || '-') +
+          ' pass_delta=' + fmt(r.pass_rate_delta, 2) + ' sharpe_delta=' + fmt(r.mean_sharpe_delta, 2) +
+          ' pass=' + fmt(r.candidate_pass_rate, 2) + ' sharpe=' + fmt(r.candidate_mean_sharpe, 2) +
+          '</span><br><span class="muted">failed_assets=' + escapeHtml(r.candidate_failed_assets || 'none') +
+          '</span><br><span class="muted">' + escapeHtml(r.formula || '-') + '</span></div>'
+        ).join('') + '</div>' : candidateRows.length ? '<div class="review-list" style="margin-top:8px">' + candidateRows.map(r =>
           '<div class="review-row"><strong class="' + (r.verdict === 'improved' ? 'pass' : r.verdict === 'not_improved' ? 'fail' : '') + '">' +
           escapeHtml(r.verdict || '-') + '</strong> <span style="font-family:Consolas,monospace;color:var(--gold)">' +
           escapeHtml(r.factor_id || '-') + '</span><br><span class="muted">parent=' + escapeHtml(r.parent_factor_id || '-') +
@@ -1083,8 +1095,10 @@ def _selector_pipeline_review_payload(path: Path | None) -> dict:
     except Exception as exc:
         return {"available": False, "source": str(path), "error": str(exc)}
     candidate_frame = _read_optional_csv(path.with_name("selector_pipeline_candidate_review.csv"))
+    highlight_frame = _read_optional_csv(path.with_name("selector_pipeline_candidate_highlights.csv"))
     verdicts = frame.get("review_verdict", pd.Series(dtype=str)).fillna("")
     candidate_verdicts = candidate_frame.get("candidate_review_verdict", pd.Series(dtype=str)).fillna("")
+    highlight_types = highlight_frame.get("highlight_type", pd.Series(dtype=str)).fillna("")
     top = frame.copy()
     if not top.empty:
         for column in ("pass_rate_delta", "mean_sharpe_delta"):
@@ -1123,6 +1137,15 @@ def _selector_pipeline_review_payload(path: Path | None) -> dict:
             ["candidate_verdict_rank", "pass_rate_delta", "mean_sharpe_delta"],
             ascending=[False, False, False],
         )
+    highlight_top = highlight_frame.copy()
+    if not highlight_top.empty:
+        for column in ("highlight_rank", "pass_rate_delta", "mean_sharpe_delta", "candidate_mean_sharpe"):
+            if column not in highlight_top.columns:
+                highlight_top[column] = 0.0
+        highlight_top = highlight_top.sort_values(
+            ["highlight_rank", "pass_rate_delta", "mean_sharpe_delta", "candidate_mean_sharpe"],
+            ascending=[False, False, False, False],
+        )
     return {
         "available": True,
         "source": _display_path(path),
@@ -1142,6 +1165,12 @@ def _selector_pipeline_review_payload(path: Path | None) -> dict:
         "candidate_mixed": int((candidate_verdicts == "mixed").sum()),
         "candidate_not_improved": int((candidate_verdicts == "not_improved").sum()),
         "candidate_needs_evaluation": int((candidate_verdicts == "needs_evaluation").sum()),
+        "candidate_highlights_available": not highlight_frame.empty,
+        "candidate_true_improved": int((highlight_types == "true_improved").sum()),
+        "candidate_coverage_traps": int((highlight_types == "coverage_only_trap").sum()),
+        "candidate_sharpe_improved_no_pass_lift": int(
+            (highlight_types == "sharpe_improved_no_pass_lift").sum()
+        ),
         "top": [
             {
                 "parent_factor_id": row.get("parent_factor_id", ""),
@@ -1172,6 +1201,22 @@ def _selector_pipeline_review_payload(path: Path | None) -> dict:
                 "candidate_rank_reason": row.get("candidate_rank_reason", ""),
             }
             for row in candidate_top.head(5).to_dict(orient="records")
+        ],
+        "candidate_highlights": [
+            {
+                "highlight_type": row.get("highlight_type", ""),
+                "parent_factor_id": row.get("parent_factor_id", ""),
+                "factor_id": row.get("factor_id", ""),
+                "formula": row.get("formula", ""),
+                "verdict": row.get("candidate_review_verdict", ""),
+                "pass_rate_delta": _num(row.get("pass_rate_delta")),
+                "mean_sharpe_delta": _num(row.get("mean_sharpe_delta")),
+                "candidate_pass_rate": _num(row.get("candidate_pass_rate")),
+                "candidate_mean_sharpe": _num(row.get("candidate_mean_sharpe")),
+                "candidate_failed_assets": row.get("candidate_failed_assets", ""),
+                "candidate_rank_reason": row.get("candidate_rank_reason", ""),
+            }
+            for row in highlight_top.head(5).to_dict(orient="records")
         ],
     }
 
