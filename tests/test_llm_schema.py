@@ -477,3 +477,74 @@ def test_llm_rewrite_prompt_includes_candidate_selector_context(monkeypatch, tmp
     assert "universe_mean_sharpe" in captured["prompt"]
     assert generator.events[-1]["candidate_selector_rewrite_targets"] == 1
     os.environ.pop("LLM_API_KEY", None)
+
+
+def test_llm_rewrite_prompt_includes_selector_negative_evidence(monkeypatch, tmp_path) -> None:
+    pd.DataFrame(
+        [
+            {
+                "parent_formula_family": "price",
+                "candidate_formula_family": "range_volatility",
+                "negative_count": 3,
+                "avg_pass_rate_delta": -0.1,
+                "avg_mean_sharpe_delta": -0.7,
+                "worst_mean_sharpe_delta": -1.0,
+                "example_formula": "neg(zscore(std(close,24),120))",
+                "run_ids": "run_a|run_b",
+            }
+        ]
+    ).to_csv(tmp_path / "selector_pipeline_negative_candidate_summary.csv", index=False)
+    captured = {}
+
+    def fake_call_llm(messages, *args, **kwargs) -> str:
+        captured["prompt"] = messages[-1]["content"]
+        return json.dumps(
+            {
+                "candidates": [
+                    {
+                        "formula": "neg(zscore(std(close,24),120))",
+                        "description": "This repeats a failed volatility stress proxy and should be rejected by negative memory.",
+                        "hypothesis": "Repeated volatility stress might still work.",
+                        "expected_edge": "This should not be accepted because it copies negative evidence.",
+                        "expected_failure_mode": "It repeats the prior family failure.",
+                        "rewrite_plan_if_killed": "Use a different formula.",
+                    },
+                    {
+                        "formula": "zscore(volume,96)",
+                        "description": "Volume liquidity pressure can capture participation regimes without repeating failed volatility stress proxies.",
+                        "hypothesis": "Liquidity participation may transfer better than failed volatility stress rewrites.",
+                        "expected_edge": "Volume expansion can proxy broad risk appetite and persistent flow.",
+                        "expected_failure_mode": "Volume may remain exchange-specific on lower-liquidity assets.",
+                        "rewrite_plan_if_killed": "Switch to price-volume interaction or abandon this family.",
+                    }
+                ]
+            }
+        )
+
+    monkeypatch.setattr("quantumrandy.llm.call_llm", fake_call_llm)
+    monkeypatch.setenv("LLM_API_KEY", "test-key")
+    generator = FormulaGenerator(
+        use_llm=True,
+        settings=LLMSettings(max_retries=0),
+        prompt_config=PromptConfig(selector_evidence_path=str(tmp_path)),
+    )
+
+    formulas = generator.rewrite(
+        "zscore(sub(sma(close,12),sma(close,48)),48)",
+        ["cross_asset_profitability"],
+        {"rewrite_objective": {"max_pure_funding_candidates": 0}},
+        2,
+        [],
+        allow_local_fallback=False,
+    )
+
+    assert formulas == ["zscore(volume,96)"]
+    assert "selector_negative_evidence" in captured["prompt"]
+    assert "range_volatility" in captured["prompt"]
+    assert "neg(zscore(std(close,24),120))" in captured["prompt"]
+    validator_event = next(event for event in generator.events if event["source"] == "rewrite_validator")
+    assert validator_event["rejected"][0]["reason"] == "copies disallowed failed formula"
+    assert generator.events[-1]["selector_negative_examples"] == 1
+    assert generator.events[-1]["selector_negative_families"] == 1
+    assert generator.events[-1]["selector_negative_disallowed_formulas"] == 1
+    os.environ.pop("LLM_API_KEY", None)

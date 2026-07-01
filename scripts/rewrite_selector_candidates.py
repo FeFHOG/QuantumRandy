@@ -37,6 +37,10 @@ def main() -> None:
     parser.add_argument("--candidate-selector-path", help="Optional selector artifact path to include in LLM prompt")
     parser.add_argument("--failure-memory-path", help="Optional failure memory artifact path to include in LLM prompt")
     parser.add_argument(
+        "--selector-evidence-path",
+        help="Optional selector evidence summary directory with negative rewrite memories for prompt context",
+    )
+    parser.add_argument(
         "--no-selector-forbidden-subtrees",
         action="store_true",
         help="Do not convert selector weak clusters or matched failed subtrees into rewrite forbidden subtrees.",
@@ -55,6 +59,7 @@ def main() -> None:
     prompt = PromptConfig(
         candidate_selector_path=args.candidate_selector_path or args.selector,
         failure_memory_path=args.failure_memory_path,
+        selector_evidence_path=args.selector_evidence_path,
     )
     generator = FormulaGenerator(
         use_llm=args.use_llm,

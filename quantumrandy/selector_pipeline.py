@@ -30,6 +30,7 @@ def run_selector_rewrite_pipeline(
     candidates_per_target: int = 2,
     use_llm: bool = False,
     failure_memory_path: str | Path | None = None,
+    selector_evidence_path: str | Path | None = None,
     timeout_seconds: int = 120,
     allow_local_fallback: bool = True,
     run_universe: bool = True,
@@ -61,6 +62,7 @@ def run_selector_rewrite_pipeline(
         prompt_config=PromptConfig(
             candidate_selector_path=str(selector),
             failure_memory_path=str(failure_memory_path) if failure_memory_path else None,
+            selector_evidence_path=str(selector_evidence_path) if selector_evidence_path else None,
         ),
     )
     rewrite_manifest = write_selector_rewrite_report(

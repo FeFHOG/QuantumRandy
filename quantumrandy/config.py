@@ -78,6 +78,9 @@ class PromptConfig:
     candidate_selector_rewrite_targets: int = 5
     candidate_selector_evidence_gaps: int = 5
     candidate_selector_clusters: int = 5
+    selector_evidence_path: str | None = None
+    selector_negative_examples: int = 5
+    selector_negative_families: int = 5
 
 
 @dataclass(frozen=True)

@@ -26,6 +26,10 @@ def main() -> None:
         help="Do not fill missing LLM rewrite slots with local fallback candidates.",
     )
     parser.add_argument("--failure-memory-path", help="Optional failure memory artifact path for prompt context")
+    parser.add_argument(
+        "--selector-evidence-path",
+        help="Optional selector evidence summary directory with negative rewrite memories for prompt context",
+    )
     parser.add_argument("--timeout-seconds", type=int, default=120)
     parser.add_argument("--skip-universe", action="store_true", help="Generate rewrite candidates without universe eval")
     parser.add_argument(
@@ -56,6 +60,7 @@ def main() -> None:
         candidates_per_target=args.candidates_per_target,
         use_llm=args.use_llm,
         failure_memory_path=args.failure_memory_path,
+        selector_evidence_path=args.selector_evidence_path,
         timeout_seconds=args.timeout_seconds,
         allow_local_fallback=not args.llm_only,
         run_universe=not args.skip_universe,

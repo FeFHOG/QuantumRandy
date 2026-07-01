@@ -150,3 +150,31 @@ def test_selector_pipeline_cli_can_disable_local_fallback(monkeypatch, tmp_path)
     run_selector_rewrite_pipeline.main()
 
     assert captured["allow_local_fallback"] is False
+
+
+def test_selector_pipeline_cli_passes_selector_evidence_path(monkeypatch, tmp_path) -> None:
+    captured = {}
+
+    def fake_run_selector_rewrite_pipeline(**kwargs):
+        captured.update(kwargs)
+        return _manifest(llm_evidence=True)
+
+    monkeypatch.setattr(run_selector_rewrite_pipeline, "run_selector_rewrite_pipeline", fake_run_selector_rewrite_pipeline)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_selector_rewrite_pipeline.py",
+            "--selector",
+            str(tmp_path / "selector"),
+            "--out",
+            str(tmp_path / "out"),
+            "--use-llm",
+            "--selector-evidence-path",
+            str(tmp_path / "selector_evidence"),
+        ],
+    )
+
+    run_selector_rewrite_pipeline.main()
+
+    assert captured["selector_evidence_path"] == str(tmp_path / "selector_evidence")

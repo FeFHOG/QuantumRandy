@@ -15,6 +15,7 @@ from .expression import OPERATORS, validate_formula_shape
 from .failure_memory import load_failure_prompt_context
 from .fsa import violates_forbidden
 from .proposals import LocalProposalEngine
+from .selector_evidence import load_selector_negative_prompt_context
 
 try:
     from .config import LLMConfig, PromptConfig
@@ -80,6 +81,11 @@ class FormulaGenerator:
             max_rewrite_targets=prompt_config.candidate_selector_rewrite_targets if prompt_config else 0,
             max_evidence_gaps=prompt_config.candidate_selector_evidence_gaps if prompt_config else 0,
             max_clusters=prompt_config.candidate_selector_clusters if prompt_config else 0,
+        )
+        self.selector_negative_context = load_selector_negative_prompt_context(
+            prompt_config.selector_evidence_path if prompt_config else None,
+            max_examples=prompt_config.selector_negative_examples if prompt_config else 0,
+            max_families=prompt_config.selector_negative_families if prompt_config else 0,
         )
 
     def propose(self, base_formula: str, dimension: str, count: int, forbidden: list[str]) -> list[str]:
@@ -193,6 +199,12 @@ class FormulaGenerator:
                         "candidate_selector_evidence_gaps": llm_detail.get("candidate_selector_evidence_gaps", 0),
                         "candidate_selector_clusters": llm_detail.get("candidate_selector_clusters", 0),
                         "disallowed_formula_count": llm_detail.get("disallowed_formula_count", 0),
+                        "selector_negative_examples": llm_detail.get("selector_negative_examples", 0),
+                        "selector_negative_families": llm_detail.get("selector_negative_families", 0),
+                        "selector_negative_disallowed_formulas": llm_detail.get(
+                            "selector_negative_disallowed_formulas",
+                            0,
+                        ),
                     }
                 )
                 if not allow_local_fallback:
@@ -218,6 +230,12 @@ class FormulaGenerator:
                     "llm_response_snippet": llm_detail.get("error_full", llm_detail.get("response_snippet", "")),
                     "llm_duration_s": llm_detail.get("duration_s", 0),
                     "disallowed_formula_count": llm_detail.get("disallowed_formula_count", 0),
+                    "selector_negative_examples": llm_detail.get("selector_negative_examples", 0),
+                    "selector_negative_families": llm_detail.get("selector_negative_families", 0),
+                    "selector_negative_disallowed_formulas": llm_detail.get(
+                        "selector_negative_disallowed_formulas",
+                        0,
+                    ),
                 }
             )
 
@@ -464,8 +482,6 @@ class FormulaGenerator:
         detail: dict = {"response_snippet": "", "duration_s": 0}
         truncated_forbidden = forbidden[:5] if len(forbidden) > 5 else forbidden
         existing = existing or []
-        disallowed_formulas = disallowed_formulas or {formula}
-        disallowed_sent = sorted(disallowed_formulas)[:10]
         failure_context = self.failure_prompt_context
         failure_examples = failure_context.get("examples", [])
         failure_clusters = failure_context.get("clusters", [])
@@ -473,6 +489,13 @@ class FormulaGenerator:
         rewrite_targets = selector_context.get("rewrite_targets", [])
         evidence_gaps = selector_context.get("evidence_gaps", [])
         selector_clusters = selector_context.get("clusters", [])
+        negative_context = self.selector_negative_context
+        negative_examples = negative_context.get("examples", [])
+        negative_families = negative_context.get("families", [])
+        negative_disallowed = _negative_disallowed_formulas(negative_examples)
+        disallowed_formulas = set(disallowed_formulas or {formula})
+        disallowed_formulas.update(negative_disallowed)
+        disallowed_sent = sorted(disallowed_formulas)[:10]
         parent_selector_target = _matching_selector_target(formula, rewrite_targets)
         max_pure_funding = _max_pure_funding_candidates(failure_detail, count)
         detail["failure_memory_examples"] = len(failure_examples)
@@ -481,6 +504,9 @@ class FormulaGenerator:
         detail["candidate_selector_evidence_gaps"] = len(evidence_gaps)
         detail["candidate_selector_clusters"] = len(selector_clusters)
         detail["max_pure_funding_candidates"] = max_pure_funding
+        detail["selector_negative_examples"] = len(negative_examples)
+        detail["selector_negative_families"] = len(negative_families)
+        detail["selector_negative_disallowed_formulas"] = len(negative_disallowed)
         pc = self.prompt_config
         desc_len = pc.description_min_length if pc else DESCRIPTION_MIN_LENGTH
         temp = pc.temperature if pc else 0.7
@@ -537,6 +563,18 @@ class FormulaGenerator:
                     "Use this selector evidence to avoid BTC-only lucky patterns and to rewrite toward simpler "
                     "cross-asset robust structures. If the failed formula resembles a deprioritized target, change "
                     "the economic family rather than only changing windows."
+                ),
+            },
+            "selector_negative_evidence": {
+                "source": negative_context.get("source", ""),
+                "not_improved_examples": negative_examples,
+                "failed_candidate_families": negative_families,
+                "disallowed_exact_formulas_from_negative_memory": sorted(negative_disallowed)[:10],
+                "instruction": (
+                    "Treat these as negative selector rewrite memories from previous LLM-only audits. Do not repeat "
+                    "candidate families that repeatedly lowered mean Sharpe for the same parent family unless the new "
+                    "formula changes the economic mechanism and explains why the prior failure mode should not apply. "
+                    "Do not copy any exact formula listed in disallowed_exact_formulas_from_negative_memory."
                 ),
             },
             "candidate_diversity": {
@@ -1022,3 +1060,18 @@ def _max_pure_funding_candidates(failure_detail: dict[str, Any], count: int) -> 
         return max(0, int(float(raw)))
     except (TypeError, ValueError):
         return 1 if count > 1 else None
+
+
+def _negative_disallowed_formulas(examples: list[Any]) -> set[str]:
+    out: set[str] = set()
+    for item in examples:
+        if not isinstance(item, dict):
+            continue
+        formula = str(item.get("example_formula", "")).strip()
+        if not formula:
+            continue
+        try:
+            out.add(validate_formula_shape(formula).canonical())
+        except ValueError:
+            out.add(formula)
+    return out

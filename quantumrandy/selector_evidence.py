@@ -24,6 +24,7 @@ def summarize_selector_pipeline_runs(
             ascending=[False, False, False],
         ).reset_index(drop=True)
     candidate_frame = _summarize_highlight_candidates(run_paths)
+    negative_frame = _summarize_negative_candidates(run_paths)
     manifest = {
         "artifact_type": "quantumrandy_selector_pipeline_evidence_summary",
         "schema_version": 1,
@@ -39,31 +40,86 @@ def summarize_selector_pipeline_runs(
         "coverage_only_trap_runs": sum(1 for row in rows if int(row.get("coverage_only_trap_count", 0)) > 0),
         "candidate_highlight_rows": int(candidate_frame["highlight_count"].sum()) if not candidate_frame.empty else 0,
         "candidate_summary_rows": len(candidate_frame),
+        "negative_candidate_rows": int(negative_frame["negative_count"].sum()) if not negative_frame.empty else 0,
+        "negative_family_rows": len(negative_frame),
         "source_run_dirs": [path.as_posix() for path in run_paths],
         "outputs": {
             "summary_csv": (out / "selector_pipeline_evidence_summary.csv").as_posix(),
             "candidate_summary_csv": (out / "selector_pipeline_candidate_evidence_summary.csv").as_posix(),
+            "negative_candidate_summary_csv": (
+                out / "selector_pipeline_negative_candidate_summary.csv"
+            ).as_posix(),
             "summary_markdown": (out / "SELECTOR_PIPELINE_EVIDENCE_SUMMARY.md").as_posix(),
             "manifest": (out / "selector_pipeline_evidence_manifest.json").as_posix(),
         },
     }
     safe_write_csv(out / "selector_pipeline_evidence_summary.csv", frame, out / "events.jsonl")
     safe_write_csv(out / "selector_pipeline_candidate_evidence_summary.csv", candidate_frame, out / "events.jsonl")
+    safe_write_csv(out / "selector_pipeline_negative_candidate_summary.csv", negative_frame, out / "events.jsonl")
     safe_write_json(out / "selector_pipeline_evidence_manifest.json", manifest, out / "events.jsonl")
     safe_write_text(
         out / "SELECTOR_PIPELINE_EVIDENCE_SUMMARY.md",
-        render_selector_pipeline_evidence_summary(manifest, frame, candidate_frame),
+        render_selector_pipeline_evidence_summary(manifest, frame, candidate_frame, negative_frame),
         out / "events.jsonl",
     )
     return manifest
+
+
+def load_selector_negative_prompt_context(
+    path: str | Path | None,
+    *,
+    max_examples: int = 5,
+    max_families: int = 5,
+) -> dict[str, Any]:
+    if not path:
+        return {"available": False, "examples": [], "families": []}
+    root = Path(path)
+    negative_path = (
+        root / "selector_pipeline_negative_candidate_summary.csv"
+        if root.is_dir()
+        else root
+    )
+    frame = _read_csv(negative_path)
+    if frame.empty:
+        return {"available": False, "source": root.as_posix(), "examples": [], "families": []}
+    rows = frame.to_dict(orient="records")
+    examples = [
+        {
+            "parent_formula_family": str(row.get("parent_formula_family", "")),
+            "candidate_formula_family": str(row.get("candidate_formula_family", "")),
+            "example_formula": str(row.get("example_formula", "")),
+            "avg_pass_rate_delta": str(row.get("avg_pass_rate_delta", "")),
+            "avg_mean_sharpe_delta": str(row.get("avg_mean_sharpe_delta", "")),
+            "run_ids": str(row.get("run_ids", "")),
+        }
+        for row in rows[:max_examples]
+    ]
+    families = [
+        {
+            "parent_formula_family": str(row.get("parent_formula_family", "")),
+            "candidate_formula_family": str(row.get("candidate_formula_family", "")),
+            "negative_count": str(row.get("negative_count", "")),
+            "avg_mean_sharpe_delta": str(row.get("avg_mean_sharpe_delta", "")),
+            "worst_mean_sharpe_delta": str(row.get("worst_mean_sharpe_delta", "")),
+        }
+        for row in rows[:max_families]
+    ]
+    return {
+        "available": bool(examples or families),
+        "source": root.as_posix(),
+        "examples": examples,
+        "families": families,
+    }
 
 
 def render_selector_pipeline_evidence_summary(
     manifest: dict[str, Any],
     summary: pd.DataFrame,
     candidate_summary: pd.DataFrame | None = None,
+    negative_summary: pd.DataFrame | None = None,
 ) -> str:
     candidate_summary = candidate_summary if candidate_summary is not None else pd.DataFrame()
+    negative_summary = negative_summary if negative_summary is not None else pd.DataFrame()
     lines = [
         "# QuantumRandy Selector Pipeline Evidence Summary",
         "",
@@ -77,6 +133,8 @@ def render_selector_pipeline_evidence_summary(
         f"- Runs with coverage-only traps: `{manifest.get('coverage_only_trap_runs', 0)}`",
         f"- Highlighted candidate rows: `{manifest.get('candidate_highlight_rows', 0)}`",
         f"- Distinct highlighted candidates: `{manifest.get('candidate_summary_rows', 0)}`",
+        f"- Negative candidate rows: `{manifest.get('negative_candidate_rows', 0)}`",
+        f"- Negative candidate family rows: `{manifest.get('negative_family_rows', 0)}`",
         "",
         "## Runs",
         "",
@@ -125,6 +183,25 @@ def render_selector_pipeline_evidence_summary(
                 f"{_num(row.get('best_pass_rate_delta', 0.0)):.2f} | "
                 f"`{_short_formula(row.get('formula', ''))}` |"
             )
+    lines.extend(["", "## Negative Candidate Families", ""])
+    if negative_summary.empty:
+        lines.append("No negative selector candidate families were summarized.")
+    else:
+        lines.append(
+            "| Parent Family | Candidate Family | Negatives | Avg Pass Delta | Avg Sharpe Delta | Worst Sharpe Delta | Example |"
+        )
+        lines.append("|---|---|---:|---:|---:|---:|---|")
+        for row in negative_summary.head(12).to_dict(orient="records"):
+            lines.append(
+                "| "
+                f"`{row.get('parent_formula_family', '')}` | "
+                f"`{row.get('candidate_formula_family', '')}` | "
+                f"{int(row.get('negative_count', 0) or 0)} | "
+                f"{_num(row.get('avg_pass_rate_delta', 0.0)):.2f} | "
+                f"{_num(row.get('avg_mean_sharpe_delta', 0.0)):.2f} | "
+                f"{_num(row.get('worst_mean_sharpe_delta', 0.0)):.2f} | "
+                f"`{_short_formula(row.get('example_formula', ''))}` |"
+            )
     lines.extend(
         [
             "",
@@ -132,6 +209,7 @@ def render_selector_pipeline_evidence_summary(
             "",
             "- `selector_pipeline_evidence_summary.csv`: one row per selector pipeline run.",
             "- `selector_pipeline_candidate_evidence_summary.csv`: highlighted candidate evidence aggregated across runs.",
+            "- `selector_pipeline_negative_candidate_summary.csv`: not-improved LLM candidate families aggregated across runs.",
             "- `selector_pipeline_evidence_manifest.json`: machine-readable aggregate metadata.",
             "- `SELECTOR_PIPELINE_EVIDENCE_SUMMARY.md`: this human-readable audit summary.",
         ]
@@ -252,6 +330,69 @@ def _summarize_highlight_candidates(run_paths: list[Path]) -> pd.DataFrame:
     ).reset_index(drop=True)
 
 
+def _summarize_negative_candidates(run_paths: list[Path]) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    for path in run_paths:
+        review = _read_csv(path / "review" / "selector_pipeline_candidate_review.csv")
+        if review.empty:
+            continue
+        for row in review.to_dict(orient="records"):
+            if str(row.get("rewrite_generation_source", "")) != "llm_rewrite":
+                continue
+            if str(row.get("candidate_review_verdict", "")) not in {"not_improved", "coverage_only"}:
+                continue
+            formula = str(row.get("formula", ""))
+            rows.append(
+                {
+                    "run_id": path.name,
+                    "parent_factor_id": row.get("parent_factor_id", ""),
+                    "parent_formula_family": str(row.get("parent_formula_family", ""))
+                    or _formula_family(str(row.get("parent_formula", ""))),
+                    "candidate_formula_family": _formula_family(formula),
+                    "factor_id": row.get("factor_id", ""),
+                    "formula": formula,
+                    "candidate_review_verdict": row.get("candidate_review_verdict", ""),
+                    "pass_rate_delta": _num(row.get("pass_rate_delta", "")),
+                    "mean_sharpe_delta": _num(row.get("mean_sharpe_delta", "")),
+                    "candidate_mean_sharpe": _num(row.get("candidate_mean_sharpe", "")),
+                    "candidate_failed_assets": row.get("candidate_failed_assets", ""),
+                }
+            )
+    if not rows:
+        return pd.DataFrame()
+    frame = pd.DataFrame(rows)
+    grouped_rows: list[dict[str, Any]] = []
+    group_columns = ["parent_formula_family", "candidate_formula_family"]
+    for group_key, group in frame.groupby(group_columns, dropna=False):
+        parent_family, candidate_family = group_key
+        run_ids = sorted(str(value) for value in group["run_id"].fillna("").unique() if str(value))
+        worst = group.sort_values(["mean_sharpe_delta", "pass_rate_delta"], ascending=[True, True]).iloc[0]
+        grouped_rows.append(
+            {
+                "parent_formula_family": parent_family,
+                "candidate_formula_family": candidate_family,
+                "negative_count": int(len(group)),
+                "not_improved_count": int((group["candidate_review_verdict"] == "not_improved").sum()),
+                "coverage_only_count": int((group["candidate_review_verdict"] == "coverage_only").sum()),
+                "run_count": len(run_ids),
+                "run_ids": "|".join(run_ids),
+                "avg_pass_rate_delta": round(float(group["pass_rate_delta"].mean()), 8),
+                "avg_mean_sharpe_delta": round(float(group["mean_sharpe_delta"].mean()), 8),
+                "worst_mean_sharpe_delta": round(float(group["mean_sharpe_delta"].min()), 8),
+                "example_factor_id": worst.get("factor_id", ""),
+                "example_formula": worst.get("formula", ""),
+                "failed_assets_examples": "|".join(
+                    sorted({str(value) for value in group["candidate_failed_assets"].fillna("") if str(value)})[:5]
+                ),
+            }
+        )
+    out = pd.DataFrame(grouped_rows)
+    return out.sort_values(
+        ["negative_count", "avg_mean_sharpe_delta", "worst_mean_sharpe_delta"],
+        ascending=[False, True, True],
+    ).reset_index(drop=True)
+
+
 def _read_json(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
@@ -325,3 +466,21 @@ def _short_formula(value: Any, *, max_len: int = 72) -> str:
     if len(text) <= max_len:
         return text
     return text[: max_len - 3].rstrip() + "..."
+
+
+def _formula_family(formula: str) -> str:
+    text = str(formula)
+    has_funding = "funding_rate" in text
+    has_price = any(field in text for field in ("open", "high", "low", "close"))
+    has_volume = "volume" in text
+    if has_funding and not has_price and not has_volume:
+        return "pure_funding"
+    if has_funding:
+        return "funding_interaction"
+    if "std(" in text or "sub(high,low)" in text:
+        return "range_volatility"
+    if has_volume:
+        return "volume_liquidity"
+    if has_price:
+        return "price"
+    return "other"

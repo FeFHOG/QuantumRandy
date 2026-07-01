@@ -629,3 +629,110 @@ The multi-run summary was refreshed with attempts 4 through 9:
 Interpretation: the policy guard improved attribution and candidate-family discipline, but it did not improve selector
 rewrite quality yet. The next useful algorithm step is to make the rewrite objective more asset-specific or to add
 negative evidence memory for failed realized-volatility rewrites, not to relax the hard gate or publish any candidate.
+
+## Negative Selector Evidence Memory And Repeats 10-11
+
+Date: 2026-07-02
+
+The multi-run evidence summary now also writes a negative candidate-family aggregate:
+
+```text
+reports/selector_pipeline_evidence_v082_summary/selector_pipeline_negative_candidate_summary.csv
+```
+
+This table is built from candidate-level review rows, not only highlights. It summarizes LLM-sourced `not_improved` and
+`coverage_only` rewrite families by parent family and candidate family, including negative counts, average deltas, worst
+mean-Sharpe delta, example formulas, failed assets, and source run ids. It is research-only prompt memory; it does not
+admit, publish, or update runtime state.
+
+The selector rewrite CLI and pipeline now accept:
+
+```bash
+--selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+When provided, the LLM rewrite prompt receives negative selector rewrite memories. The parser also treats exact
+negative example formulas as disallowed formulas, so a previously failed candidate can no longer be accepted again just
+because the prompt politely asked the LLM not to repeat it. Rewrite event rows record:
+
+- `selector_negative_examples`
+- `selector_negative_families`
+- `selector_negative_disallowed_formulas`
+
+Attempt 10 used negative selector evidence as prompt context, but exact negative formulas were not yet parser-disallowed.
+It completed review and produced valid LLM policy evidence, but the hard gate rejected it:
+
+- `llm_rewrite_accepted`: `3`
+- `fallback_rewrite_accepted`: `0`
+- Candidate verdicts: `not_improved:3`
+- `llm_true_improved_count`: `0`
+- One accepted candidate repeated a known negative realized-volatility formula:
+  `neg(zscore(std(close,24),96))`
+
+The parser was then tightened so exact negative example formulas are added to `disallowed_formulas`.
+
+Attempt 11 used the same negative selector evidence path after exact negative disallow was added:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence11_negative_memory_disallow \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+Attempt 11 completed successfully and passed the hard gate:
+
+- `allow_local_fallback`: `false`
+- `llm_rewrite_accepted`: `2`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- Candidate generation source counts: `llm_rewrite:2`
+- Candidate verdicts: `improved:1|not_improved:1`
+- Candidate highlights: `true_improved:1`
+- Candidate highlight source counts: `llm_rewrite:1`
+- `llm_true_improved_count`: `1`
+- `is_llm_true_improvement_evidence`: `true`
+- Coverage-only traps: `0`
+
+The true-improved LLM candidate was a repeat of the strongest prior LLM-sourced candidate:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_7a765d304b` | `qr_cd595899ee` | `llm_rewrite` | 0.20 | 0.04900644 | BTCUSDT,ETHUSDT,BNBUSDT,AVAXUSDT | `zscore(corr(sub(close,open),volume,36),96)` |
+
+The refreshed attempts 4-11 summary reported:
+
+- Runs: `8`
+- LLM policy evidence runs: `8`
+- LLM true-improvement evidence runs: `3`
+- Runs with coverage-only traps: `0`
+- Highlighted candidate rows: `4`
+- Distinct highlighted candidates: `3`
+- Negative candidate rows: `24`
+- Negative candidate family rows: `10`
+
+The highlighted-candidate aggregate now shows:
+
+- `qr_cd595899ee`: `llm_rewrite`, `llm_true_improved_count=2`, runs
+  `selector_rewrite_pipeline_llm_v082_evidence5_llm_only` and
+  `selector_rewrite_pipeline_llm_v082_evidence11_negative_memory_disallow`.
+- `qr_d907a41282`: `llm_rewrite`, `llm_true_improved_count=1`.
+- `qr_e033dc4b6b`: `local_rewrite`, `llm_true_improved_count=0`.
+
+Interpretation: negative selector evidence memory improved the audit loop in two ways. First, failed LLM families are
+now summarized and reusable as prompt context instead of being trapped only in individual ignored `reports/` directories.
+Second, exact negative repeats are blocked mechanically. Attempt 11 is the first sign of repeated LLM-sourced
+true-improvement evidence for the same candidate, but it is still not admission evidence: the candidate still failed
+four of five assets and remains a research-only selector rewrite artifact.

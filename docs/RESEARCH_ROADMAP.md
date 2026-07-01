@@ -608,6 +608,29 @@ Expected value:
   - LLM policy evidence runs: `6`;
   - LLM true-improvement evidence runs: `2`;
   - coverage-only trap runs: `0`.
+- Added selector negative evidence memory:
+  - `scripts/summarize_selector_evidence.py` now also writes
+    `selector_pipeline_negative_candidate_summary.csv`;
+  - negative rows aggregate LLM-sourced `not_improved` and `coverage_only` candidates by parent formula family and
+    candidate formula family;
+  - `--selector-evidence-path` can pass this summary into selector rewrite LLM prompts;
+  - exact negative example formulas are added to rewrite `disallowed_formulas`, so prior failed candidates cannot be
+    accepted again by the LLM parser.
+- Ran negative-memory repeats:
+  - attempt 10 used negative memory as prompt context but still allowed exact negative repeats, and was rejected by the
+    hard gate with no LLM true-improved highlight;
+  - attempt 11 added exact negative disallow, completed with `llm_rewrite_accepted=2`, and produced one LLM-sourced
+    true-improved highlight;
+  - the repeated true-improved candidate was `qr_cd595899ee`,
+    `zscore(corr(sub(close,open),volume,36),96)`, with pass-rate delta `+0.20` and mean-Sharpe delta `+0.04900644`.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 11:
+  - runs: `8`;
+  - LLM policy evidence runs: `8`;
+  - LLM true-improvement evidence runs: `3`;
+  - coverage-only trap runs: `0`;
+  - highlighted candidate rows: `4`;
+  - distinct highlighted candidates: `3`;
+  - negative candidate family rows: `10`.
 
 ## Next Session Prompt
 

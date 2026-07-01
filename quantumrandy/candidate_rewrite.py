@@ -114,6 +114,12 @@ def build_selector_rewrite_candidates(
                     "candidate_selector_rewrite_targets": event.get("candidate_selector_rewrite_targets", ""),
                     "candidate_selector_evidence_gaps": event.get("candidate_selector_evidence_gaps", ""),
                     "candidate_selector_clusters": event.get("candidate_selector_clusters", ""),
+                    "selector_negative_examples": event.get("selector_negative_examples", ""),
+                    "selector_negative_families": event.get("selector_negative_families", ""),
+                    "selector_negative_disallowed_formulas": event.get(
+                        "selector_negative_disallowed_formulas",
+                        "",
+                    ),
                     "selector_forbidden_subtree_count": len(effective_forbidden),
                     "selector_forbidden_subtrees": "|".join(effective_forbidden[:10]),
                     "known_selector_formula_count": len(known_selector_formulas),
