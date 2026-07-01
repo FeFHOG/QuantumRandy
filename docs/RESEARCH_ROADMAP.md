@@ -559,6 +559,9 @@ Expected value:
   - `SELECTOR_PIPELINE_REVIEW.md` now includes candidate-level verdict counts and highlight tables for true improved
     candidates, coverage-only traps, and Sharpe-improved/no-pass-lift candidates so the same review can be audited
     without opening the dashboard or raw CSV.
+  - v0.8.2 local fallback baseline evidence is recorded in `docs/SELECTOR_REWRITE_V0_8_2_BASELINE.md`; it found one
+    true improved candidate and one coverage-only trap, but it is not LLM policy evidence because no LLM credentials or
+    proxy variables were available in the session.
   - selector rewrite prompts now ask LLM candidates to optimize both `pass_rate_delta > 0` and
     `mean_sharpe_delta >= 0`, justify normalized range/volatility profitability, and predict likely cross-asset failure
     modes before evaluation;
