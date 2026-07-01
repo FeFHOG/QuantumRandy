@@ -8,6 +8,7 @@ from typing import Any
 import pandas as pd
 
 from .io_utils import safe_write_csv, safe_write_json, safe_write_text
+from .walk_forward import stable_factor_id
 
 
 @dataclass(frozen=True)
@@ -40,14 +41,15 @@ def evaluate_admission(
     policy = policy or AdmissionPolicy()
     wf_by_formula = _index_records(walk_forward_summary, "formula")
     universe_by_formula = _index_records(universe_summary, "formula")
+    universe_by_factor = _index_records(universe_summary, "factor_id")
     portfolio_by_factor = _index_records(portfolio_selection, "factor_id")
     portfolio_wf_by_factor = _index_portfolio_walk_forward(portfolio_walk_forward_summary)
     rows = []
     for idx, row in enumerate(leaderboard_rows, start=1):
         formula = str(row.get("formula", ""))
-        factor_id = str(row.get("factor_id") or f"factor_{idx:03d}")
+        factor_id = _leaderboard_factor_id(row, formula, idx)
         wf = wf_by_formula.get(formula, {})
-        uni = universe_by_formula.get(formula, {})
+        uni = universe_by_factor.get(factor_id, {}) or universe_by_formula.get(formula, {})
         port = portfolio_by_factor.get(factor_id, {})
         port_wf = portfolio_wf_by_factor.get(factor_id, {})
         decision = _decision_row(row, factor_id, wf, uni, port, port_wf, policy)
@@ -233,6 +235,14 @@ def _index_records(frame: pd.DataFrame | None, key: str) -> dict[str, dict[str, 
     if frame is None or frame.empty or key not in frame.columns:
         return {}
     return {str(row.get(key, "")): row for row in frame.to_dict(orient="records")}
+
+
+def _leaderboard_factor_id(row: dict[str, Any], formula: str, index: int) -> str:
+    if row.get("factor_id"):
+        return str(row["factor_id"])
+    if formula:
+        return stable_factor_id(formula)
+    return f"factor_{index:03d}"
 
 
 def _index_portfolio_walk_forward(frame: pd.DataFrame | None) -> dict[str, dict[str, Any]]:

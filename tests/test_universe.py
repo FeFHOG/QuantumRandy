@@ -57,7 +57,15 @@ def test_run_universe_evaluation_returns_detail_and_summary_rows() -> None:
         AssetDataset("BTCUSDT", _cfg("BTCUSDT"), _data(), "btc.yaml"),
         AssetDataset("ETHUSDT", _cfg("ETHUSDT"), _data(drift=1.5), "eth.yaml"),
     ]
-    entries = [{"formula": "zscore(close,12)", "description": "", "source": "test", "passed": None}]
+    entries = [
+        {
+            "factor_id": "momentum",
+            "formula": "zscore(close,12)",
+            "description": "",
+            "source": "test",
+            "passed": None,
+        }
+    ]
 
     details, summary = run_universe_evaluation(assets, entries)
 
@@ -65,6 +73,8 @@ def test_run_universe_evaluation_returns_detail_and_summary_rows() -> None:
     assert len(summary) == 1
     assert summary.iloc[0]["asset_count"] == 2
     assert summary.iloc[0]["evaluated_assets"] == 2
+    assert details.iloc[0]["factor_id"] == "momentum"
+    assert summary.iloc[0]["factor_id"] == "momentum"
     assert "robustness_score" in summary.columns
 
 

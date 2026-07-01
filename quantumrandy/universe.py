@@ -51,6 +51,7 @@ def run_universe_evaluation(
         for asset in assets:
             row = {
                 "formula_index": formula_index,
+                "factor_id": entry.get("factor_id", f"factor_{formula_index:03d}"),
                 "formula": formula,
                 "description": entry.get("description", ""),
                 "source": entry.get("source", ""),
@@ -105,6 +106,7 @@ def _summarize_formula(entry_index: int, entry: dict[str, object], rows: list[di
 
     return {
         "formula_index": entry_index,
+        "factor_id": entry.get("factor_id", f"factor_{entry_index:03d}"),
         "formula": entry["formula"],
         "description": entry.get("description", ""),
         "source": entry.get("source", ""),

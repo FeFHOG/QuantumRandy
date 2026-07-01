@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 from quantumrandy.config import CostConfig, ExecutionConfig, FilterConfig, MCTSConfig, ProjectConfig, PromptConfig, WindowConfig
-from quantumrandy.walk_forward import build_walk_forward_windows, load_formula_entries, run_walk_forward
+from quantumrandy.walk_forward import build_walk_forward_windows, load_formula_entries, run_walk_forward, stable_factor_id
 
 
 def _data(periods: int = 900) -> pd.DataFrame:
@@ -77,3 +77,18 @@ def test_run_walk_forward_returns_detail_and_summary_rows() -> None:
     assert len(summary) == 1
     assert summary.iloc[0]["windows"] == len(windows)
     assert 0.0 <= summary.iloc[0]["survival_rate"] <= 1.0
+
+
+def test_load_formula_entries_assigns_stable_factor_ids(tmp_path) -> None:
+    formula = "zscore(close,12)"
+    leaderboard = tmp_path / "leaderboard.json"
+    leaderboard.write_text(
+        '[{"formula":"zscore(close,12)","passed":true},{"formula":"zscore(close,12)","passed":true}]',
+        encoding="utf-8",
+    )
+
+    entries = load_formula_entries(leaderboard, formulas=["neg(zscore(funding_rate,42))"])
+
+    assert len(entries) == 2
+    assert entries[0]["factor_id"] == stable_factor_id(formula)
+    assert entries[1]["factor_id"] == stable_factor_id("neg(zscore(funding_rate,42))")

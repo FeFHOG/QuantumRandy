@@ -47,6 +47,7 @@ def main() -> None:
     safe_write_csv(out / "universe_details.csv", details, out / "events.jsonl")
     safe_write_csv(out / "universe_summary.csv", summary, out / "events.jsonl")
     safe_write_json(out / "universe_report.json", _json_report(args, assets, summary), out / "events.jsonl")
+    safe_write_json(out / "universe_manifest.json", _manifest(args, assets, entries, summary), out / "events.jsonl")
     safe_write_text(out / "UNIVERSE_REPORT.md", _markdown_report(args, assets, summary), out / "events.jsonl")
 
     print(f"Output: {out.resolve()}")
@@ -63,6 +64,9 @@ def main() -> None:
 
 def _json_report(args: argparse.Namespace, assets, summary) -> dict:
     return {
+        "artifact_type": "quantumrandy_universe_robustness",
+        "schema_version": 1,
+        "safety": _safety_block(),
         "window": args.window,
         "asset_count": len(assets),
         "assets": [
@@ -81,9 +85,51 @@ def _json_report(args: argparse.Namespace, assets, summary) -> dict:
     }
 
 
+def _manifest(args: argparse.Namespace, assets, entries, summary) -> dict:
+    return {
+        "artifact_type": "quantumrandy_universe_robustness",
+        "schema_version": 1,
+        "safety": _safety_block(),
+        "window": args.window,
+        "leaderboard_path": str(Path(args.leaderboard)) if args.leaderboard else "",
+        "passed_only": bool(args.passed_only),
+        "top": args.top,
+        "formula_count": len(entries),
+        "asset_count": len(assets),
+        "assets": [
+            {
+                "symbol": asset.name,
+                "config": asset.config_path,
+                "bars": len(asset.data),
+                "ohlcv_csv": str(asset.cfg.ohlcv_csv),
+                "funding_csv": str(asset.cfg.funding_csv),
+            }
+            for asset in assets
+        ],
+        "summary_rows": len(summary),
+        "top_factor_ids": [str(row.get("factor_id", "")) for row in summary.head(20).to_dict(orient="records")],
+        "outputs": {
+            "details_csv": "universe_details.csv",
+            "summary_csv": "universe_summary.csv",
+            "report_json": "universe_report.json",
+            "report_md": "UNIVERSE_REPORT.md",
+        },
+    }
+
+
+def _safety_block() -> dict:
+    return {
+        "research_only": True,
+        "not_runtime_publish_payload": True,
+        "requires_manual_review_before_runtime": True,
+    }
+
+
 def _markdown_report(args: argparse.Namespace, assets, summary) -> str:
     lines = [
         "# QuantumRandy Multi-Asset Robustness Report",
+        "",
+        "This is a research artifact only. It is not a runtime publish payload.",
         "",
         "## Run",
         "",
@@ -105,13 +151,13 @@ def _markdown_report(args: argparse.Namespace, assets, summary) -> str:
         lines.append("No formulas evaluated.")
     else:
         lines.append(
-            "| Rank | Score | Pass Rate | Passed Assets | Mean Sharpe | Median Rank IC | Worst Max DD | Formula |"
+            "| Rank | Factor | Score | Pass Rate | Passed Assets | Mean Sharpe | Median Rank IC | Worst Max DD | Formula |"
         )
-        lines.append("|---:|---:|---:|---:|---:|---:|---:|---|")
+        lines.append("|---:|---|---:|---:|---:|---:|---:|---:|---|")
         for rank, row in enumerate(summary.head(20).to_dict(orient="records"), start=1):
             lines.append(
                 "| "
-                f"{rank} | {row['robustness_score']:.2f} | {row['pass_rate']:.2f} | "
+                f"{rank} | `{row.get('factor_id', '')}` | {row['robustness_score']:.2f} | {row['pass_rate']:.2f} | "
                 f"{row['passed_assets']}/{row['asset_count']} | {row['mean_sharpe']:.2f} | "
                 f"{row['median_rank_ic']:.4f} | {row['worst_max_dd']:.4f} | `{row['formula']}` |"
             )
@@ -124,6 +170,7 @@ def _markdown_report(args: argparse.Namespace, assets, summary) -> str:
             "- `universe_details.csv`: every formula x asset metric row.",
             "- `universe_summary.csv`: formula-level robustness ranking.",
             "- `universe_report.json`: run metadata plus machine-readable ranking.",
+            "- `universe_manifest.json`: research-only provenance and safety metadata.",
             "- `UNIVERSE_REPORT.md`: this report.",
         ]
     )

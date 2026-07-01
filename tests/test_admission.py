@@ -5,6 +5,7 @@ import json
 import pandas as pd
 
 from quantumrandy.admission import AdmissionPolicy, evaluate_admission, write_admission_report
+from quantumrandy.walk_forward import stable_factor_id
 
 
 def test_evaluate_admission_combines_evidence_sources() -> None:
@@ -111,6 +112,64 @@ def test_evaluate_admission_marks_partial_evidence_for_review() -> None:
     assert row["admission_status"] == "review"
     assert row["admission_pass"] is False
     assert row["failed_rules"] == "validation_rank_ic"
+
+
+def test_evaluate_admission_matches_universe_by_factor_id_before_formula() -> None:
+    decisions, _ = evaluate_admission(
+        [
+            {
+                "factor_id": "carry",
+                "formula": "neg(zscore(funding_rate,42))",
+                "passed": True,
+                "brutal_score": 1.0,
+                "turnover": 0.1,
+                "max_dd": 0.1,
+                "validation_sharpe": 0.1,
+                "validation_rank_ic": 0.01,
+            }
+        ],
+        universe_summary=pd.DataFrame(
+            [
+                {
+                    "factor_id": "carry",
+                    "formula": "canonicalized_elsewhere",
+                    "pass_rate": 0.8,
+                    "evaluated_assets": 5,
+                }
+            ]
+        ),
+        policy=AdmissionPolicy(min_universe_pass_rate=0.5, min_universe_assets=5),
+    )
+
+    row = decisions.iloc[0].to_dict()
+    assert row["rule_universe_robustness"] is True
+    assert row["universe_pass_rate"] == 0.8
+    assert row["universe_assets"] == 5.0
+
+
+def test_evaluate_admission_uses_stable_factor_id_when_leaderboard_id_missing() -> None:
+    formula = "neg(zscore(funding_rate,42))"
+    decisions, _ = evaluate_admission(
+        [
+            {
+                "formula": formula,
+                "passed": True,
+                "brutal_score": 1.0,
+                "turnover": 0.1,
+                "max_dd": 0.1,
+                "validation_sharpe": 0.1,
+                "validation_rank_ic": 0.01,
+            }
+        ],
+        universe_summary=pd.DataFrame(
+            [{"factor_id": stable_factor_id(formula), "formula": "different", "pass_rate": 0.8, "evaluated_assets": 5}]
+        ),
+        policy=AdmissionPolicy(min_universe_pass_rate=0.5, min_universe_assets=5),
+    )
+
+    row = decisions.iloc[0].to_dict()
+    assert row["factor_id"] == stable_factor_id(formula)
+    assert row["rule_universe_robustness"] is True
 
 
 def test_write_admission_report_outputs_files(tmp_path) -> None:

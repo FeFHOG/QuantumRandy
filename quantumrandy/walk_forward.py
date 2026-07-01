@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -48,7 +49,7 @@ def load_formula_entries(
             seen.add(formula)
             entries.append(
                 {
-                    "factor_id": item.get("factor_id", ""),
+                    "factor_id": item.get("factor_id") or stable_factor_id(formula),
                     "formula": formula,
                     "description": item.get("description", ""),
                     "source": "leaderboard",
@@ -62,11 +63,24 @@ def load_formula_entries(
         if formula in seen:
             continue
         seen.add(formula)
-        entries.append({"formula": formula, "description": "", "source": "cli", "passed": None})
+        entries.append(
+            {
+                "factor_id": stable_factor_id(formula),
+                "formula": formula,
+                "description": "",
+                "source": "cli",
+                "passed": None,
+            }
+        )
 
     if top is not None and top > 0:
         entries = entries[:top]
     return entries
+
+
+def stable_factor_id(formula: str) -> str:
+    digest = hashlib.sha1(formula.encode("utf-8")).hexdigest()[:10]
+    return f"qr_{digest}"
 
 
 def build_walk_forward_windows(

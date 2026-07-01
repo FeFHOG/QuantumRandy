@@ -494,6 +494,9 @@ Expected value:
 - Populated the local RandysLab data layer from Binance public archive files and moved BTC/ETH/SOL/BNB/AVAX configs to
   a shared `2022-05-01` to `2025-11-24` research window. `scripts/data_readiness.py` now reports all five configs ready
   on the local archive dataset, and a two-formula universe smoke has run successfully as a research artifact.
+- Added stable factor IDs and research-only manifest metadata to multi-asset universe artifacts. A formal
+  BTC/ETH/SOL/BNB/AVAX archive evaluation of passed `reports/research_live/leaderboard.json` candidates was run locally
+  into `reports/universe_archive_eval`, and its summary can now feed factor admission by stable factor ID.
 
 ## Next Session Prompt
 
