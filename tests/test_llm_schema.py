@@ -57,13 +57,18 @@ def test_llm_schema_v2_metadata_is_parsed(monkeypatch) -> None:
         ]
     }
 
+    captured = {}
+
     def fake_call_llm(*args, **kwargs) -> str:
         import json
 
+        captured["settings"] = kwargs.get("settings")
         return json.dumps(response)
 
     monkeypatch.setattr("quantumrandy.llm.call_llm", fake_call_llm)
     monkeypatch.setenv("LLM_API_KEY", "test-key")
+    monkeypatch.setenv("LLM_BASE_URL", "https://llm.example/v1")
+    monkeypatch.setenv("LLM_MODEL", "test-model")
     generator = FormulaGenerator(use_llm=True, settings=LLMSettings(max_retries=0))
 
     formulas = generator.propose("zscore(close,12)", "diversity", 1, [])
@@ -74,7 +79,11 @@ def test_llm_schema_v2_metadata_is_parsed(monkeypatch) -> None:
     assert "expensive long carry" in metadata["expected_edge"]
     assert "trending regimes" in metadata["expected_failure_mode"]
     assert "trend guards" in metadata["rewrite_plan_if_killed"]
+    assert captured["settings"].base_url == "https://llm.example/v1"
+    assert captured["settings"].model == "test-model"
     os.environ.pop("LLM_API_KEY", None)
+    os.environ.pop("LLM_BASE_URL", None)
+    os.environ.pop("LLM_MODEL", None)
 
 
 def test_llm_prompt_includes_failure_memory(monkeypatch, tmp_path) -> None:

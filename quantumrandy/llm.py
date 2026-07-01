@@ -62,12 +62,7 @@ class FormulaGenerator:
         if llm_config is not None and llm_config.use_proxy:
             os.environ.setdefault("LLM_PROXY", f"http://{llm_config.proxy_host}:{llm_config.proxy_port}")
         self.use_llm = use_llm
-        self.settings = settings or LLMSettings(
-            base_url=_env("LLM_BASE_URL", _legacy_default_base_url(), legacy="DEEPSEEK_BASE_URL"),
-            model=_env("LLM_MODEL", _legacy_default_model(), legacy="DEEPSEEK_MODEL"),
-            timeout_seconds=int(_env("LLM_TIMEOUT_SECONDS", "120", legacy="DEEPSEEK_TIMEOUT_SECONDS")),
-            max_retries=int(_env("LLM_MAX_RETRIES", "2", legacy="DEEPSEEK_MAX_RETRIES")),
-        )
+        self.settings = _settings_with_env(settings)
         self.local = LocalProposalEngine()
         self.events: list[dict[str, Any]] = []
         self.descriptions: dict[str, str] = {}
@@ -559,12 +554,7 @@ def call_llm(messages: list[dict[str, str]], settings: LLMSettings | None = None
     api_key = _llm_api_key()
     if not api_key:
         raise RuntimeError("LLM_API_KEY is not set.")
-    settings = settings or LLMSettings(
-        base_url=_env("LLM_BASE_URL", _legacy_default_base_url(), legacy="DEEPSEEK_BASE_URL"),
-        model=_env("LLM_MODEL", _legacy_default_model(), legacy="DEEPSEEK_MODEL"),
-        timeout_seconds=int(_env("LLM_TIMEOUT_SECONDS", "120", legacy="DEEPSEEK_TIMEOUT_SECONDS")),
-        max_retries=int(_env("LLM_MAX_RETRIES", "2", legacy="DEEPSEEK_MAX_RETRIES")),
-    )
+    settings = _settings_with_env(settings)
     if not settings.base_url:
         raise RuntimeError("LLM_BASE_URL is not set.")
     if not settings.model:
@@ -637,6 +627,32 @@ def _env(name: str, default: str = "", *, legacy: str | None = None) -> str:
 
 def _llm_api_key() -> str:
     return _env("LLM_API_KEY", "", legacy="DEEPSEEK_API_KEY")
+
+
+def _settings_with_env(settings: LLMSettings | None = None) -> LLMSettings:
+    return LLMSettings(
+        base_url=(settings.base_url if settings and settings.base_url else _env(
+            "LLM_BASE_URL",
+            _legacy_default_base_url(),
+            legacy="DEEPSEEK_BASE_URL",
+        )),
+        model=(settings.model if settings and settings.model else _env(
+            "LLM_MODEL",
+            _legacy_default_model(),
+            legacy="DEEPSEEK_MODEL",
+        )),
+        timeout_seconds=(
+            settings.timeout_seconds
+            if settings
+            else int(_env("LLM_TIMEOUT_SECONDS", "120", legacy="DEEPSEEK_TIMEOUT_SECONDS"))
+        ),
+        max_retries=(
+            settings.max_retries
+            if settings
+            else int(_env("LLM_MAX_RETRIES", "2", legacy="DEEPSEEK_MAX_RETRIES"))
+        ),
+        retry_sleep_seconds=settings.retry_sleep_seconds if settings else 3.0,
+    )
 
 
 def _legacy_default_base_url() -> str:
