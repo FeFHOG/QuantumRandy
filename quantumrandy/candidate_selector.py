@@ -126,6 +126,43 @@ def load_optional_csv(path: str | Path | None) -> pd.DataFrame | None:
     return pd.read_csv(path)
 
 
+def load_candidate_selector_prompt_context(
+    path: str | Path | None,
+    *,
+    max_rewrite_targets: int = 5,
+    max_evidence_gaps: int = 5,
+    max_clusters: int = 5,
+) -> dict[str, Any]:
+    if not path:
+        return {"available": False, "rewrite_targets": [], "evidence_gaps": [], "clusters": []}
+    root = Path(path)
+    if root.is_dir():
+        candidate_path = root / "candidate_selector.csv"
+        rewrite_path = root / "rewrite_targets.csv"
+        cluster_path = root / "multi_asset_failure_clusters.csv"
+    else:
+        candidate_path = root
+        rewrite_path = root.with_name("rewrite_targets.csv")
+        cluster_path = root.with_name("multi_asset_failure_clusters.csv")
+
+    rewrite_targets = _load_selector_rows(rewrite_path, max_rows=max_rewrite_targets)
+    if not rewrite_targets:
+        rewrite_targets = _load_selector_rows(
+            candidate_path,
+            max_rows=max_rewrite_targets,
+            verdicts={"rewrite", "deprioritize"},
+        )
+    evidence_gaps = _load_selector_rows(candidate_path, max_rows=max_evidence_gaps, verdicts={"needs_evidence"})
+    clusters = _load_selector_clusters(cluster_path, max_rows=max_clusters)
+    return {
+        "available": bool(rewrite_targets or evidence_gaps or clusters),
+        "source": root.as_posix(),
+        "rewrite_targets": rewrite_targets,
+        "evidence_gaps": evidence_gaps,
+        "clusters": clusters,
+    }
+
+
 def render_candidate_selector_report(
     manifest: dict[str, Any],
     candidates: pd.DataFrame,
@@ -433,6 +470,63 @@ def _index_records(frame: pd.DataFrame | None, key: str) -> dict[str, dict[str, 
     if frame is None or frame.empty or key not in frame.columns:
         return {}
     return {str(row.get(key, "")): row for row in frame.to_dict(orient="records") if row.get(key) not in (None, "")}
+
+
+def _load_selector_rows(
+    path: Path,
+    *,
+    max_rows: int,
+    verdicts: set[str] | None = None,
+) -> list[dict[str, str]]:
+    if max_rows <= 0 or not path.exists():
+        return []
+    try:
+        frame = pd.read_csv(path).fillna("")
+    except pd.errors.EmptyDataError:
+        return []
+    if verdicts and "selector_verdict" in frame.columns:
+        frame = frame[frame["selector_verdict"].astype(str).isin(verdicts)]
+    if "rewrite_priority" in frame.columns:
+        frame = frame.sort_values(["rewrite_priority", "selector_score"], ascending=[True, False])
+    elif "selector_score" in frame.columns:
+        frame = frame.sort_values("selector_score", ascending=False)
+    rows = []
+    for row in frame.head(max_rows).to_dict(orient="records"):
+        rows.append(
+            {
+                "factor_id": str(row.get("factor_id", "")),
+                "formula": str(row.get("formula", "")),
+                "selector_verdict": str(row.get("selector_verdict", "")),
+                "rewrite_focus": str(row.get("rewrite_focus", "")),
+                "universe_pass_rate": str(row.get("universe_pass_rate", "")),
+                "universe_mean_sharpe": str(row.get("universe_mean_sharpe", "")),
+                "failed_assets": str(row.get("failed_assets", "")),
+                "matched_failed_subtrees": str(row.get("matched_failed_subtrees", "")),
+            }
+        )
+    return rows
+
+
+def _load_selector_clusters(path: Path, *, max_rows: int) -> list[dict[str, str]]:
+    if max_rows <= 0 or not path.exists():
+        return []
+    try:
+        frame = pd.read_csv(path).fillna("")
+    except pd.errors.EmptyDataError:
+        return []
+    rows = []
+    for row in frame.head(max_rows).to_dict(orient="records"):
+        rows.append(
+            {
+                "subtree": str(row.get("subtree", "")),
+                "count": str(row.get("count", "")),
+                "avg_universe_pass_rate": str(row.get("avg_universe_pass_rate", "")),
+                "avg_universe_mean_sharpe": str(row.get("avg_universe_mean_sharpe", "")),
+                "example_factor_ids": str(row.get("example_factor_ids", "")),
+                "example_formula": str(row.get("example_formula", "")),
+            }
+        )
+    return rows
 
 
 def _factor_id(row: dict[str, Any], formula: str, index: int) -> str:

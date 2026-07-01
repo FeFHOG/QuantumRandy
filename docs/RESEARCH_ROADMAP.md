@@ -292,7 +292,8 @@ Deliverable:
 - `failure_clusters.csv`: implemented.
 - `failure_memory_manifest.json`: implemented.
 - `FAILURE_MEMORY_REPORT.md`: implemented.
-- retrieval function by failed gate and formula similarity: prompt context loader implemented; richer API not started.
+- retrieval function by failed gate and formula similarity: failure-memory and candidate-selector prompt context loaders
+  implemented; richer API not started.
 - dashboard failed-cluster view: not started.
 
 Priority: P1.
@@ -510,6 +511,11 @@ Expected value:
     `candidate_selector_manifest.json`, and `CANDIDATE_SELECTOR_REPORT.md`;
   - separates `rewrite`, `deprioritize`, and `needs_evidence` verdicts without changing admission policy or runtime
     state.
+- Connected candidate selector evidence to LLM prompts:
+  - `prompt.candidate_selector_path` can point to a candidate selector output directory or CSV;
+  - DeepSeek generate and rewrite prompts include rewrite targets, evidence gaps, and weak cross-asset clusters;
+  - LLM events record how many selector rewrite targets, evidence gaps, and clusters were sent;
+  - this remains prompt context only and does not auto-admit, auto-publish, or update runtime strategies.
 
 ## Next Session Prompt
 

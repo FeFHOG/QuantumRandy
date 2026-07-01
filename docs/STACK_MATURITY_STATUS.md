@@ -64,7 +64,8 @@ Implemented:
 - RandysLab baseline comparison in portfolio research;
 - LLM proposal schema v2 fields for hypothesis, expected edge, expected failure mode, and rewrite plan;
 - research-only candidate selector that combines leaderboard, universe robustness, portfolio-universe robustness, and
-  failure-memory evidence into rewrite, deprioritize, and needs-evidence queues.
+  failure-memory evidence into rewrite, deprioritize, and needs-evidence queues;
+- optional candidate selector prompt context for LLM generation and targeted rewrites.
 
 What this means:
 
@@ -84,6 +85,8 @@ Remaining algorithm risks:
   are still pending.
 - Candidate selection can now flag weak cross-asset formulas before more rewrite effort is spent, but it remains an
   offline research triage artifact rather than an automated mining or promotion gate.
+- LLM prompts can consume candidate selector evidence, but the loop still needs repeated archive-backed runs to prove
+  that this improves out-of-sample and cross-asset candidates.
 - Pareto MCTS archive exists as a research review artifact; MCTS acquisition still uses the scalar reward.
 - DSL still uses a compact OHLCV/funding field set; open interest, basis, taker flow, liquidation, and cross-asset fields
   remain future work.
@@ -96,9 +99,9 @@ Remaining algorithm risks:
 - Phase 2 server trial: ready for the server agent, not completed.
 - Phase 3 manual publishing flow: first implementation complete.
 - Phase 4 multi-factor portfolio layer: first offline implementation complete; runtime promotion remains manual.
-- Phase 5 algorithm upgrades: schema-v2 proposals, failure memory, admission, candidate selector, portfolio
-  walk-forward, dashboard review, and first Pareto archive are implemented; richer Pareto-guided acquisition is still
-  pending.
+- Phase 5 algorithm upgrades: schema-v2 proposals, failure memory, admission, candidate selector with prompt context,
+  portfolio walk-forward, dashboard review, and first Pareto archive are implemented; richer Pareto-guided acquisition
+  is still pending.
 - Phase 6 live execution: planning only; no live execution code should be added in v0.8.
 
 ## Practical Next Steps
@@ -109,8 +112,8 @@ While the server agent handles the 48-hour paper trial:
 2. Continue algorithm work in research-only artifacts.
 3. Formalize a factor admission policy that combines brutal filter, blind validation, walk-forward survival, multi-asset
    robustness, correlation, turnover, and drawdown.
-4. Feed candidate selector rewrite targets and evidence gaps into the next research-only LLM rewrite or universe
-   evaluation batch.
+4. Run a research-only LLM rewrite batch with `prompt.candidate_selector_path` pointed at the latest selector artifact,
+   then evaluate candidates through universe and portfolio-universe evidence before any admission review.
 5. Build failure memory from rejected candidates and schema-v2 proposal fields.
 6. Expand review panels with deeper drill-downs and artifact freshness checks.
 7. Prepare v0.8 beta release notes only after the server trial result is known.

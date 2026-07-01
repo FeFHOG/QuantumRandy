@@ -74,6 +74,10 @@ class PromptConfig:
     failure_memory_path: str | None = None
     failure_memory_examples: int = 5
     failure_memory_clusters: int = 5
+    candidate_selector_path: str | None = None
+    candidate_selector_rewrite_targets: int = 5
+    candidate_selector_evidence_gaps: int = 5
+    candidate_selector_clusters: int = 5
 
 
 @dataclass(frozen=True)

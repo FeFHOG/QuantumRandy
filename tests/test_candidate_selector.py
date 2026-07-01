@@ -6,6 +6,7 @@ import pandas as pd
 
 from quantumrandy.candidate_selector import (
     CandidateSelectorPolicy,
+    load_candidate_selector_prompt_context,
     select_research_candidates,
     write_candidate_selector_report,
 )
@@ -183,3 +184,41 @@ def test_write_candidate_selector_report_tolerates_missing_universe_evidence(tmp
     report = (tmp_path / "CANDIDATE_SELECTOR_REPORT.md").read_text(encoding="utf-8")
     assert "unmatched" in report
     assert "Evidence Gaps" in report
+
+
+def test_load_candidate_selector_prompt_context_reads_rewrite_targets_and_gaps(tmp_path) -> None:
+    leaderboard = [
+        {
+            "factor_id": "weak",
+            "formula": "zscore(ret(close,6),48)",
+            "passed": True,
+            "brutal_score": 70.0,
+        },
+        {
+            "factor_id": "gap",
+            "formula": "zscore(volume,48)",
+            "passed": True,
+            "brutal_score": 20.0,
+        },
+    ]
+    universe = pd.DataFrame(
+        [
+            {
+                "factor_id": "weak",
+                "formula": "zscore(ret(close,6),48)",
+                "pass_rate": 0.2,
+                "evaluated_assets": 5,
+                "mean_sharpe": 0.1,
+                "median_rank_ic": 0.0,
+                "failed_assets": "ETHUSDT,SOLUSDT",
+            }
+        ]
+    )
+    write_candidate_selector_report(leaderboard, tmp_path, universe_summary=universe)
+
+    context = load_candidate_selector_prompt_context(tmp_path, max_rewrite_targets=1, max_evidence_gaps=1)
+
+    assert context["available"] is True
+    assert context["rewrite_targets"][0]["factor_id"] == "weak"
+    assert context["rewrite_targets"][0]["rewrite_focus"] == "improve_cross_asset_robustness"
+    assert context["evidence_gaps"][0]["factor_id"] == "gap"

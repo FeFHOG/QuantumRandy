@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import os
 
-from quantumrandy.llm import FormulaGenerator, LLMSettings
+import pandas as pd
+
+from quantumrandy.candidate_selector import write_candidate_selector_report
 from quantumrandy.config import PromptConfig
 from quantumrandy.failure_memory import write_failure_memory
+from quantumrandy.llm import FormulaGenerator, LLMSettings
 
 
 def test_local_proposals_record_schema_v2_metadata() -> None:
@@ -33,7 +36,9 @@ def test_deepseek_schema_v2_metadata_is_parsed(monkeypatch) -> None:
                 "hypothesis": "Crowded funding pressure reverses after extreme long-side demand.",
                 "expected_edge": "The factor can predict future returns when expensive long carry unwinds.",
                 "expected_failure_mode": "It may fail in strong trending regimes where high funding persists.",
-                "rewrite_plan_if_killed": "If killed by lifespan or predictive power, lengthen the zscore window or add trend guards.",
+                "rewrite_plan_if_killed": (
+                    "If killed by lifespan or predictive power, lengthen the zscore window or add trend guards."
+                ),
             }
         ]
     }
@@ -105,7 +110,11 @@ def test_deepseek_prompt_includes_failure_memory(monkeypatch, tmp_path) -> None:
     generator = FormulaGenerator(
         use_llm=True,
         settings=LLMSettings(max_retries=0),
-        prompt_config=PromptConfig(failure_memory_path=str(tmp_path), failure_memory_examples=1, failure_memory_clusters=1),
+        prompt_config=PromptConfig(
+            failure_memory_path=str(tmp_path),
+            failure_memory_examples=1,
+            failure_memory_clusters=1,
+        ),
     )
 
     formulas = generator.propose("zscore(close,12)", "diversity", 1, [])
@@ -116,6 +125,84 @@ def test_deepseek_prompt_includes_failure_memory(monkeypatch, tmp_path) -> None:
     assert "friction_audit" in captured["prompt"]
     assert generator.events[-1]["failure_memory_examples"] == 1
     assert generator.events[-1]["failure_memory_clusters"] == 1
+    os.environ.pop("DEEPSEEK_API_KEY", None)
+
+
+def test_deepseek_prompt_includes_candidate_selector_context(monkeypatch, tmp_path) -> None:
+    write_candidate_selector_report(
+        [
+            {
+                "factor_id": "weak_momentum",
+                "formula": "zscore(ret(close,6),48)",
+                "passed": True,
+                "brutal_score": 60.0,
+            },
+            {
+                "factor_id": "evidence_gap",
+                "formula": "zscore(volume,48)",
+                "passed": False,
+                "brutal_score": 5.0,
+            },
+        ],
+        tmp_path,
+        universe_summary=pd.DataFrame(
+            [
+                {
+                    "factor_id": "weak_momentum",
+                    "formula": "zscore(ret(close,6),48)",
+                    "pass_rate": 0.2,
+                    "evaluated_assets": 5,
+                    "mean_sharpe": 0.1,
+                    "median_rank_ic": 0.0,
+                    "failed_assets": "ETHUSDT,SOLUSDT,BNBUSDT,AVAXUSDT",
+                }
+            ]
+        ),
+    )
+    captured = {}
+
+    def fake_call_deepseek(messages, *args, **kwargs) -> str:
+        captured["prompt"] = messages[-1]["content"]
+        import json
+
+        return json.dumps(
+            {
+                "candidates": [
+                    {
+                        "formula": "neg(zscore(funding_rate,42))",
+                        "description": (
+                            "Funding pressure mean reversion captures crowded carry positioning and possible reversal "
+                            "after extreme perpetual funding dislocations."
+                        ),
+                        "hypothesis": "Crowded funding pressure reverses.",
+                        "expected_edge": "Funding extremes can precede return reversal.",
+                        "expected_failure_mode": "Trend regimes can overwhelm funding mean reversion.",
+                        "rewrite_plan_if_killed": "Add slower smoothing or trend filters.",
+                    }
+                ]
+            }
+        )
+
+    monkeypatch.setattr("quantumrandy.llm.call_deepseek", fake_call_deepseek)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    generator = FormulaGenerator(
+        use_llm=True,
+        settings=LLMSettings(max_retries=0),
+        prompt_config=PromptConfig(
+            candidate_selector_path=str(tmp_path),
+            candidate_selector_rewrite_targets=1,
+            candidate_selector_evidence_gaps=1,
+        ),
+    )
+
+    formulas = generator.propose("zscore(close,12)", "diversity", 1, [])
+
+    assert formulas == ["neg(zscore(funding_rate,42))"]
+    assert "multi_asset_candidate_evidence" in captured["prompt"]
+    assert "weak_momentum" in captured["prompt"]
+    assert "evidence_gap" in captured["prompt"]
+    assert generator.events[-1]["candidate_selector_rewrite_targets"] == 1
+    assert generator.events[-1]["candidate_selector_evidence_gaps"] == 1
     os.environ.pop("DEEPSEEK_API_KEY", None)
 
 
@@ -179,4 +266,76 @@ def test_deepseek_rewrite_prompt_uses_failed_gate_guidance(monkeypatch) -> None:
     assert "friction_audit" in captured["prompt"]
     assert "Reduce turnover" in captured["prompt"]
     assert generator.events[-1]["source"] == "deepseek_rewrite"
+    os.environ.pop("DEEPSEEK_API_KEY", None)
+
+
+def test_deepseek_rewrite_prompt_includes_candidate_selector_context(monkeypatch, tmp_path) -> None:
+    write_candidate_selector_report(
+        [
+            {
+                "factor_id": "weak_conviction",
+                "formula": "zscore(corr(sub(close,open),volume,48),72)",
+                "passed": True,
+                "brutal_score": 40.0,
+            }
+        ],
+        tmp_path,
+        universe_summary=pd.DataFrame(
+            [
+                {
+                    "factor_id": "weak_conviction",
+                    "formula": "zscore(corr(sub(close,open),volume,48),72)",
+                    "pass_rate": 0.2,
+                    "evaluated_assets": 5,
+                    "mean_sharpe": 0.2,
+                    "median_rank_ic": 0.0,
+                    "failed_assets": "BTCUSDT,ETHUSDT,BNBUSDT,AVAXUSDT",
+                }
+            ]
+        ),
+    )
+    captured = {}
+
+    def fake_call_deepseek(messages, *args, **kwargs) -> str:
+        captured["prompt"] = messages[-1]["content"]
+        import json
+
+        return json.dumps(
+            {
+                "candidates": [
+                    {
+                        "formula": "winsorize(zscore(volume,96),96)",
+                        "description": (
+                            "Volume pressure regimes can capture broad liquidity expansion across assets while "
+                            "winsorization reduces extreme noisy turnover and fragile single-asset spikes."
+                        ),
+                        "hypothesis": "Smoothed volume pressure can generalize across crypto assets.",
+                        "expected_edge": "Liquidity expansion may precede persistent risk appetite.",
+                        "expected_failure_mode": "The signal may lag sudden liquidity regime changes.",
+                        "rewrite_plan_if_killed": "Switch to funding or volatility fields if volume remains fragile.",
+                    }
+                ]
+            }
+        )
+
+    monkeypatch.setattr("quantumrandy.llm.call_deepseek", fake_call_deepseek)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    generator = FormulaGenerator(
+        use_llm=True,
+        settings=LLMSettings(max_retries=0),
+        prompt_config=PromptConfig(candidate_selector_path=str(tmp_path), candidate_selector_rewrite_targets=1),
+    )
+
+    formulas = generator.rewrite(
+        "zscore(corr(sub(close,open),volume,48),72)",
+        ["lifetime"],
+        {"gates": {"lifetime": {"validation_sharpe": -0.1}}},
+        1,
+        [],
+    )
+
+    assert formulas == ["winsorize(zscore(volume,96),96)"]
+    assert "multi_asset_candidate_evidence" in captured["prompt"]
+    assert "weak_conviction" in captured["prompt"]
+    assert generator.events[-1]["candidate_selector_rewrite_targets"] == 1
     os.environ.pop("DEEPSEEK_API_KEY", None)

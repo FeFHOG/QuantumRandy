@@ -10,6 +10,7 @@ from typing import Any
 
 import requests
 
+from .candidate_selector import load_candidate_selector_prompt_context
 from .expression import OPERATORS, validate_formula_shape
 from .failure_memory import load_failure_prompt_context
 from .fsa import violates_forbidden
@@ -79,6 +80,12 @@ class FormulaGenerator:
             max_examples=prompt_config.failure_memory_examples if prompt_config else 0,
             max_clusters=prompt_config.failure_memory_clusters if prompt_config else 0,
         )
+        self.candidate_selector_context = load_candidate_selector_prompt_context(
+            prompt_config.candidate_selector_path if prompt_config else None,
+            max_rewrite_targets=prompt_config.candidate_selector_rewrite_targets if prompt_config else 0,
+            max_evidence_gaps=prompt_config.candidate_selector_evidence_gaps if prompt_config else 0,
+            max_clusters=prompt_config.candidate_selector_clusters if prompt_config else 0,
+        )
 
     def propose(self, base_formula: str, dimension: str, count: int, forbidden: list[str]) -> list[str]:
         if self.use_llm and os.getenv("DEEPSEEK_API_KEY"):
@@ -97,6 +104,11 @@ class FormulaGenerator:
                         "llm_duration_s": llm_detail.get("duration_s", 0),
                         "failure_memory_examples": llm_detail.get("failure_memory_examples", 0),
                         "failure_memory_clusters": llm_detail.get("failure_memory_clusters", 0),
+                        "candidate_selector_rewrite_targets": llm_detail.get(
+                            "candidate_selector_rewrite_targets", 0
+                        ),
+                        "candidate_selector_evidence_gaps": llm_detail.get("candidate_selector_evidence_gaps", 0),
+                        "candidate_selector_clusters": llm_detail.get("candidate_selector_clusters", 0),
                     }
                 )
                 return formulas
@@ -175,6 +187,11 @@ class FormulaGenerator:
                         "llm_duration_s": llm_detail.get("duration_s", 0),
                         "failure_memory_examples": llm_detail.get("failure_memory_examples", 0),
                         "failure_memory_clusters": llm_detail.get("failure_memory_clusters", 0),
+                        "candidate_selector_rewrite_targets": llm_detail.get(
+                            "candidate_selector_rewrite_targets", 0
+                        ),
+                        "candidate_selector_evidence_gaps": llm_detail.get("candidate_selector_evidence_gaps", 0),
+                        "candidate_selector_clusters": llm_detail.get("candidate_selector_clusters", 0),
                     }
                 )
                 return formulas
@@ -219,8 +236,15 @@ class FormulaGenerator:
         failure_context = self.failure_prompt_context
         failure_examples = failure_context.get("examples", [])
         failure_clusters = failure_context.get("clusters", [])
+        selector_context = self.candidate_selector_context
+        rewrite_targets = selector_context.get("rewrite_targets", [])
+        evidence_gaps = selector_context.get("evidence_gaps", [])
+        selector_clusters = selector_context.get("clusters", [])
         detail["failure_memory_examples"] = len(failure_examples)
         detail["failure_memory_clusters"] = len(failure_clusters)
+        detail["candidate_selector_rewrite_targets"] = len(rewrite_targets)
+        detail["candidate_selector_evidence_gaps"] = len(evidence_gaps)
+        detail["candidate_selector_clusters"] = len(selector_clusters)
         pc = self.prompt_config
         desc_len = pc.description_min_length if pc else DESCRIPTION_MIN_LENGTH
         temp = pc.temperature if pc else 0.7
@@ -287,6 +311,17 @@ class FormulaGenerator:
                 "instruction": (
                     "Treat these as failed research memories. Do not copy their formulas or shared failed subtrees. "
                     "Use the failed gates and rewrite plans to propose structurally different, simpler, or better-smoothed candidates."
+                ),
+            },
+            "multi_asset_candidate_evidence": {
+                "source": selector_context.get("source", ""),
+                "rewrite_targets": rewrite_targets,
+                "evidence_gaps": evidence_gaps,
+                "weak_cross_asset_clusters": selector_clusters,
+                "instruction": (
+                    "Treat rewrite_targets as evidence that related structures were BTC-local or weak across the "
+                    "universe. Prefer candidates with economic rationale that could plausibly survive BTC, ETH, SOL, "
+                    "BNB, and AVAX. Do not copy formulas in evidence_gaps until they have multi-asset evidence."
                 ),
             },
             "already_in_zoo": existing[-10:],
@@ -379,8 +414,15 @@ class FormulaGenerator:
         failure_context = self.failure_prompt_context
         failure_examples = failure_context.get("examples", [])
         failure_clusters = failure_context.get("clusters", [])
+        selector_context = self.candidate_selector_context
+        rewrite_targets = selector_context.get("rewrite_targets", [])
+        evidence_gaps = selector_context.get("evidence_gaps", [])
+        selector_clusters = selector_context.get("clusters", [])
         detail["failure_memory_examples"] = len(failure_examples)
         detail["failure_memory_clusters"] = len(failure_clusters)
+        detail["candidate_selector_rewrite_targets"] = len(rewrite_targets)
+        detail["candidate_selector_evidence_gaps"] = len(evidence_gaps)
+        detail["candidate_selector_clusters"] = len(selector_clusters)
         pc = self.prompt_config
         desc_len = pc.description_min_length if pc else DESCRIPTION_MIN_LENGTH
         temp = pc.temperature if pc else 0.7
@@ -410,6 +452,17 @@ class FormulaGenerator:
                 "source": failure_context.get("source", ""),
                 "negative_examples": failure_examples,
                 "failed_subtree_clusters": failure_clusters,
+            },
+            "multi_asset_candidate_evidence": {
+                "source": selector_context.get("source", ""),
+                "rewrite_targets": rewrite_targets,
+                "evidence_gaps": evidence_gaps,
+                "weak_cross_asset_clusters": selector_clusters,
+                "instruction": (
+                    "Use this selector evidence to avoid BTC-only lucky patterns and to rewrite toward simpler "
+                    "cross-asset robust structures. If the failed formula resembles a deprioritized target, change "
+                    "the economic family rather than only changing windows."
+                ),
             },
             "requirements": [
                 (
