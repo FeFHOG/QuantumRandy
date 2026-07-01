@@ -139,8 +139,13 @@ def run_selector_rewrite_pipeline(
             "verdict_counts": _value_counts(review, "review_verdict"),
             "candidate_review_rows": len(candidate_review),
             "candidate_verdict_counts": _value_counts(candidate_review, "candidate_review_verdict"),
+            "candidate_generation_source_counts": _value_counts(candidate_review, "rewrite_generation_source"),
             "candidate_highlight_rows": len(candidate_highlights),
             "candidate_highlight_counts": _value_counts(candidate_highlights, "highlight_type"),
+            "candidate_highlight_generation_source_counts": _value_counts(
+                candidate_highlights,
+                "rewrite_generation_source",
+            ),
         }
         manifest["outputs"]["universe_summary"] = (universe_out / "universe_summary.csv").as_posix()
         manifest["outputs"]["pipeline_review"] = (out / "review" / "selector_pipeline_review.csv").as_posix()
@@ -265,11 +270,17 @@ def render_pipeline_report(manifest: dict[str, Any]) -> str:
             ]
         )
         candidate_counts = review.get("candidate_verdict_counts") or {}
+        source_counts = review.get("candidate_generation_source_counts") or {}
         highlight_counts = review.get("candidate_highlight_counts") or {}
+        highlight_source_counts = review.get("candidate_highlight_generation_source_counts") or {}
         if candidate_counts:
             lines.append(f"- Candidate verdict mix: `{_format_counts(candidate_counts)}`")
+        if source_counts:
+            lines.append(f"- Candidate source mix: `{_format_counts(source_counts)}`")
         if highlight_counts:
             lines.append(f"- Candidate highlight mix: `{_format_counts(highlight_counts)}`")
+        if highlight_source_counts:
+            lines.append(f"- Candidate highlight source mix: `{_format_counts(highlight_source_counts)}`")
     if error_summary:
         lines.extend(["", "## LLM Error Summary", ""])
         for error in error_summary[:5]:
@@ -337,6 +348,7 @@ def build_selector_pipeline_review_from_candidates(candidate_review: pd.DataFram
                 "evaluated_candidate_count": sum(1 for row in rows if int(row.get("candidate_evaluated_assets", 0)) > 0),
                 "best_candidate_factor_id": best.get("factor_id", ""),
                 "best_candidate_formula": best.get("formula", ""),
+                "best_candidate_generation_source": best.get("rewrite_generation_source", ""),
                 "best_candidate_pass_rate": _num(best.get("candidate_pass_rate")),
                 "best_candidate_mean_sharpe": _num(best.get("candidate_mean_sharpe")),
                 "best_candidate_median_rank_ic": _num(best.get("candidate_median_rank_ic")),
@@ -439,6 +451,7 @@ def build_selector_pipeline_candidate_highlights(candidate_review: pd.DataFrame)
                 "highlight_type": highlight,
                 "parent_factor_id": row.get("parent_factor_id", ""),
                 "factor_id": row.get("factor_id", ""),
+                "rewrite_generation_source": row.get("rewrite_generation_source", ""),
                 "candidate_review_verdict": verdict,
                 "pass_rate_delta": _num(row.get("pass_rate_delta")),
                 "mean_sharpe_delta": _num(row.get("mean_sharpe_delta")),
@@ -560,12 +573,13 @@ def _render_highlight_summary_table(
         ["pass_rate_delta", "mean_sharpe_delta", "candidate_mean_sharpe"],
         ascending=[False, False, False],
     )
-    lines.append("| Parent | Candidate | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |")
-    lines.append("|---|---|---:|---:|---|---|")
+    lines.append("| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |")
+    lines.append("|---|---|---|---:|---:|---|---|")
     for row in rows.head(limit).to_dict(orient="records"):
         lines.append(
             "| "
             f"`{row.get('parent_factor_id', '')}` | `{row.get('factor_id', '')}` | "
+            f"`{row.get('rewrite_generation_source', '')}` | "
             f"{_num(row.get('pass_rate_delta')):.2f} | {_num(row.get('mean_sharpe_delta')):.2f} | "
             f"{_md_cell(row.get('candidate_failed_assets', ''))} | `{_short_formula(row.get('formula', ''))}` |"
         )
@@ -655,7 +669,12 @@ def _write_review_outputs(out: Path, *, review: pd.DataFrame, candidate_review: 
         "candidate_highlight_rows": len(candidate_highlights),
         "verdict_counts": _value_counts(review, "review_verdict"),
         "candidate_verdict_counts": _value_counts(candidate_review, "candidate_review_verdict"),
+        "candidate_generation_source_counts": _value_counts(candidate_review, "rewrite_generation_source"),
         "candidate_highlight_counts": _value_counts(candidate_highlights, "highlight_type"),
+        "candidate_highlight_generation_source_counts": _value_counts(
+            candidate_highlights,
+            "rewrite_generation_source",
+        ),
         "outputs": {
             "candidate_highlight_summary": (out / "SELECTOR_CANDIDATE_HIGHLIGHTS.md").as_posix(),
             "candidate_highlight_summary_manifest": (
@@ -728,6 +747,18 @@ def render_review_report(
             lines.append(f"| `{verdict}` | {count} |")
     else:
         lines.append("| none | 0 |")
+
+    source_counts = manifest.get("candidate_generation_source_counts") or {}
+    if source_counts:
+        lines.extend(["", "## Candidate Source Counts", "", "| Source | Count |", "|---|---:|"])
+        for source, count in source_counts.items():
+            lines.append(f"| `{source}` | {count} |")
+
+    highlight_source_counts = manifest.get("candidate_highlight_generation_source_counts") or {}
+    if highlight_source_counts:
+        lines.extend(["", "## Candidate Highlight Source Counts", "", "| Source | Count |", "|---|---:|"])
+        for source, count in highlight_source_counts.items():
+            lines.append(f"| `{source}` | {count} |")
 
     if candidate_review is not None and not candidate_review.empty:
         lines.extend(["", "## Candidate-Level Highlights", ""])
@@ -812,12 +843,13 @@ def _render_candidate_highlight_table(
         ["candidate_verdict_rank", "pass_rate_delta", "mean_sharpe_delta", "candidate_mean_sharpe"],
         ascending=[False, False, False, False],
     )
-    lines.append("| Parent | Candidate | Verdict | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |")
-    lines.append("|---|---|---|---:|---:|---|---|")
+    lines.append("| Parent | Candidate | Source | Verdict | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |")
+    lines.append("|---|---|---|---|---:|---:|---|---|")
     for row in rows.head(limit).to_dict(orient="records"):
         lines.append(
             "| "
             f"`{row.get('parent_factor_id', '')}` | `{row.get('factor_id', '')}` | "
+            f"`{row.get('rewrite_generation_source', '')}` | "
             f"`{row.get('candidate_review_verdict', '')}` | {_num(row.get('pass_rate_delta')):.2f} | "
             f"{_num(row.get('mean_sharpe_delta')):.2f} | "
             f"{_md_cell(row.get('candidate_failed_assets', ''))} | "

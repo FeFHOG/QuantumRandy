@@ -287,6 +287,15 @@ def test_selector_pipeline_review_compares_parent_and_rewrite_evidence(tmp_path)
             },
         ]
     )
+    candidates["rewrite_generation_source"] = [
+        "llm_rewrite",
+        "local_rewrite",
+        "llm_rewrite",
+        "llm_rewrite",
+        "local_rewrite",
+        "local_rewrite",
+        "llm_rewrite",
+    ]
     candidate_path = tmp_path / "selector_rewrite_candidates.csv"
     candidates.to_csv(candidate_path, index=False)
     universe_summary = pd.DataFrame(
@@ -362,6 +371,7 @@ def test_selector_pipeline_review_compares_parent_and_rewrite_evidence(tmp_path)
 
     by_parent = {row["parent_factor_id"]: row for row in review.to_dict(orient="records")}
     assert by_parent["parent_a"]["best_candidate_factor_id"] == "rewrite_a"
+    assert by_parent["parent_a"]["best_candidate_generation_source"] == "llm_rewrite"
     assert by_parent["parent_a"]["review_verdict"] == "improved"
     assert by_parent["parent_a"]["pass_rate_delta"] == 0.4
     assert by_parent["parent_a"]["improvement_gate"] == "pass_rate_delta > 0 and mean_sharpe_delta >= 0"
@@ -379,12 +389,14 @@ def test_selector_pipeline_review_compares_parent_and_rewrite_evidence(tmp_path)
     by_candidate = {row["factor_id"]: row for row in candidate_review.to_dict(orient="records")}
     assert by_candidate["rewrite_f"]["candidate_review_verdict"] == "coverage_only"
     assert by_candidate["rewrite_g"]["candidate_review_verdict"] == "improved"
+    assert by_candidate["rewrite_g"]["rewrite_generation_source"] == "llm_rewrite"
     assert by_candidate["rewrite_g"]["pass_rate_delta"] == 0.2
     assert by_candidate["rewrite_g"]["mean_sharpe_delta"] == 0.1
 
     highlights = build_selector_pipeline_candidate_highlights(candidate_review)
     by_highlight = {row["factor_id"]: row for row in highlights.to_dict(orient="records")}
     assert by_highlight["rewrite_a"]["highlight_type"] == "true_improved"
+    assert by_highlight["rewrite_a"]["rewrite_generation_source"] == "llm_rewrite"
     assert by_highlight["rewrite_f"]["highlight_type"] == "coverage_only_trap"
     assert by_highlight["rewrite_e"]["highlight_type"] == "sharpe_improved_no_pass_lift"
     assert by_highlight["rewrite_g"]["candidate_failed_assets"] == "ETHUSDT"
@@ -395,11 +407,15 @@ def test_selector_pipeline_review_compares_parent_and_rewrite_evidence(tmp_path)
             "candidate_review_rows": len(candidate_review),
             "verdict_counts": {"improved": 2},
             "candidate_verdict_counts": {"improved": 2, "coverage_only": 2, "mixed": 1},
+            "candidate_generation_source_counts": {"llm_rewrite": 4, "local_rewrite": 3},
+            "candidate_highlight_generation_source_counts": {"llm_rewrite": 3, "local_rewrite": 3},
         },
         review,
         candidate_review=candidate_review,
     )
     assert "True Improved Candidates" in report
+    assert "Candidate Source Counts" in report
+    assert "Candidate Highlight Source Counts" in report
     assert "`rewrite_g`" in report
     assert "ETHUSDT" in report
     assert "Coverage-Only Traps" in report
@@ -418,4 +434,5 @@ def test_selector_pipeline_review_compares_parent_and_rewrite_evidence(tmp_path)
     assert "true_improved" in summary_manifest["highlight_counts"]
     assert "Selector Candidate Highlights" in summary_report
     assert "Coverage-Only Traps" in summary_report
+    assert "| Parent | Candidate | Source |" in summary_report
     assert "`rewrite_f`" in summary_report

@@ -81,10 +81,12 @@ def test_build_selector_rewrite_candidates_uses_local_generator(tmp_path) -> Non
     assert manifest["llm_rewrite_accepted"] == 0
     assert manifest["fallback_rewrite_accepted"] >= 1
     assert manifest["event_source_counts"]
+    assert manifest["candidate_generation_source_counts"].get("local_rewrite", 0) >= 1
     assert len(candidates) >= 1
     assert not events.empty
     row = candidates.iloc[0].to_dict()
     assert row["source"] == "candidate_selector_rewrite"
+    assert row["rewrite_generation_source"] == "local_rewrite"
     assert row["parent_factor_id"] in {"weak_momentum", "weak_conviction"}
     assert row["hypothesis"]
 
@@ -223,6 +225,7 @@ def test_write_selector_rewrite_report_outputs_leaderboard_style_json(tmp_path) 
     assert manifest["candidate_count"] == 1
     assert manifest["llm_rewrite_accepted"] == 0
     assert manifest["fallback_rewrite_accepted"] == 1
+    assert manifest["candidate_generation_source_counts"] == {"local_rewrite": 1}
     payload = json.loads((tmp_path / "rewrite" / "selector_rewrite_candidates.json").read_text(encoding="utf-8"))
     assert isinstance(payload, list)
     assert payload[0]["formula"]

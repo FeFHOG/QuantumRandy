@@ -516,6 +516,7 @@ HTML = r"""<!doctype html>
           escapeHtml(r.verdict || '-') + '</strong> <span class="muted">' + escapeHtml(r.parent_factor_id || '-') +
           '</span><br><span class="muted">pass_delta=' + fmt(r.pass_rate_delta, 2) + ' sharpe_delta=' + fmt(r.mean_sharpe_delta, 2) +
           ' best_pass=' + fmt(r.best_candidate_pass_rate, 2) + ' best_sharpe=' + fmt(r.best_candidate_mean_sharpe, 2) +
+          ' src=' + escapeHtml(r.best_candidate_generation_source || '-') +
           '</span><br><span style="font-family:Consolas,monospace;color:var(--gold)">' + escapeHtml(r.best_candidate_factor_id || '-') +
           '</span><br><span class="muted">' + escapeHtml(r.best_candidate_formula || '-') + '</span></div>'
         ).join('') + '</div>' +
@@ -523,6 +524,7 @@ HTML = r"""<!doctype html>
           '<div class="review-row"><strong class="' + (r.highlight_type === 'true_improved' ? 'pass' : r.highlight_type === 'coverage_only_trap' ? 'fail' : '') + '">' +
           escapeHtml(r.highlight_type || '-') + '</strong> <span style="font-family:Consolas,monospace;color:var(--gold)">' +
           escapeHtml(r.factor_id || '-') + '</span><br><span class="muted">parent=' + escapeHtml(r.parent_factor_id || '-') +
+          ' src=' + escapeHtml(r.rewrite_generation_source || '-') +
           ' pass_delta=' + fmt(r.pass_rate_delta, 2) + ' sharpe_delta=' + fmt(r.mean_sharpe_delta, 2) +
           ' pass=' + fmt(r.candidate_pass_rate, 2) + ' sharpe=' + fmt(r.candidate_mean_sharpe, 2) +
           '</span><br><span class="muted">failed_assets=' + escapeHtml(r.candidate_failed_assets || 'none') +
@@ -531,6 +533,7 @@ HTML = r"""<!doctype html>
           '<div class="review-row"><strong class="' + (r.verdict === 'improved' ? 'pass' : r.verdict === 'not_improved' ? 'fail' : '') + '">' +
           escapeHtml(r.verdict || '-') + '</strong> <span style="font-family:Consolas,monospace;color:var(--gold)">' +
           escapeHtml(r.factor_id || '-') + '</span><br><span class="muted">parent=' + escapeHtml(r.parent_factor_id || '-') +
+          ' src=' + escapeHtml(r.rewrite_generation_source || '-') +
           ' pass_delta=' + fmt(r.pass_rate_delta, 2) + ' sharpe_delta=' + fmt(r.mean_sharpe_delta, 2) +
           ' pass=' + fmt(r.candidate_pass_rate, 2) + ' sharpe=' + fmt(r.candidate_mean_sharpe, 2) +
           '</span><br><span class="muted">failed_assets=' + escapeHtml(r.candidate_failed_assets || 'none') +
@@ -1197,6 +1200,7 @@ def _selector_pipeline_review_payload(path: Path | None) -> dict:
                 "mean_sharpe_delta": _num(row.get("mean_sharpe_delta")),
                 "best_candidate_factor_id": row.get("best_candidate_factor_id", ""),
                 "best_candidate_formula": row.get("best_candidate_formula", ""),
+                "best_candidate_generation_source": row.get("best_candidate_generation_source", ""),
                 "best_candidate_pass_rate": _num(row.get("best_candidate_pass_rate")),
                 "best_candidate_mean_sharpe": _num(row.get("best_candidate_mean_sharpe")),
                 "best_candidate_failed_assets": row.get("best_candidate_failed_assets", ""),
@@ -1209,6 +1213,7 @@ def _selector_pipeline_review_payload(path: Path | None) -> dict:
             {
                 "parent_factor_id": row.get("parent_factor_id", ""),
                 "factor_id": row.get("factor_id", ""),
+                "rewrite_generation_source": row.get("rewrite_generation_source", ""),
                 "formula": row.get("formula", ""),
                 "verdict": row.get("candidate_review_verdict", ""),
                 "pass_rate_delta": _num(row.get("pass_rate_delta")),
@@ -1225,6 +1230,7 @@ def _selector_pipeline_review_payload(path: Path | None) -> dict:
                 "highlight_type": row.get("highlight_type", ""),
                 "parent_factor_id": row.get("parent_factor_id", ""),
                 "factor_id": row.get("factor_id", ""),
+                "rewrite_generation_source": row.get("rewrite_generation_source", ""),
                 "formula": row.get("formula", ""),
                 "verdict": row.get("candidate_review_verdict", ""),
                 "pass_rate_delta": _num(row.get("pass_rate_delta")),

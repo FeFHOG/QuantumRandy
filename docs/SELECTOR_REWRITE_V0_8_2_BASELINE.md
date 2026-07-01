@@ -198,3 +198,24 @@ The only true improved candidate in attempt 3 is the same stable candidate found
 Interpretation: the LLM path is now verified end-to-end and no longer falls back silently. The stricter audit removes
 the coverage-only trap seen in the local baseline and blocks cross-target formula reuse, but this single small run does
 not yet establish a deployable alpha. It should be treated as selector rewrite evidence for the research loop only.
+
+## Candidate Source Provenance Follow-Up
+
+Date: 2026-07-01
+
+The attempt 3 evidence is a mixed-source batch: accepted LLM rewrites can be followed by local fill-in candidates when
+the requested candidate count is not fully satisfied by LLM output. To avoid over-attributing a candidate-level
+improvement to the LLM just because the batch contains LLM candidates, rewrite artifacts now carry candidate-level
+source provenance:
+
+- `selector_rewrite_candidates.csv`: `rewrite_generation_source`
+- `selector_pipeline_candidate_review.csv`: `rewrite_generation_source`
+- `selector_pipeline_candidate_highlights.csv`: `rewrite_generation_source`
+- `selector_rewrite_manifest.json`: `candidate_generation_source_counts`
+- `selector_pipeline_review_manifest.json`: `candidate_generation_source_counts` and
+  `candidate_highlight_generation_source_counts`
+- Markdown review/highlight summaries: `Source` columns and source-count sections
+- Research dashboard review payload: source fields for parent best-candidate, candidate rows, and highlight rows
+
+This does not change evaluation metrics, admission policy, publishing, or runtime behavior. It only makes the audit
+chain explicit enough to answer: "Did the highlighted improvement come from an LLM rewrite or from local fallback?"

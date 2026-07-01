@@ -229,6 +229,8 @@ class FormulaGenerator:
     ) -> list[str]:
         disallowed_formulas = disallowed_formulas or {base_formula}
         out = list(formulas)
+        for formula in out:
+            self.proposal_metadata.setdefault(formula, {})["generation_source"] = "llm_rewrite"
         need_non_funding = len(out) < count and any(_is_pure_funding_formula(item) for item in out)
         local_added: list[str] = []
         local_requested = max(count * 4, count)
@@ -247,6 +249,7 @@ class FormulaGenerator:
                 continue
             self.descriptions.setdefault(canonical, _local_rewrite_description(canonical, base_formula, failed_gates))
             self.proposal_metadata.setdefault(canonical, _local_rewrite_metadata(canonical, base_formula, failed_gates))
+            self.proposal_metadata[canonical]["generation_source"] = "local_rewrite"
             out.append(canonical)
             local_added.append(canonical)
         if local_added or not formulas:
@@ -413,6 +416,7 @@ class FormulaGenerator:
             formula = item.get("formula") if isinstance(item, dict) else str(item)
             description = item.get("description", "") if isinstance(item, dict) else ""
             metadata = _proposal_metadata_from_item(item if isinstance(item, dict) else {})
+            metadata["generation_source"] = "llm_rewrite"
             try:
                 canonical = validate_formula_shape(str(formula), self.max_formula_depth, self.max_formula_operators).canonical()
             except ValueError as exc:

@@ -155,6 +155,7 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
                 "evaluated_candidate_count": 2,
                 "best_candidate_factor_id": "carry_rewrite",
                 "best_candidate_formula": "neg(zscore(funding_rate,72))",
+                "best_candidate_generation_source": "llm_rewrite",
                 "best_candidate_pass_rate": 0.8,
                 "best_candidate_mean_sharpe": 0.7,
                 "pass_rate_delta": 0.4,
@@ -224,6 +225,7 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
             {
                 "parent_factor_id": "carry_parent",
                 "factor_id": "carry_rewrite",
+                "rewrite_generation_source": "llm_rewrite",
                 "formula": "neg(zscore(funding_rate,72))",
                 "candidate_review_verdict": "improved",
                 "candidate_verdict_rank": 4,
@@ -269,6 +271,7 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
                 "highlight_rank": 3,
                 "parent_factor_id": "carry_parent",
                 "factor_id": "carry_rewrite",
+                "rewrite_generation_source": "llm_rewrite",
                 "formula": "neg(zscore(funding_rate,72))",
                 "candidate_review_verdict": "improved",
                 "pass_rate_delta": 0.4,
@@ -368,9 +371,11 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
     assert payload["selector_pipeline_review"]["is_llm_policy_evidence"] is False
     assert payload["selector_pipeline_review"]["top"][0]["parent_factor_id"] == "carry_parent"
     assert payload["selector_pipeline_review"]["top"][0]["best_candidate_factor_id"] == "carry_rewrite"
+    assert payload["selector_pipeline_review"]["top"][0]["best_candidate_generation_source"] == "llm_rewrite"
     assert payload["selector_pipeline_review"]["top"][0]["candidate_verdict_counts"] == "improved:1|not_improved:1"
     assert "verdict_rank=4" in payload["selector_pipeline_review"]["top"][0]["best_candidate_rank_reason"]
     assert payload["selector_pipeline_review"]["candidate_top"][0]["factor_id"] == "carry_rewrite"
+    assert payload["selector_pipeline_review"]["candidate_top"][0]["rewrite_generation_source"] == "llm_rewrite"
     assert payload["selector_pipeline_review"]["candidate_top"][0]["verdict"] == "improved"
     assert payload["selector_pipeline_review"]["candidate_top"][0]["candidate_failed_assets"] == "SOLUSDT"
     assert "verdict_rank=4" in payload["selector_pipeline_review"]["candidate_top"][0]["candidate_rank_reason"]
@@ -380,6 +385,10 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
     assert payload["selector_pipeline_review"]["candidate_sharpe_improved_no_pass_lift"] == 1
     assert payload["selector_pipeline_review"]["candidate_highlights"][0]["highlight_type"] == "true_improved"
     assert payload["selector_pipeline_review"]["candidate_highlights"][0]["factor_id"] == "carry_rewrite"
+    assert (
+        payload["selector_pipeline_review"]["candidate_highlights"][0]["rewrite_generation_source"]
+        == "llm_rewrite"
+    )
     assert payload["selector_pipeline_review"]["candidate_highlights"][0]["candidate_failed_assets"] == "SOLUSDT"
 
 

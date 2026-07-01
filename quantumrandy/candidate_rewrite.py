@@ -124,6 +124,7 @@ def build_selector_rewrite_candidates(
                     "description": generator.descriptions.get(proposal, ""),
                     "passed": None,
                     "source": "candidate_selector_rewrite",
+                    "rewrite_generation_source": metadata.get("generation_source", ""),
                     "parent_factor_id": target.get("factor_id", ""),
                     "parent_formula": formula,
                     "parent_selector_verdict": target.get("selector_verdict", ""),
@@ -159,6 +160,7 @@ def build_selector_rewrite_candidates(
         "candidate_count": len(candidates),
         "event_count": len(events),
         "event_source_counts": _event_source_counts(events),
+        "candidate_generation_source_counts": _value_counts(candidates, "rewrite_generation_source"),
         "llm_error_count": _llm_error_count(events),
         "llm_error_summary": _llm_error_summary(events),
         "llm_rewrite_accepted": _accepted_by_source(events, {"llm_rewrite"}),
@@ -224,6 +226,9 @@ def render_selector_rewrite_report(manifest: dict[str, Any], candidates: pd.Data
         f"- LLM rewrite accepted: `{manifest.get('llm_rewrite_accepted', 0)}`",
         f"- Fallback/local accepted: `{manifest.get('fallback_rewrite_accepted', 0)}`",
     ]
+    source_counts = manifest.get("candidate_generation_source_counts") or {}
+    if source_counts:
+        lines.append(f"- Candidate source mix: `{_format_counts(source_counts)}`")
     error_summary = manifest.get("llm_error_summary") or []
     if error_summary:
         lines.extend(
@@ -288,6 +293,16 @@ def _accepted_by_source(events: pd.DataFrame, sources: set[str]) -> int:
         except (TypeError, ValueError):
             continue
     return total
+
+
+def _value_counts(frame: pd.DataFrame, column: str) -> dict[str, int]:
+    if frame.empty or column not in frame.columns:
+        return {}
+    return {str(key): int(value) for key, value in frame[column].fillna("").value_counts().to_dict().items() if str(key)}
+
+
+def _format_counts(counts: dict[str, int]) -> str:
+    return "|".join(f"{key}:{value}" for key, value in counts.items()) if counts else "none"
 
 
 def _llm_error_count(events: pd.DataFrame) -> int:
