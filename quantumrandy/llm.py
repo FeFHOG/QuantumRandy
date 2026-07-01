@@ -158,7 +158,10 @@ class FormulaGenerator:
         failure_detail: dict[str, Any],
         count: int,
         forbidden: list[str],
+        disallowed_formulas: list[str] | None = None,
     ) -> list[str]:
+        disallowed = set(disallowed_formulas or [])
+        disallowed.add(formula)
         if self.use_llm and _llm_api_key():
             existing = list(self.descriptions.keys())[-20:]
             formulas, error, llm_detail = self._llm_rewrite(
@@ -168,6 +171,7 @@ class FormulaGenerator:
                 count,
                 forbidden,
                 existing,
+                disallowed,
             )
             if formulas:
                 self.events.append(
@@ -187,9 +191,17 @@ class FormulaGenerator:
                         ),
                         "candidate_selector_evidence_gaps": llm_detail.get("candidate_selector_evidence_gaps", 0),
                         "candidate_selector_clusters": llm_detail.get("candidate_selector_clusters", 0),
+                        "disallowed_formula_count": llm_detail.get("disallowed_formula_count", 0),
                     }
                 )
-                return self._fill_rewrite_candidates(formulas, formula, failed_gates, count, forbidden)
+                return self._fill_rewrite_candidates(
+                    formulas,
+                    formula,
+                    failed_gates,
+                    count,
+                    forbidden,
+                    disallowed,
+                )
             self.events.append(
                 {
                     "source": "rewrite_fallback",
@@ -200,10 +212,11 @@ class FormulaGenerator:
                     "error": error or "LLM rewrite returned no valid formulas.",
                     "llm_response_snippet": llm_detail.get("error_full", llm_detail.get("response_snippet", "")),
                     "llm_duration_s": llm_detail.get("duration_s", 0),
+                    "disallowed_formula_count": llm_detail.get("disallowed_formula_count", 0),
                 }
             )
 
-        return self._fill_rewrite_candidates([], formula, failed_gates, count, forbidden)
+        return self._fill_rewrite_candidates([], formula, failed_gates, count, forbidden, disallowed)
 
     def _fill_rewrite_candidates(
         self,
@@ -212,7 +225,9 @@ class FormulaGenerator:
         failed_gates: list[str],
         count: int,
         forbidden: list[str],
+        disallowed_formulas: set[str] | None = None,
     ) -> list[str]:
+        disallowed_formulas = disallowed_formulas or {base_formula}
         out = list(formulas)
         need_non_funding = len(out) < count and any(_is_pure_funding_formula(item) for item in out)
         local_added: list[str] = []
@@ -223,6 +238,8 @@ class FormulaGenerator:
             try:
                 canonical = validate_formula_shape(candidate, self.max_formula_depth, self.max_formula_operators).canonical()
             except ValueError:
+                continue
+            if canonical in disallowed_formulas:
                 continue
             if canonical in out:
                 continue
@@ -241,6 +258,7 @@ class FormulaGenerator:
                     "requested": max(0, count - len(formulas)),
                     "accepted": len(local_added),
                     "error": None,
+                    "disallowed_formula_count": len(disallowed_formulas),
                 }
             )
         return out
@@ -430,10 +448,13 @@ class FormulaGenerator:
         count: int,
         forbidden: list[str],
         existing: list[str] | None = None,
+        disallowed_formulas: set[str] | None = None,
     ) -> tuple[list[str], str | None, dict]:
         detail: dict = {"response_snippet": "", "duration_s": 0}
         truncated_forbidden = forbidden[:5] if len(forbidden) > 5 else forbidden
         existing = existing or []
+        disallowed_formulas = disallowed_formulas or {formula}
+        disallowed_sent = sorted(disallowed_formulas)[:10]
         failure_context = self.failure_prompt_context
         failure_examples = failure_context.get("examples", [])
         failure_clusters = failure_context.get("clusters", [])
@@ -486,6 +507,7 @@ class FormulaGenerator:
             "available_operators": sorted(OPERATORS),
             "shape_constraints": _shape_constraints(self.max_formula_depth, self.max_formula_operators),
             "avoid_subtrees": truncated_forbidden,
+            "disallowed_exact_formulas": disallowed_sent,
             "already_in_zoo": existing[-10:],
             "failure_memory": {
                 "source": failure_context.get("source", ""),
@@ -548,7 +570,7 @@ class FormulaGenerator:
                     "should be profitable after costs rather than merely present on more assets."
                 ),
                 "In expected_failure_mode, name the likely cross-asset failure pattern before backtesting.",
-                "Do not copy the failed formula. Preserve economic intent only if the failed gate suggests it is salvageable.",
+                "Do not copy the failed formula or any formula listed in disallowed_exact_formulas. Preserve economic intent only if the failed gate suggests it is salvageable.",
                 "Prefer simple, interpretable changes: horizon, smoothing, field substitution, sign flip, or regime proxy.",
             ],
         }
@@ -556,6 +578,7 @@ class FormulaGenerator:
         detail["prompt_chars"] = len(user_msg)
         detail["forbidden_count"] = len(forbidden)
         detail["forbidden_sent"] = len(truncated_forbidden)
+        detail["disallowed_formula_count"] = len(disallowed_formulas)
         try:
             t0 = time.time()
             content = call_llm(
@@ -577,7 +600,7 @@ class FormulaGenerator:
             data,
             count,
             forbidden,
-            disallow={formula},
+            disallow=disallowed_formulas,
             max_pure_funding=1 if count > 1 else None,
         )
         if rejected:

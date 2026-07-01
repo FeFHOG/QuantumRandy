@@ -7,6 +7,7 @@ from typing import Any
 
 import pandas as pd
 
+from .expression import validate_formula_shape
 from .io_utils import safe_write_csv, safe_write_json, safe_write_text
 from .llm import FormulaGenerator
 from .walk_forward import stable_factor_id
@@ -67,6 +68,7 @@ def build_selector_rewrite_candidates(
     candidate_rows: list[dict[str, Any]] = []
     event_rows: list[dict[str, Any]] = []
     seen_formulas: set[str] = set()
+    known_selector_formulas = _known_selector_formulas(rewrite_targets)
 
     for target_index, target in enumerate(rewrite_targets[: policy.max_targets], start=1):
         formula = str(target.get("formula", ""))
@@ -89,6 +91,7 @@ def build_selector_rewrite_candidates(
             detail,
             policy.candidates_per_target,
             effective_forbidden,
+            disallowed_formulas=known_selector_formulas,
         )
         for event in generator.events[before_events:]:
             event_rows.append(
@@ -105,6 +108,8 @@ def build_selector_rewrite_candidates(
                     "candidate_selector_clusters": event.get("candidate_selector_clusters", ""),
                     "selector_forbidden_subtree_count": len(effective_forbidden),
                     "selector_forbidden_subtrees": "|".join(effective_forbidden[:10]),
+                    "known_selector_formula_count": len(known_selector_formulas),
+                    "disallowed_formula_count": event.get("disallowed_formula_count", len(known_selector_formulas)),
                 }
             )
         for proposal in proposals:
@@ -129,6 +134,7 @@ def build_selector_rewrite_candidates(
                     "parent_matched_failed_subtrees": "|".join(target_failed_subtrees),
                     "selector_forbidden_subtree_count": len(effective_forbidden),
                     "selector_forbidden_subtrees": "|".join(effective_forbidden[:10]),
+                    "known_selector_formula_count": len(known_selector_formulas),
                     "rewrite_failed_gates": ",".join(failed_gates),
                     "hypothesis": metadata.get("hypothesis", ""),
                     "expected_edge": metadata.get("expected_edge", ""),
@@ -160,6 +166,8 @@ def build_selector_rewrite_candidates(
             events,
             {"rewrite_fallback", "local_rewrite", "local", "fallback"},
         ),
+        "known_selector_formula_count": len(known_selector_formulas),
+        "known_selector_formulas": known_selector_formulas[:20],
         "selector_forbidden_subtree_count": len(selector_forbidden_subtrees),
         "selector_forbidden_subtrees": selector_forbidden_subtrees[: policy.max_selector_forbidden_subtrees],
         "usage": [
@@ -211,6 +219,7 @@ def render_selector_rewrite_report(manifest: dict[str, Any], candidates: pd.Data
         "",
         f"- Rewrite targets: `{manifest['target_count']}`",
         f"- Candidate formulas: `{manifest['candidate_count']}`",
+        f"- Known selector formulas disallowed: `{manifest.get('known_selector_formula_count', 0)}`",
         f"- Selector forbidden subtrees: `{manifest.get('selector_forbidden_subtree_count', 0)}`",
         f"- LLM rewrite accepted: `{manifest.get('llm_rewrite_accepted', 0)}`",
         f"- Fallback/local accepted: `{manifest.get('fallback_rewrite_accepted', 0)}`",
@@ -400,4 +409,22 @@ def _dedupe_subtrees(values: list[str]) -> list[str]:
             continue
         seen.add(text)
         out.append(text)
+    return out
+
+
+def _known_selector_formulas(rewrite_targets: list[dict[str, Any]]) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for target in rewrite_targets:
+        formula = str(target.get("formula", "")).strip()
+        if not formula:
+            continue
+        try:
+            canonical = validate_formula_shape(formula).canonical()
+        except ValueError:
+            canonical = formula
+        if canonical in seen:
+            continue
+        seen.add(canonical)
+        out.append(canonical)
     return out

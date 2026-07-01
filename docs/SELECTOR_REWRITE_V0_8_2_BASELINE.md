@@ -136,3 +136,65 @@ The generated local fallback candidates and review mix matched the local baselin
 This output directory must not be treated as LLM evidence. It is useful only as a failed LLM-attempt audit and another
 local fallback comparison. Future reports and manifests now surface `llm_error_count` and `llm_error_summary` near the
 top-level rewrite metadata so proxy/API failures are visible without opening `selector_rewrite_events.csv`.
+
+## LLM Evidence Attempts 2 And 3
+
+Date: 2026-07-01
+
+After network/proxy access was available, the same research-only pipeline was rerun with
+`--use-llm --require-llm-evidence`.
+
+Attempt 2 output:
+
+```text
+reports/selector_rewrite_pipeline_llm_v082_evidence2
+```
+
+Attempt 2 produced real LLM policy evidence:
+
+- `llm_rewrite_accepted`: `3`
+- `fallback_rewrite_accepted`: `3`
+- `is_llm_policy_evidence`: `true`
+- `llm_error_count`: `0`
+- Candidate verdicts: `not_improved:4|improved:2`
+- Candidate highlights: `true_improved:2`
+- Coverage-only traps: `0`
+
+However, one highlighted improvement was a cross-target reuse: the candidate `qr_cb62796f3b` for parent
+`qr_7a765d304b` was already another selector rewrite target formula. This is valid evidence that the LLM call worked,
+but it should not be interpreted as a newly discovered rewrite improvement.
+
+The rewrite generator was then tightened so known selector target formulas are passed as exact disallowed formulas for
+every rewrite target. This prevents LLM candidates and local fill-ins from reusing another selector parent as a new
+candidate. The manifest and event rows now record:
+
+- `known_selector_formula_count`
+- `known_selector_formulas`
+- `disallowed_formula_count`
+
+Attempt 3 output:
+
+```text
+reports/selector_rewrite_pipeline_llm_v082_evidence3
+```
+
+Attempt 3 is the cleaner LLM evidence run after the cross-target reuse guard:
+
+- `known_selector_formula_count`: `3`
+- `llm_rewrite_accepted`: `4`
+- `fallback_rewrite_accepted`: `2`
+- `is_llm_policy_evidence`: `true`
+- `llm_error_count`: `0`
+- Candidate verdicts: `not_improved:5|improved:1`
+- Candidate highlights: `true_improved:1`
+- Coverage-only traps: `0`
+
+The only true improved candidate in attempt 3 is the same stable candidate found by the local baseline:
+
+| Parent | Candidate | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---:|---:|---|---|
+| `qr_7a765d304b` | `qr_e033dc4b6b` | 0.20 | 0.09427579 | BTCUSDT,SOLUSDT,BNBUSDT,AVAXUSDT | `zscore(corr(funding_rate,ret(close,42),120),72)` |
+
+Interpretation: the LLM path is now verified end-to-end and no longer falls back silently. The stricter audit removes
+the coverage-only trap seen in the local baseline and blocks cross-target formula reuse, but this single small run does
+not yet establish a deployable alpha. It should be treated as selector rewrite evidence for the research loop only.

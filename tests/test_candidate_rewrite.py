@@ -117,10 +117,12 @@ class _RecordingRewriteGenerator(FormulaGenerator):
     def __init__(self) -> None:
         super().__init__(use_llm=False)
         self.last_forbidden: list[str] = []
+        self.last_disallowed: list[str] = []
         self.last_failure_detail = {}
 
-    def rewrite(self, formula, failed_gates, failure_detail, count, forbidden):
+    def rewrite(self, formula, failed_gates, failure_detail, count, forbidden, disallowed_formulas=None):
         self.last_forbidden = list(forbidden)
+        self.last_disallowed = list(disallowed_formulas or [])
         self.last_failure_detail = failure_detail
         proposal = "neg(zscore(funding_rate,42))"
         self.descriptions[proposal] = "Funding pressure rewrite for broad cross-asset carry regime evidence."
@@ -138,7 +140,7 @@ class _FailingThenLocalRewriteGenerator(FormulaGenerator):
     def __init__(self) -> None:
         super().__init__(use_llm=False)
 
-    def rewrite(self, formula, failed_gates, failure_detail, count, forbidden):
+    def rewrite(self, formula, failed_gates, failure_detail, count, forbidden, disallowed_formulas=None):
         proposal = "neg(zscore(funding_rate,42))"
         self.descriptions[proposal] = "Funding pressure rewrite for broad cross-asset carry regime evidence."
         self.proposal_metadata[proposal] = {
@@ -189,8 +191,11 @@ def test_selector_rewrite_merges_selector_forbidden_subtrees_into_generation(tmp
         "corr(funding_rate,volume,72)",
         "zscore(ret(close,6),48)",
     ]
+    assert generator.last_disallowed == ["zscore(ret(close,6),48)"]
     assert manifest["selector_forbidden_subtree_count"] == 1
+    assert manifest["known_selector_formula_count"] == 1
     assert candidates.iloc[0]["selector_forbidden_subtree_count"] == 3
+    assert candidates.iloc[0]["known_selector_formula_count"] == 1
     assert "corr(funding_rate,volume,72)" in candidates.iloc[0]["selector_forbidden_subtrees"]
     assert "zscore(ret(close,6),48)" in candidates.iloc[0]["parent_matched_failed_subtrees"]
     assert events.iloc[0]["selector_forbidden_subtree_count"] == 3
@@ -247,3 +252,36 @@ def test_selector_rewrite_manifest_summarizes_llm_errors(tmp_path) -> None:
     report = (tmp_path / "rewrite" / "SELECTOR_REWRITE_REPORT.md").read_text(encoding="utf-8")
     assert "LLM Error Summary" in report
     assert "proxy connection blocked by sandbox" in report
+
+
+def test_selector_rewrite_disallows_known_selector_parent_formulas(tmp_path) -> None:
+    targets = [
+        {
+            "factor_id": "weak_price",
+            "formula": "zscore(ret(close,6),48)",
+            "selector_verdict": "rewrite",
+            "rewrite_focus": "improve_cross_asset_robustness",
+            "universe_pass_rate": 0.2,
+            "universe_mean_sharpe": 0.1,
+        },
+        {
+            "factor_id": "weak_volume",
+            "formula": "zscore(corr(sub(close,open),volume,48),72)",
+            "selector_verdict": "rewrite",
+            "rewrite_focus": "improve_cross_asset_robustness",
+            "universe_pass_rate": 0.2,
+            "universe_mean_sharpe": 0.3,
+        },
+    ]
+    generator = FormulaGenerator(use_llm=False)
+
+    candidates, events, manifest = build_selector_rewrite_candidates(
+        targets,
+        generator,
+        policy=CandidateRewritePolicy(max_targets=1, candidates_per_target=1),
+    )
+
+    assert manifest["known_selector_formula_count"] == 2
+    assert events.iloc[0]["known_selector_formula_count"] == 2
+    assert events.iloc[0]["disallowed_formula_count"] == 2
+    assert candidates.iloc[0]["formula"] not in manifest["known_selector_formulas"]
