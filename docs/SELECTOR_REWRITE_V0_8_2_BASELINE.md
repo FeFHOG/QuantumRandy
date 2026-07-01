@@ -84,3 +84,55 @@ separate profitability-aware improvement from coverage-only traps.
 The next v0.8.2 experiment should be a small LLM rewrite run with working LLM network credentials, using the same
 selector, asset configs, and failure-memory path. Compare its `SELECTOR_CANDIDATE_HIGHLIGHTS.md` against this local
 baseline. A useful LLM run should increase true improved candidates without increasing coverage-only traps.
+
+## LLM Evidence Attempt 1
+
+Date: 2026-07-01
+
+Command:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence1 \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --require-llm-evidence \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke
+```
+
+Result: the command exited with code `2`, as intended, because no LLM rewrite candidates were accepted.
+
+Machine-readable rewrite summary:
+
+- `use_llm_requested`: `true`
+- `llm_rewrite_accepted`: `0`
+- `fallback_rewrite_accepted`: `6`
+- `is_llm_policy_evidence`: `false`
+- `llm_error_count`: `3`
+
+The LLM calls failed before candidate parsing because the session could not connect to the configured local proxy
+`127.0.0.1:7897`. The recorded error begins with:
+
+```text
+LLM request failed after 3 attempts: ConnectionError: HTTPSConnectionPool(host='www.kuaiaiapi.com', port=443) ...
+ProxyError('Unable to connect to proxy' ... [Errno 1] Operation not permitted)
+```
+
+An attempted non-sandbox rerun could not be approved because the approval service returned HTTP 503, so no successful
+LLM policy evidence run was produced in this session.
+
+The generated local fallback candidates and review mix matched the local baseline:
+
+- Candidate verdicts: `not_improved:4|improved:1|coverage_only:1`
+- Candidate highlights: `true_improved:1|coverage_only_trap:1`
+
+This output directory must not be treated as LLM evidence. It is useful only as a failed LLM-attempt audit and another
+local fallback comparison. Future reports and manifests now surface `llm_error_count` and `llm_error_summary` near the
+top-level rewrite metadata so proxy/API failures are visible without opening `selector_rewrite_events.csv`.

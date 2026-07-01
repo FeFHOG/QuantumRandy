@@ -134,6 +134,33 @@ class _RecordingRewriteGenerator(FormulaGenerator):
         return [proposal]
 
 
+class _FailingThenLocalRewriteGenerator(FormulaGenerator):
+    def __init__(self) -> None:
+        super().__init__(use_llm=False)
+
+    def rewrite(self, formula, failed_gates, failure_detail, count, forbidden):
+        proposal = "neg(zscore(funding_rate,42))"
+        self.descriptions[proposal] = "Funding pressure rewrite for broad cross-asset carry regime evidence."
+        self.proposal_metadata[proposal] = {
+            "hypothesis": "Funding crowding can reverse across major perpetual markets.",
+            "expected_edge": "Funding extremes can flag crowded carry that unwinds across assets.",
+            "expected_failure_mode": "Persistent trend regimes may overwhelm funding mean reversion.",
+            "rewrite_plan_if_killed": "Blend with volatility or liquidity regime evidence.",
+        }
+        self.events.extend(
+            [
+                {
+                    "source": "rewrite_fallback",
+                    "requested": count,
+                    "accepted": 0,
+                    "error": "LLM request failed after 3 attempts: proxy connection blocked by sandbox",
+                },
+                {"source": "local_rewrite", "requested": count, "accepted": 1, "error": ""},
+            ]
+        )
+        return [proposal]
+
+
 def test_selector_rewrite_merges_selector_forbidden_subtrees_into_generation(tmp_path) -> None:
     targets = [
         {
@@ -199,3 +226,24 @@ def test_write_selector_rewrite_report_outputs_leaderboard_style_json(tmp_path) 
     report = (tmp_path / "rewrite" / "SELECTOR_REWRITE_REPORT.md").read_text(encoding="utf-8")
     assert "research artifact only" in report
     assert "LLM rewrite accepted" in report
+
+
+def test_selector_rewrite_manifest_summarizes_llm_errors(tmp_path) -> None:
+    _selector_artifact(tmp_path / "selector")
+    targets = load_rewrite_targets(tmp_path / "selector", max_targets=1)
+    generator = _FailingThenLocalRewriteGenerator()
+
+    manifest = write_selector_rewrite_report(
+        targets,
+        generator,
+        tmp_path / "rewrite",
+        policy=CandidateRewritePolicy(max_targets=1, candidates_per_target=1),
+    )
+
+    assert manifest["llm_error_count"] == 1
+    assert manifest["llm_error_summary"] == [
+        "LLM request failed after 3 attempts: proxy connection blocked by sandbox"
+    ]
+    report = (tmp_path / "rewrite" / "SELECTOR_REWRITE_REPORT.md").read_text(encoding="utf-8")
+    assert "LLM Error Summary" in report
+    assert "proxy connection blocked by sandbox" in report

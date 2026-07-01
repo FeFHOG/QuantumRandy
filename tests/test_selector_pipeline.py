@@ -7,6 +7,7 @@ import pandas as pd
 import yaml
 
 from quantumrandy.candidate_selector import write_candidate_selector_report
+from quantumrandy import selector_pipeline as selector_pipeline_module
 from quantumrandy.selector_pipeline import (
     build_selector_pipeline_candidate_review,
     build_selector_pipeline_candidate_highlights,
@@ -176,6 +177,46 @@ def test_selector_rewrite_pipeline_can_stop_after_rewrite_without_configs(tmp_pa
     assert manifest["universe"]["reason"] == "no asset config paths provided"
     assert manifest["review"]["status"] == "skipped"
     assert manifest["portfolio_universe"]["status"] == "skipped"
+
+
+def test_selector_rewrite_pipeline_surfaces_llm_error_summary(monkeypatch, tmp_path) -> None:
+    selector = _selector_artifact(tmp_path)
+
+    def fake_write_selector_rewrite_report(*args, **kwargs):
+        out = Path(args[2])
+        out.mkdir(parents=True, exist_ok=True)
+        pd.DataFrame().to_csv(out / "selector_rewrite_candidates.csv", index=False)
+        (out / "selector_rewrite_candidates.json").write_text("[]", encoding="utf-8")
+        return {
+            "target_count": 1,
+            "candidate_count": 0,
+            "selector_forbidden_subtree_count": 0,
+            "event_source_counts": {"rewrite_fallback": 1},
+            "llm_error_count": 1,
+            "llm_error_summary": ["LLM request failed after 3 attempts: proxy connection blocked by sandbox"],
+            "llm_rewrite_accepted": 0,
+            "fallback_rewrite_accepted": 0,
+        }
+
+    monkeypatch.setattr(
+        selector_pipeline_module,
+        "write_selector_rewrite_report",
+        fake_write_selector_rewrite_report,
+    )
+
+    manifest = run_selector_rewrite_pipeline(
+        selector_path=selector,
+        out_dir=tmp_path / "pipeline",
+        use_llm=True,
+    )
+
+    assert manifest["rewrite"]["llm_error_count"] == 1
+    assert manifest["rewrite"]["llm_error_summary"] == [
+        "LLM request failed after 3 attempts: proxy connection blocked by sandbox"
+    ]
+    report = (tmp_path / "pipeline" / "SELECTOR_REWRITE_PIPELINE_REPORT.md").read_text(encoding="utf-8")
+    assert "LLM Error Summary" in report
+    assert "proxy connection blocked by sandbox" in report
 
 
 def test_selector_pipeline_review_compares_parent_and_rewrite_evidence(tmp_path) -> None:

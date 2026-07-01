@@ -153,6 +153,8 @@ def build_selector_rewrite_candidates(
         "candidate_count": len(candidates),
         "event_count": len(events),
         "event_source_counts": _event_source_counts(events),
+        "llm_error_count": _llm_error_count(events),
+        "llm_error_summary": _llm_error_summary(events),
         "llm_rewrite_accepted": _accepted_by_source(events, {"llm_rewrite"}),
         "fallback_rewrite_accepted": _accepted_by_source(
             events,
@@ -212,10 +214,20 @@ def render_selector_rewrite_report(manifest: dict[str, Any], candidates: pd.Data
         f"- Selector forbidden subtrees: `{manifest.get('selector_forbidden_subtree_count', 0)}`",
         f"- LLM rewrite accepted: `{manifest.get('llm_rewrite_accepted', 0)}`",
         f"- Fallback/local accepted: `{manifest.get('fallback_rewrite_accepted', 0)}`",
-        "",
-        "## Candidates",
-        "",
     ]
+    error_summary = manifest.get("llm_error_summary") or []
+    if error_summary:
+        lines.extend(
+            [
+                f"- LLM rewrite errors: `{manifest.get('llm_error_count', len(error_summary))}`",
+                "",
+                "## LLM Error Summary",
+                "",
+            ]
+        )
+        for error in error_summary[:5]:
+            lines.append(f"- {error}")
+    lines.extend(["", "## Candidates", ""])
     if candidates.empty:
         lines.append("No candidates were generated.")
     else:
@@ -267,6 +279,40 @@ def _accepted_by_source(events: pd.DataFrame, sources: set[str]) -> int:
         except (TypeError, ValueError):
             continue
     return total
+
+
+def _llm_error_count(events: pd.DataFrame) -> int:
+    if events.empty or "source" not in events.columns or "error" not in events.columns:
+        return 0
+    count = 0
+    for row in events.fillna("").to_dict(orient="records"):
+        if str(row.get("source", "")) != "rewrite_fallback":
+            continue
+        if str(row.get("error", "")).strip():
+            count += 1
+    return count
+
+
+def _llm_error_summary(events: pd.DataFrame, *, max_items: int = 5, max_chars: int = 280) -> list[str]:
+    if events.empty or "source" not in events.columns or "error" not in events.columns:
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for row in events.fillna("").to_dict(orient="records"):
+        if str(row.get("source", "")) != "rewrite_fallback":
+            continue
+        error = " ".join(str(row.get("error", "")).split())
+        if not error:
+            continue
+        if len(error) > max_chars:
+            error = error[: max_chars - 3].rstrip() + "..."
+        if error in seen:
+            continue
+        seen.add(error)
+        out.append(error)
+        if len(out) >= max_items:
+            break
+    return out
 
 
 def _failed_gates_for_focus(rewrite_focus: str) -> list[str]:

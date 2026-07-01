@@ -90,6 +90,8 @@ def run_selector_rewrite_pipeline(
             "selector_forbidden_subtree_count": rewrite_manifest.get("selector_forbidden_subtree_count", 0),
             "use_llm_requested": bool(use_llm),
             "event_source_counts": rewrite_manifest.get("event_source_counts", {}),
+            "llm_error_count": rewrite_manifest.get("llm_error_count", 0),
+            "llm_error_summary": rewrite_manifest.get("llm_error_summary", []),
             "llm_rewrite_accepted": rewrite_manifest.get("llm_rewrite_accepted", 0),
             "fallback_rewrite_accepted": rewrite_manifest.get("fallback_rewrite_accepted", 0),
             "is_llm_policy_evidence": bool(use_llm and rewrite_manifest.get("llm_rewrite_accepted", 0) > 0),
@@ -250,6 +252,9 @@ def render_pipeline_report(manifest: dict[str, Any]) -> str:
         f"- Fallback/local accepted: `{manifest['rewrite'].get('fallback_rewrite_accepted', 0)}`",
         f"- LLM policy evidence: `{manifest['rewrite'].get('is_llm_policy_evidence', False)}`",
     ]
+    error_summary = manifest["rewrite"].get("llm_error_summary") or []
+    if error_summary:
+        lines.append(f"- LLM rewrite errors: `{manifest['rewrite'].get('llm_error_count', len(error_summary))}`")
     review = manifest.get("review", {})
     if review.get("status") == "completed":
         lines.extend(
@@ -265,6 +270,10 @@ def render_pipeline_report(manifest: dict[str, Any]) -> str:
             lines.append(f"- Candidate verdict mix: `{_format_counts(candidate_counts)}`")
         if highlight_counts:
             lines.append(f"- Candidate highlight mix: `{_format_counts(highlight_counts)}`")
+    if error_summary:
+        lines.extend(["", "## LLM Error Summary", ""])
+        for error in error_summary[:5]:
+            lines.append(f"- {error}")
     lines.extend(["", "## Stages", "", "| Stage | Status | Detail |", "|---|---|---|"])
     for stage in ["rewrite", "universe", "portfolio", "portfolio_universe"]:
         payload = manifest.get(stage, {})
