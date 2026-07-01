@@ -631,6 +631,27 @@ Expected value:
   - highlighted candidate rows: `4`;
   - distinct highlighted candidates: `3`;
   - negative candidate family rows: `10`.
+- Continued negative-memory hard-gated repeats:
+  - attempt 12 passed the hard gate and repeated `qr_cd595899ee`, making it the first LLM-sourced true-improved
+    candidate to appear in three separate runs;
+  - attempt 12 also showed that prompt-facing negative examples were too small for exact blocking, because a lower-ranked
+    negative formula could still repeat;
+  - selector negative prompt context now separates compact prompt examples/families from a wider mechanical exact
+    disallow formula list, defaulting to up to `20` formulas.
+- Ran attempt 13 with the wider exact-negative disallow list:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence13_negative_memory_wide_disallow`;
+  - `llm_rewrite_accepted=4`, `fallback_rewrite_accepted=0`, `is_llm_policy_evidence=true`;
+  - one LLM-sourced true-improved highlight, no coverage-only traps;
+  - new highlighted candidate: `qr_655fb2a53d`, `zscore(corr(sub(close,open),volume,36),84)`, pass-rate delta
+    `+0.40`, mean-Sharpe delta `+0.16858771`.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 13:
+  - runs: `10`;
+  - LLM policy evidence runs: `10`;
+  - LLM true-improvement evidence runs: `5`;
+  - coverage-only trap runs: `0`;
+  - highlighted candidate rows: `6`;
+  - distinct highlighted candidates: `4`;
+  - negative candidate family rows: `12`.
 
 ## Next Session Prompt
 

@@ -484,11 +484,21 @@ def test_llm_rewrite_prompt_includes_selector_negative_evidence(monkeypatch, tmp
         [
             {
                 "parent_formula_family": "price",
-                "candidate_formula_family": "range_volatility",
+                "candidate_formula_family": "volume_liquidity",
                 "negative_count": 3,
                 "avg_pass_rate_delta": -0.1,
                 "avg_mean_sharpe_delta": -0.7,
                 "worst_mean_sharpe_delta": -1.0,
+                "example_formula": "zscore(volume,120)",
+                "run_ids": "run_a",
+            },
+            {
+                "parent_formula_family": "price",
+                "candidate_formula_family": "range_volatility",
+                "negative_count": 2,
+                "avg_pass_rate_delta": 0.0,
+                "avg_mean_sharpe_delta": -0.8,
+                "worst_mean_sharpe_delta": -1.1,
                 "example_formula": "neg(zscore(std(close,24),120))",
                 "run_ids": "run_a|run_b",
             }
@@ -526,7 +536,7 @@ def test_llm_rewrite_prompt_includes_selector_negative_evidence(monkeypatch, tmp
     generator = FormulaGenerator(
         use_llm=True,
         settings=LLMSettings(max_retries=0),
-        prompt_config=PromptConfig(selector_evidence_path=str(tmp_path)),
+        prompt_config=PromptConfig(selector_evidence_path=str(tmp_path), selector_negative_examples=1),
     )
 
     formulas = generator.rewrite(
@@ -545,6 +555,6 @@ def test_llm_rewrite_prompt_includes_selector_negative_evidence(monkeypatch, tmp
     validator_event = next(event for event in generator.events if event["source"] == "rewrite_validator")
     assert validator_event["rejected"][0]["reason"] == "copies disallowed failed formula"
     assert generator.events[-1]["selector_negative_examples"] == 1
-    assert generator.events[-1]["selector_negative_families"] == 1
-    assert generator.events[-1]["selector_negative_disallowed_formulas"] == 1
+    assert generator.events[-1]["selector_negative_families"] == 2
+    assert generator.events[-1]["selector_negative_disallowed_formulas"] == 2
     os.environ.pop("LLM_API_KEY", None)

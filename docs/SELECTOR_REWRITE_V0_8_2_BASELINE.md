@@ -736,3 +736,95 @@ now summarized and reusable as prompt context instead of being trapped only in i
 Second, exact negative repeats are blocked mechanically. Attempt 11 is the first sign of repeated LLM-sourced
 true-improvement evidence for the same candidate, but it is still not admission evidence: the candidate still failed
 four of five assets and remains a research-only selector rewrite artifact.
+
+## Negative-Memory Repeats 12-13
+
+Date: 2026-07-02
+
+Attempt 12 repeated the negative-memory hard-gated command after attempt 11:
+
+- `llm_rewrite_accepted`: `2`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- Candidate verdicts: `not_improved:1|improved:1`
+- Candidate highlights: `true_improved:1`
+- Candidate highlight source counts: `llm_rewrite:1`
+- `llm_true_improved_count`: `1`
+- Coverage-only traps: `0`
+
+The true-improved LLM candidate was again `qr_cd595899ee`:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_7a765d304b` | `qr_cd595899ee` | `llm_rewrite` | 0.20 | 0.04900644 | BTCUSDT,ETHUSDT,BNBUSDT,AVAXUSDT | `zscore(corr(sub(close,open),volume,36),96)` |
+
+Attempt 12 also showed that the initial exact-negative disallow list was too short: it mechanically disallowed only the
+top negative examples, so a lower-ranked negative formula such as `neg(zscore(std(close,24),96))` could still be
+accepted again. The negative selector evidence loader was therefore split into two concepts:
+
+- a small prompt-facing example/family set, to keep prompts compact;
+- a wider exact disallow formula set, defaulting to up to `20` negative formulas.
+
+Attempt 13 used this wider exact-negative disallow list:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence13_negative_memory_wide_disallow \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+Attempt 13 also passed the hard gate:
+
+- `llm_rewrite_accepted`: `4`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- Candidate verdicts: `not_improved:3|improved:1`
+- Candidate highlights: `true_improved:1`
+- Candidate highlight source counts: `llm_rewrite:1`
+- `llm_true_improved_count`: `1`
+- Coverage-only traps: `0`
+- Rewrite events recorded `selector_negative_disallowed_formulas=10` in this run.
+
+The true-improved candidate was a nearby price-volume variant with stronger review deltas than the previous repeats:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_7a765d304b` | `qr_655fb2a53d` | `llm_rewrite` | 0.40 | 0.16858771 | BTCUSDT,ETHUSDT,BNBUSDT | `zscore(corr(sub(close,open),volume,36),84)` |
+
+The refreshed attempts 4-13 summary reported:
+
+- Runs: `10`
+- LLM policy evidence runs: `10`
+- LLM true-improvement evidence runs: `5`
+- Runs with coverage-only traps: `0`
+- Highlighted candidate rows: `6`
+- Distinct highlighted candidates: `4`
+- Negative candidate rows: `28`
+- Negative candidate family rows: `12`
+
+The highlighted-candidate aggregate now shows:
+
+- `qr_cd595899ee`: `llm_rewrite`, `llm_true_improved_count=3`.
+- `qr_655fb2a53d`: `llm_rewrite`, `llm_true_improved_count=1`, best pass-rate delta `+0.40`, mean-Sharpe delta
+  `+0.16858771`.
+- `qr_d907a41282`: `llm_rewrite`, `llm_true_improved_count=1`.
+- `qr_e033dc4b6b`: `local_rewrite`, `llm_true_improved_count=0`.
+
+Interpretation: the negative-memory loop is starting to produce repeatable LLM-sourced improvements in the same
+price-volume family, and attempt 13 improved both pass-rate and mean-Sharpe deltas more than earlier repeats. This is
+still research-only selector evidence, not admission or runtime publish evidence. The next useful step is to evaluate
+whether the stable price-volume variants remain useful under broader selector targets, additional hard-gated repeats, or
+a stricter parent selection set; no automatic promotion should be made from these artifacts.

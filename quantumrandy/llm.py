@@ -86,6 +86,9 @@ class FormulaGenerator:
             prompt_config.selector_evidence_path if prompt_config else None,
             max_examples=prompt_config.selector_negative_examples if prompt_config else 0,
             max_families=prompt_config.selector_negative_families if prompt_config else 0,
+            max_disallowed_formulas=(
+                prompt_config.selector_negative_disallowed_formulas if prompt_config else 0
+            ),
         )
 
     def propose(self, base_formula: str, dimension: str, count: int, forbidden: list[str]) -> list[str]:
@@ -492,7 +495,7 @@ class FormulaGenerator:
         negative_context = self.selector_negative_context
         negative_examples = negative_context.get("examples", [])
         negative_families = negative_context.get("families", [])
-        negative_disallowed = _negative_disallowed_formulas(negative_examples)
+        negative_disallowed = _negative_disallowed_formulas(negative_context.get("disallowed_formulas", []))
         disallowed_formulas = set(disallowed_formulas or {formula})
         disallowed_formulas.update(negative_disallowed)
         disallowed_sent = sorted(disallowed_formulas)[:10]
@@ -569,7 +572,7 @@ class FormulaGenerator:
                 "source": negative_context.get("source", ""),
                 "not_improved_examples": negative_examples,
                 "failed_candidate_families": negative_families,
-                "disallowed_exact_formulas_from_negative_memory": sorted(negative_disallowed)[:10],
+                "disallowed_exact_formulas_from_negative_memory": sorted(negative_disallowed)[:20],
                 "instruction": (
                     "Treat these as negative selector rewrite memories from previous LLM-only audits. Do not repeat "
                     "candidate families that repeatedly lowered mean Sharpe for the same parent family unless the new "
@@ -1065,9 +1068,7 @@ def _max_pure_funding_candidates(failure_detail: dict[str, Any], count: int) -> 
 def _negative_disallowed_formulas(examples: list[Any]) -> set[str]:
     out: set[str] = set()
     for item in examples:
-        if not isinstance(item, dict):
-            continue
-        formula = str(item.get("example_formula", "")).strip()
+        formula = str(item.get("example_formula", "") if isinstance(item, dict) else item).strip()
         if not formula:
             continue
         try:

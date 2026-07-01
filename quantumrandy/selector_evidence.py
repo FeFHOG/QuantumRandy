@@ -70,9 +70,10 @@ def load_selector_negative_prompt_context(
     *,
     max_examples: int = 5,
     max_families: int = 5,
+    max_disallowed_formulas: int = 20,
 ) -> dict[str, Any]:
     if not path:
-        return {"available": False, "examples": [], "families": []}
+        return {"available": False, "examples": [], "families": [], "disallowed_formulas": []}
     root = Path(path)
     negative_path = (
         root / "selector_pipeline_negative_candidate_summary.csv"
@@ -81,7 +82,7 @@ def load_selector_negative_prompt_context(
     )
     frame = _read_csv(negative_path)
     if frame.empty:
-        return {"available": False, "source": root.as_posix(), "examples": [], "families": []}
+        return {"available": False, "source": root.as_posix(), "examples": [], "families": [], "disallowed_formulas": []}
     rows = frame.to_dict(orient="records")
     examples = [
         {
@@ -104,11 +105,13 @@ def load_selector_negative_prompt_context(
         }
         for row in rows[:max_families]
     ]
+    disallowed_formulas = _negative_disallowed_formula_rows(rows, max_items=max_disallowed_formulas)
     return {
-        "available": bool(examples or families),
+        "available": bool(examples or families or disallowed_formulas),
         "source": root.as_posix(),
         "examples": examples,
         "families": families,
+        "disallowed_formulas": disallowed_formulas,
     }
 
 
@@ -391,6 +394,22 @@ def _summarize_negative_candidates(run_paths: list[Path]) -> pd.DataFrame:
         ["negative_count", "avg_mean_sharpe_delta", "worst_mean_sharpe_delta"],
         ascending=[False, True, True],
     ).reset_index(drop=True)
+
+
+def _negative_disallowed_formula_rows(rows: list[dict[str, Any]], *, max_items: int) -> list[str]:
+    if max_items <= 0:
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for row in rows:
+        formula = str(row.get("example_formula", "")).strip()
+        if not formula or formula in seen:
+            continue
+        seen.add(formula)
+        out.append(formula)
+        if len(out) >= max_items:
+            break
+    return out
 
 
 def _read_json(path: Path) -> dict[str, Any]:

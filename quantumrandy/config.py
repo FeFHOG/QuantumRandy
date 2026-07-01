@@ -81,6 +81,7 @@ class PromptConfig:
     selector_evidence_path: str | None = None
     selector_negative_examples: int = 5
     selector_negative_families: int = 5
+    selector_negative_disallowed_formulas: int = 20
 
 
 @dataclass(frozen=True)

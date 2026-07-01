@@ -130,10 +130,16 @@ def test_summarize_selector_pipeline_runs_preserves_llm_true_improvement_source(
     assert negatives.iloc[0]["parent_formula_family"] == "price"
     assert negatives.iloc[0]["candidate_formula_family"] == "volume_liquidity"
     assert negatives.iloc[0]["negative_count"] == 2
-    context = load_selector_negative_prompt_context(tmp_path / "summary", max_examples=1, max_families=1)
+    context = load_selector_negative_prompt_context(
+        tmp_path / "summary",
+        max_examples=1,
+        max_families=1,
+        max_disallowed_formulas=3,
+    )
     assert context["available"] is True
     assert context["examples"][0]["candidate_formula_family"] == "volume_liquidity"
     assert context["families"][0]["negative_count"] == "2"
+    assert context["disallowed_formulas"] == ["zscore(corr(sub(close,open),volume,36),96)"]
     report = (tmp_path / "summary" / "SELECTOR_PIPELINE_EVIDENCE_SUMMARY.md").read_text(encoding="utf-8")
     assert "research audit artifact only" in report
     assert "LLM true-improvement evidence runs" in report
