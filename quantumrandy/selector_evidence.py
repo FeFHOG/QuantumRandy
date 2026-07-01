@@ -15,13 +15,15 @@ def summarize_selector_pipeline_runs(
 ) -> dict[str, Any]:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    rows = [_summarize_run(Path(path)) for path in pipeline_dirs]
+    run_paths = [Path(path) for path in pipeline_dirs]
+    rows = [_summarize_run(path) for path in run_paths]
     frame = pd.DataFrame(rows)
     if not frame.empty:
         frame = frame.sort_values(
             ["is_llm_true_improvement_evidence", "is_llm_policy_evidence", "llm_true_improved_count"],
             ascending=[False, False, False],
         ).reset_index(drop=True)
+    candidate_frame = _summarize_highlight_candidates(run_paths)
     manifest = {
         "artifact_type": "quantumrandy_selector_pipeline_evidence_summary",
         "schema_version": 1,
@@ -35,24 +37,33 @@ def summarize_selector_pipeline_runs(
         "llm_policy_evidence_runs": _count_true(rows, "is_llm_policy_evidence"),
         "llm_true_improvement_evidence_runs": _count_true(rows, "is_llm_true_improvement_evidence"),
         "coverage_only_trap_runs": sum(1 for row in rows if int(row.get("coverage_only_trap_count", 0)) > 0),
-        "source_run_dirs": [Path(path).as_posix() for path in pipeline_dirs],
+        "candidate_highlight_rows": int(candidate_frame["highlight_count"].sum()) if not candidate_frame.empty else 0,
+        "candidate_summary_rows": len(candidate_frame),
+        "source_run_dirs": [path.as_posix() for path in run_paths],
         "outputs": {
             "summary_csv": (out / "selector_pipeline_evidence_summary.csv").as_posix(),
+            "candidate_summary_csv": (out / "selector_pipeline_candidate_evidence_summary.csv").as_posix(),
             "summary_markdown": (out / "SELECTOR_PIPELINE_EVIDENCE_SUMMARY.md").as_posix(),
             "manifest": (out / "selector_pipeline_evidence_manifest.json").as_posix(),
         },
     }
     safe_write_csv(out / "selector_pipeline_evidence_summary.csv", frame, out / "events.jsonl")
+    safe_write_csv(out / "selector_pipeline_candidate_evidence_summary.csv", candidate_frame, out / "events.jsonl")
     safe_write_json(out / "selector_pipeline_evidence_manifest.json", manifest, out / "events.jsonl")
     safe_write_text(
         out / "SELECTOR_PIPELINE_EVIDENCE_SUMMARY.md",
-        render_selector_pipeline_evidence_summary(manifest, frame),
+        render_selector_pipeline_evidence_summary(manifest, frame, candidate_frame),
         out / "events.jsonl",
     )
     return manifest
 
 
-def render_selector_pipeline_evidence_summary(manifest: dict[str, Any], summary: pd.DataFrame) -> str:
+def render_selector_pipeline_evidence_summary(
+    manifest: dict[str, Any],
+    summary: pd.DataFrame,
+    candidate_summary: pd.DataFrame | None = None,
+) -> str:
+    candidate_summary = candidate_summary if candidate_summary is not None else pd.DataFrame()
     lines = [
         "# QuantumRandy Selector Pipeline Evidence Summary",
         "",
@@ -64,6 +75,8 @@ def render_selector_pipeline_evidence_summary(manifest: dict[str, Any], summary:
         f"- LLM policy evidence runs: `{manifest.get('llm_policy_evidence_runs', 0)}`",
         f"- LLM true-improvement evidence runs: `{manifest.get('llm_true_improvement_evidence_runs', 0)}`",
         f"- Runs with coverage-only traps: `{manifest.get('coverage_only_trap_runs', 0)}`",
+        f"- Highlighted candidate rows: `{manifest.get('candidate_highlight_rows', 0)}`",
+        f"- Distinct highlighted candidates: `{manifest.get('candidate_summary_rows', 0)}`",
         "",
         "## Runs",
         "",
@@ -91,12 +104,34 @@ def render_selector_pipeline_evidence_summary(manifest: dict[str, Any], summary:
                 f"`{row.get('candidate_highlight_source_mix', '') or 'none'}` | "
                 f"{best_cell} |"
             )
+    lines.extend(["", "## Highlighted Candidates Across Runs", ""])
+    if candidate_summary.empty:
+        lines.append("No highlighted selector candidates were summarized.")
+    else:
+        lines.append(
+            "| Candidate | Source | Parent | Highlights | LLM True Improved | Coverage Traps | Runs | Best Delta | Formula |"
+        )
+        lines.append("|---|---|---|---:|---:|---:|---|---:|---|")
+        for row in candidate_summary.head(12).to_dict(orient="records"):
+            lines.append(
+                "| "
+                f"`{row.get('factor_id', '')}` | "
+                f"`{row.get('rewrite_generation_source', '')}` | "
+                f"`{row.get('parent_factor_id', '')}` | "
+                f"{int(row.get('highlight_count', 0) or 0)} | "
+                f"{int(row.get('llm_true_improved_count', 0) or 0)} | "
+                f"{int(row.get('coverage_only_trap_count', 0) or 0)} | "
+                f"`{row.get('run_ids', '')}` | "
+                f"{_num(row.get('best_pass_rate_delta', 0.0)):.2f} | "
+                f"`{_short_formula(row.get('formula', ''))}` |"
+            )
     lines.extend(
         [
             "",
             "## Files",
             "",
             "- `selector_pipeline_evidence_summary.csv`: one row per selector pipeline run.",
+            "- `selector_pipeline_candidate_evidence_summary.csv`: highlighted candidate evidence aggregated across runs.",
             "- `selector_pipeline_evidence_manifest.json`: machine-readable aggregate metadata.",
             "- `SELECTOR_PIPELINE_EVIDENCE_SUMMARY.md`: this human-readable audit summary.",
         ]
@@ -151,6 +186,70 @@ def _summarize_run(path: Path) -> dict[str, Any]:
         "best_llm_true_improved_failed_assets": best.get("candidate_failed_assets", ""),
         "best_llm_true_improved_formula": best.get("formula", ""),
     }
+
+
+def _summarize_highlight_candidates(run_paths: list[Path]) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    for path in run_paths:
+        highlights = _read_csv(path / "review" / "selector_pipeline_candidate_highlights.csv")
+        if highlights.empty:
+            continue
+        for row in highlights.to_dict(orient="records"):
+            rows.append(
+                {
+                    "run_id": path.name,
+                    "parent_factor_id": row.get("parent_factor_id", ""),
+                    "factor_id": row.get("factor_id", ""),
+                    "rewrite_generation_source": row.get("rewrite_generation_source", ""),
+                    "highlight_type": row.get("highlight_type", ""),
+                    "pass_rate_delta": _num(row.get("pass_rate_delta", "")),
+                    "mean_sharpe_delta": _num(row.get("mean_sharpe_delta", "")),
+                    "candidate_mean_sharpe": _num(row.get("candidate_mean_sharpe", "")),
+                    "candidate_failed_assets": row.get("candidate_failed_assets", ""),
+                    "formula": row.get("formula", ""),
+                }
+            )
+    if not rows:
+        return pd.DataFrame()
+    frame = pd.DataFrame(rows)
+    grouped_rows: list[dict[str, Any]] = []
+    group_columns = ["factor_id", "formula", "rewrite_generation_source", "parent_factor_id"]
+    for group_key, group in frame.groupby(group_columns, dropna=False):
+        factor_id, formula, source, parent_id = group_key
+        highlight_types = group["highlight_type"].fillna("")
+        run_ids = sorted(str(value) for value in group["run_id"].fillna("").unique() if str(value))
+        llm_true_improved_count = int(
+            ((highlight_types == "true_improved") & (group["rewrite_generation_source"] == "llm_rewrite")).sum()
+        )
+        grouped_rows.append(
+            {
+                "factor_id": factor_id,
+                "parent_factor_id": parent_id,
+                "rewrite_generation_source": source,
+                "formula": formula,
+                "highlight_count": int(len(group)),
+                "true_improved_count": int((highlight_types == "true_improved").sum()),
+                "llm_true_improved_count": llm_true_improved_count,
+                "coverage_only_trap_count": int((highlight_types == "coverage_only_trap").sum()),
+                "sharpe_improved_no_pass_lift_count": int(
+                    (highlight_types == "sharpe_improved_no_pass_lift").sum()
+                ),
+                "run_count": len(run_ids),
+                "run_ids": "|".join(run_ids),
+                "best_pass_rate_delta": max(_num(value) for value in group["pass_rate_delta"]),
+                "best_mean_sharpe_delta": max(_num(value) for value in group["mean_sharpe_delta"]),
+                "mean_pass_rate_delta": round(float(group["pass_rate_delta"].mean()), 8),
+                "mean_sharpe_delta": round(float(group["mean_sharpe_delta"].mean()), 8),
+                "failed_assets_examples": "|".join(
+                    sorted({str(value) for value in group["candidate_failed_assets"].fillna("") if str(value)})[:5]
+                ),
+            }
+        )
+    out = pd.DataFrame(grouped_rows)
+    return out.sort_values(
+        ["llm_true_improved_count", "true_improved_count", "coverage_only_trap_count", "best_pass_rate_delta"],
+        ascending=[False, False, True, False],
+    ).reset_index(drop=True)
 
 
 def _read_json(path: Path) -> dict[str, Any]:

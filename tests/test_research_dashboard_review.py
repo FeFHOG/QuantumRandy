@@ -170,6 +170,40 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
             },
         ]
     ).to_csv(selector_evidence / "selector_pipeline_evidence_summary.csv", index=False)
+    pd.DataFrame(
+        [
+            {
+                "factor_id": "qr_d907a41282",
+                "parent_factor_id": "qr_7a765d304b",
+                "rewrite_generation_source": "llm_rewrite",
+                "formula": "neg(zscore(sma(funding_rate,48),120))",
+                "highlight_count": 1,
+                "true_improved_count": 1,
+                "llm_true_improved_count": 1,
+                "coverage_only_trap_count": 0,
+                "run_count": 1,
+                "run_ids": "evidence6",
+                "best_pass_rate_delta": 0.2,
+                "best_mean_sharpe_delta": 0.025,
+                "failed_assets_examples": "BTCUSDT,SOLUSDT",
+            },
+            {
+                "factor_id": "qr_e033dc4b6b",
+                "parent_factor_id": "qr_7a765d304b",
+                "rewrite_generation_source": "local_rewrite",
+                "formula": "zscore(corr(funding_rate,ret(close,42),120),72)",
+                "highlight_count": 1,
+                "true_improved_count": 1,
+                "llm_true_improved_count": 0,
+                "coverage_only_trap_count": 0,
+                "run_count": 1,
+                "run_ids": "evidence4",
+                "best_pass_rate_delta": 0.2,
+                "best_mean_sharpe_delta": 0.094,
+                "failed_assets_examples": "BTCUSDT,SOLUSDT",
+            },
+        ]
+    ).to_csv(selector_evidence / "selector_pipeline_candidate_evidence_summary.csv", index=False)
 
     selector_review = reports / "selector_rewrite_pipeline_smoke" / "review"
     selector_review.mkdir(parents=True)
@@ -397,11 +431,16 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
     assert payload["selector_pipeline_evidence"]["llm_policy_evidence_runs"] == 3
     assert payload["selector_pipeline_evidence"]["llm_true_improvement_evidence_runs"] == 2
     assert payload["selector_pipeline_evidence"]["coverage_only_trap_runs"] == 0
+    assert payload["selector_pipeline_evidence"]["candidate_summary_rows"] == 2
     assert payload["selector_pipeline_evidence"]["top"][0]["run_id"] == "evidence6"
     assert payload["selector_pipeline_evidence"]["top"][0]["is_llm_true_improvement_evidence"] is True
     assert payload["selector_pipeline_evidence"]["top"][0]["best_llm_true_improved_factor_id"] == "qr_d907a41282"
     assert payload["selector_pipeline_evidence"]["top"][1]["run_id"] == "evidence4"
     assert payload["selector_pipeline_evidence"]["top"][1]["best_llm_true_improved_factor_id"] == ""
+    assert payload["selector_pipeline_evidence"]["top_candidates"][0]["factor_id"] == "qr_d907a41282"
+    assert payload["selector_pipeline_evidence"]["top_candidates"][0]["llm_true_improved_count"] == 1
+    assert payload["selector_pipeline_evidence"]["top_candidates"][1]["factor_id"] == "qr_e033dc4b6b"
+    assert payload["selector_pipeline_evidence"]["top_candidates"][1]["llm_true_improved_count"] == 0
     assert payload["selector_pipeline_review"]["parents"] == 5
     assert payload["selector_pipeline_review"]["candidates"] == 7
     assert payload["selector_pipeline_review"]["evaluated_candidates"] == 6

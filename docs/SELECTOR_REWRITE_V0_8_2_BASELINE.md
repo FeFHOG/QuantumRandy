@@ -401,6 +401,7 @@ Selector rewrite evidence can now be summarized across multiple pipeline output 
 This writes:
 
 - `selector_pipeline_evidence_summary.csv`
+- `selector_pipeline_candidate_evidence_summary.csv`
 - `selector_pipeline_evidence_manifest.json`
 - `SELECTOR_PIPELINE_EVIDENCE_SUMMARY.md`
 
@@ -417,11 +418,18 @@ For the v0.8.2 attempt 4/5/6 comparison, the summary reported:
 - Attempt 5: `is_llm_true_improvement_evidence=true` with candidate `qr_cd595899ee`
 - Attempt 6: `is_llm_true_improvement_evidence=true` with candidate `qr_d907a41282`
 
+The candidate aggregate table reported three distinct highlighted candidates:
+
+- `qr_cd595899ee`: `llm_rewrite`, `llm_true_improved_count=1`
+- `qr_d907a41282`: `llm_rewrite`, `llm_true_improved_count=1`
+- `qr_e033dc4b6b`: `local_rewrite`, `llm_true_improved_count=0`
+
 Interpretation: the aggregate artifact preserves the same source attribution rule as the single-run review. Mixed-source
 runs can prove the LLM path works, but only highlights sourced from `llm_rewrite` count toward LLM true-improvement
 evidence.
 
 The read-only research review dashboard payload now also loads the latest `selector_pipeline_evidence*` summary and
 surfaces run counts, LLM true-improvement evidence counts, coverage-only trap runs, source mixes, and top LLM-sourced
-true-improved candidates. This is display-only review context and does not change admission, publishing, or runtime
-state.
+true-improved candidates. It also surfaces the highlighted-candidate aggregate so repeated or one-off LLM improvements
+can be compared without opening raw CSV files. This is display-only review context and does not change admission,
+publishing, or runtime state.

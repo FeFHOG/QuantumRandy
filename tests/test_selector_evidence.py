@@ -14,6 +14,8 @@ def _write_pipeline_run(
     run_id: str,
     highlight_source: str,
     llm_true_improved_count: int,
+    factor_id: str | None = None,
+    formula: str = "zscore(corr(sub(close,open),volume,36),96)",
 ) -> Path:
     out = root / run_id
     review = out / "review"
@@ -50,13 +52,13 @@ def _write_pipeline_run(
             {
                 "highlight_type": "true_improved",
                 "parent_factor_id": "parent_a",
-                "factor_id": f"{run_id}_candidate",
+                "factor_id": factor_id or f"{run_id}_candidate",
                 "rewrite_generation_source": highlight_source,
                 "pass_rate_delta": 0.2,
                 "mean_sharpe_delta": 0.05,
                 "candidate_mean_sharpe": 0.4,
                 "candidate_failed_assets": "BTCUSDT,ETHUSDT",
-                "formula": "zscore(corr(sub(close,open),volume,36),96)",
+                "formula": formula,
             }
         ]
     ).to_csv(review / "selector_pipeline_candidate_highlights.csv", index=False)
@@ -75,22 +77,38 @@ def test_summarize_selector_pipeline_runs_preserves_llm_true_improvement_source(
         run_id="llm_only_required",
         highlight_source="llm_rewrite",
         llm_true_improved_count=1,
+        factor_id="stable_llm_candidate",
+    )
+    llm_repeat = _write_pipeline_run(
+        tmp_path,
+        run_id="llm_only_repeat",
+        highlight_source="llm_rewrite",
+        llm_true_improved_count=1,
+        factor_id="stable_llm_candidate",
     )
 
-    manifest = summarize_selector_pipeline_runs([local_highlight, llm_highlight], tmp_path / "summary")
+    manifest = summarize_selector_pipeline_runs([local_highlight, llm_highlight, llm_repeat], tmp_path / "summary")
 
     assert manifest["artifact_type"] == "quantumrandy_selector_pipeline_evidence_summary"
     assert manifest["safety"]["research_only"] is True
-    assert manifest["run_count"] == 2
-    assert manifest["llm_policy_evidence_runs"] == 2
-    assert manifest["llm_true_improvement_evidence_runs"] == 1
+    assert manifest["run_count"] == 3
+    assert manifest["llm_policy_evidence_runs"] == 3
+    assert manifest["llm_true_improvement_evidence_runs"] == 2
+    assert manifest["candidate_highlight_rows"] == 3
+    assert manifest["candidate_summary_rows"] == 2
     summary = pd.read_csv(tmp_path / "summary" / "selector_pipeline_evidence_summary.csv")
     by_run = {row["run_id"]: row for row in summary.to_dict(orient="records")}
     assert by_run["mixed_source"]["is_llm_true_improvement_evidence"] is False
     assert by_run["mixed_source"]["best_llm_true_improved_factor_id"] != "mixed_source_candidate"
     assert by_run["llm_only_required"]["is_llm_true_improvement_evidence"] is True
-    assert by_run["llm_only_required"]["best_llm_true_improved_factor_id"] == "llm_only_required_candidate"
+    assert by_run["llm_only_required"]["best_llm_true_improved_factor_id"] == "stable_llm_candidate"
+    candidates = pd.read_csv(tmp_path / "summary" / "selector_pipeline_candidate_evidence_summary.csv")
+    by_candidate = {row["factor_id"]: row for row in candidates.to_dict(orient="records")}
+    assert by_candidate["stable_llm_candidate"]["run_count"] == 2
+    assert by_candidate["stable_llm_candidate"]["llm_true_improved_count"] == 2
+    assert by_candidate["mixed_source_candidate"]["llm_true_improved_count"] == 0
     report = (tmp_path / "summary" / "SELECTOR_PIPELINE_EVIDENCE_SUMMARY.md").read_text(encoding="utf-8")
     assert "research audit artifact only" in report
     assert "LLM true-improvement evidence runs" in report
-    assert "`llm_only_required_candidate`" in report
+    assert "Highlighted Candidates Across Runs" in report
+    assert "`stable_llm_candidate`" in report

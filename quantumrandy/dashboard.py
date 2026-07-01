@@ -545,6 +545,7 @@ HTML = r"""<!doctype html>
 
     function reviewSelectorEvidenceCard(data) {
       const rows = data.top || [];
+      const candidates = data.top_candidates || [];
       return '<div class="review-card"><h3>Selector Evidence Runs</h3>' +
         '<div class="review-stats">' +
         '<div class="review-stat"><span>Runs</span><strong>' + (data.runs ?? 0) + '</strong></div>' +
@@ -563,7 +564,17 @@ HTML = r"""<!doctype html>
           '</span><br><span style="font-family:Consolas,monospace;color:var(--gold)">' +
           escapeHtml(r.best_llm_true_improved_factor_id || '-') + '</span><br><span class="muted">' +
           escapeHtml(r.best_llm_true_improved_formula || '-') + '</span></div>'
-        ).join('') + '</div></div>';
+        ).join('') + '</div>' +
+        (candidates.length ? '<div class="review-list" style="margin-top:8px">' + candidates.map(r =>
+          '<div class="review-row"><strong class="' + ((r.llm_true_improved_count ?? 0) > 0 ? 'pass' : '') + '">' +
+          escapeHtml(r.factor_id || '-') + '</strong> <span class="muted">src=' + escapeHtml(r.rewrite_generation_source || '-') +
+          '</span><br><span class="muted">parent=' + escapeHtml(r.parent_factor_id || '-') +
+          ' highlights=' + (r.highlight_count ?? 0) + ' llm_true=' + (r.llm_true_improved_count ?? 0) +
+          ' traps=' + (r.coverage_only_trap_count ?? 0) + ' runs=' + (r.run_count ?? 0) +
+          '</span><br><span class="muted">best_pass_delta=' + fmt(r.best_pass_rate_delta, 2) +
+          ' best_sharpe_delta=' + fmt(r.best_mean_sharpe_delta, 2) +
+          '</span><br><span class="muted">' + escapeHtml(r.formula || '-') + '</span></div>'
+        ).join('') + '</div>' : '') + '</div>';
     }
 
     function reviewAdmissionCard(data) {
@@ -1292,6 +1303,7 @@ def _selector_pipeline_evidence_payload(path: Path | None) -> dict:
     except Exception as exc:
         return {"available": False, "source": str(path), "error": str(exc)}
     manifest = _read_optional_json(path.with_name("selector_pipeline_evidence_manifest.json"))
+    candidate_frame = _read_optional_csv(path.with_name("selector_pipeline_candidate_evidence_summary.csv"))
     if not frame.empty:
         for column in ("is_llm_true_improvement_evidence", "is_llm_policy_evidence"):
             if column not in frame.columns:
@@ -1304,6 +1316,19 @@ def _selector_pipeline_evidence_payload(path: Path | None) -> dict:
         frame = frame.sort_values(
             ["is_llm_true_improvement_evidence", "is_llm_policy_evidence", "llm_true_improved_count"],
             ascending=[False, False, False],
+        )
+    if not candidate_frame.empty:
+        for column in ("llm_true_improved_count", "true_improved_count", "coverage_only_trap_count", "run_count"):
+            if column not in candidate_frame.columns:
+                candidate_frame[column] = 0
+            candidate_frame[column] = pd.to_numeric(candidate_frame[column], errors="coerce").fillna(0)
+        for column in ("best_pass_rate_delta", "best_mean_sharpe_delta"):
+            if column not in candidate_frame.columns:
+                candidate_frame[column] = 0.0
+            candidate_frame[column] = pd.to_numeric(candidate_frame[column], errors="coerce").fillna(0.0)
+        candidate_frame = candidate_frame.sort_values(
+            ["llm_true_improved_count", "true_improved_count", "coverage_only_trap_count", "best_pass_rate_delta"],
+            ascending=[False, False, True, False],
         )
     return {
         "available": True,
@@ -1321,6 +1346,8 @@ def _selector_pipeline_evidence_payload(path: Path | None) -> dict:
         "coverage_only_trap_runs": int(
             manifest.get("coverage_only_trap_runs", _positive_count(frame, "coverage_only_trap_count"))
         ),
+        "candidate_highlight_rows": int(manifest.get("candidate_highlight_rows", 0)),
+        "candidate_summary_rows": int(manifest.get("candidate_summary_rows", len(candidate_frame))),
         "top": [
             {
                 "run_id": _text(row.get("run_id", "")),
@@ -1334,6 +1361,24 @@ def _selector_pipeline_evidence_payload(path: Path | None) -> dict:
                 "best_llm_true_improved_formula": _text(row.get("best_llm_true_improved_formula", "")),
             }
             for row in frame.head(5).to_dict(orient="records")
+        ],
+        "top_candidates": [
+            {
+                "factor_id": _text(row.get("factor_id", "")),
+                "parent_factor_id": _text(row.get("parent_factor_id", "")),
+                "rewrite_generation_source": _text(row.get("rewrite_generation_source", "")),
+                "formula": _text(row.get("formula", "")),
+                "highlight_count": int(_num(row.get("highlight_count"))),
+                "true_improved_count": int(_num(row.get("true_improved_count"))),
+                "llm_true_improved_count": int(_num(row.get("llm_true_improved_count"))),
+                "coverage_only_trap_count": int(_num(row.get("coverage_only_trap_count"))),
+                "run_count": int(_num(row.get("run_count"))),
+                "run_ids": _text(row.get("run_ids", "")),
+                "best_pass_rate_delta": _num(row.get("best_pass_rate_delta")),
+                "best_mean_sharpe_delta": _num(row.get("best_mean_sharpe_delta")),
+                "failed_assets_examples": _text(row.get("failed_assets_examples", "")),
+            }
+            for row in candidate_frame.head(6).to_dict(orient="records")
         ],
     }
 
