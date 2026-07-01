@@ -126,6 +126,8 @@ def test_selector_rewrite_pipeline_runs_research_only_evidence_chain(tmp_path) -
     assert (tmp_path / "pipeline" / "review" / "selector_pipeline_review.csv").exists()
     assert (tmp_path / "pipeline" / "review" / "selector_pipeline_candidate_review.csv").exists()
     assert (tmp_path / "pipeline" / "review" / "selector_pipeline_candidate_highlights.csv").exists()
+    assert (tmp_path / "pipeline" / "review" / "SELECTOR_CANDIDATE_HIGHLIGHTS.md").exists()
+    assert (tmp_path / "pipeline" / "review" / "selector_candidate_highlight_summary_manifest.json").exists()
 
     persisted = json.loads(
         (tmp_path / "pipeline" / "selector_rewrite_pipeline_manifest.json").read_text(encoding="utf-8")
@@ -137,6 +139,8 @@ def test_selector_rewrite_pipeline_runs_research_only_evidence_chain(tmp_path) -
     assert "candidate_highlight_counts" in persisted["review"]
     assert "pipeline_candidate_review" in persisted["outputs"]
     assert "pipeline_candidate_highlights" in persisted["outputs"]
+    assert "pipeline_candidate_highlight_summary" in persisted["outputs"]
+    assert "pipeline_candidate_highlight_summary_manifest" in persisted["outputs"]
     report = (tmp_path / "pipeline" / "SELECTOR_REWRITE_PIPELINE_REPORT.md").read_text(encoding="utf-8")
     assert "research artifact only" in report
     assert "Reviewed candidates" in report
@@ -150,6 +154,7 @@ def test_selector_rewrite_pipeline_runs_research_only_evidence_chain(tmp_path) -
     )
     assert review_manifest["candidate_review_rows"] >= review_manifest["review_rows"]
     assert "candidate_highlight_rows" in review_manifest
+    assert "candidate_highlight_summary" in review_manifest["outputs"]
 
 
 def test_selector_rewrite_pipeline_can_stop_after_rewrite_without_configs(tmp_path) -> None:

@@ -143,6 +143,12 @@ def run_selector_rewrite_pipeline(
         manifest["outputs"]["pipeline_candidate_highlights"] = (
             out / "review" / "selector_pipeline_candidate_highlights.csv"
         ).as_posix()
+        manifest["outputs"]["pipeline_candidate_highlight_summary"] = (
+            out / "review" / "SELECTOR_CANDIDATE_HIGHLIGHTS.md"
+        ).as_posix()
+        manifest["outputs"]["pipeline_candidate_highlight_summary_manifest"] = (
+            out / "review" / "selector_candidate_highlight_summary_manifest.json"
+        ).as_posix()
     elif run_universe:
         manifest["universe"] = {"status": "skipped", "reason": "no asset config paths provided"}
         manifest["review"] = {"status": "skipped", "reason": "no universe evaluation"}
@@ -268,6 +274,7 @@ def render_pipeline_report(manifest: dict[str, Any]) -> str:
             "- `review/selector_pipeline_review.csv`: parent-vs-rewrite evidence comparison.",
             "- `review/selector_pipeline_candidate_review.csv`: candidate-level parent-vs-rewrite verdicts and deltas.",
             "- `review/selector_pipeline_candidate_highlights.csv`: compact candidate-level audit queues.",
+            "- `review/SELECTOR_CANDIDATE_HIGHLIGHTS.md`: standalone candidate highlight handoff summary.",
             "- `selector_rewrite_pipeline_manifest.json`: machine-readable stage provenance and safety metadata.",
         ]
     )
@@ -631,14 +638,38 @@ def _write_review_outputs(out: Path, *, review: pd.DataFrame, candidate_review: 
         "verdict_counts": _value_counts(review, "review_verdict"),
         "candidate_verdict_counts": _value_counts(candidate_review, "candidate_review_verdict"),
         "candidate_highlight_counts": _value_counts(candidate_highlights, "highlight_type"),
+        "outputs": {
+            "candidate_highlight_summary": (out / "SELECTOR_CANDIDATE_HIGHLIGHTS.md").as_posix(),
+            "candidate_highlight_summary_manifest": (
+                out / "selector_candidate_highlight_summary_manifest.json"
+            ).as_posix(),
+        },
+    }
+    highlight_manifest = {
+        "artifact_type": "quantumrandy_selector_candidate_highlight_summary",
+        "schema_version": 1,
+        "safety": manifest["safety"],
+        "source_review_dir": out.as_posix(),
+        "highlight_rows": len(candidate_highlights),
+        "highlight_counts": _value_counts(candidate_highlights, "highlight_type"),
+        "outputs": {
+            "summary_markdown": (out / "SELECTOR_CANDIDATE_HIGHLIGHTS.md").as_posix(),
+            "summary_manifest": (out / "selector_candidate_highlight_summary_manifest.json").as_posix(),
+        },
     }
     safe_write_csv(out / "selector_pipeline_review.csv", review, out / "events.jsonl")
     safe_write_csv(out / "selector_pipeline_candidate_review.csv", candidate_review, out / "events.jsonl")
     safe_write_csv(out / "selector_pipeline_candidate_highlights.csv", candidate_highlights, out / "events.jsonl")
     safe_write_json(out / "selector_pipeline_review_manifest.json", manifest, out / "events.jsonl")
+    safe_write_json(out / "selector_candidate_highlight_summary_manifest.json", highlight_manifest, out / "events.jsonl")
     safe_write_text(
         out / "SELECTOR_PIPELINE_REVIEW.md",
         render_review_report(manifest, review, candidate_review=candidate_review),
+        out / "events.jsonl",
+    )
+    safe_write_text(
+        out / "SELECTOR_CANDIDATE_HIGHLIGHTS.md",
+        render_candidate_highlight_summary(highlight_manifest, candidate_highlights),
         out / "events.jsonl",
     )
 
