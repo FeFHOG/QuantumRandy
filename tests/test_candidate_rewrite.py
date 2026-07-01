@@ -8,6 +8,7 @@ from quantumrandy.candidate_rewrite import (
     CandidateRewritePolicy,
     build_selector_rewrite_candidates,
     load_rewrite_targets,
+    load_selector_forbidden_subtrees,
     write_selector_rewrite_report,
 )
 from quantumrandy.candidate_selector import write_candidate_selector_report
@@ -83,6 +84,81 @@ def test_build_selector_rewrite_candidates_uses_local_generator(tmp_path) -> Non
     assert row["source"] == "candidate_selector_rewrite"
     assert row["parent_factor_id"] in {"weak_momentum", "weak_conviction"}
     assert row["hypothesis"]
+
+
+def test_load_selector_forbidden_subtrees_reads_clusters_and_matched_failures(tmp_path) -> None:
+    _selector_artifact(tmp_path)
+    pd.DataFrame(
+        [
+            {
+                "subtree": "zscore(ret(close,6),48)",
+                "count": 3,
+                "avg_universe_pass_rate": 0.0,
+                "avg_universe_mean_sharpe": -0.1,
+            }
+        ]
+    ).to_csv(tmp_path / "multi_asset_failure_clusters.csv", index=False)
+    targets = pd.read_csv(tmp_path / "rewrite_targets.csv")
+    targets["matched_failed_subtrees"] = "corr(sub(close,open),volume,48)|zscore(ret(close,6),48)"
+    targets.to_csv(tmp_path / "rewrite_targets.csv", index=False)
+
+    forbidden = load_selector_forbidden_subtrees(tmp_path, max_subtrees=3)
+
+    assert forbidden == [
+        "zscore(ret(close,6),48)",
+        "corr(sub(close,open),volume,48)",
+    ]
+
+
+class _RecordingRewriteGenerator(FormulaGenerator):
+    def __init__(self) -> None:
+        super().__init__(use_llm=False)
+        self.last_forbidden: list[str] = []
+
+    def rewrite(self, formula, failed_gates, failure_detail, count, forbidden):
+        self.last_forbidden = list(forbidden)
+        proposal = "neg(zscore(funding_rate,42))"
+        self.descriptions[proposal] = "Funding pressure rewrite for broad cross-asset carry regime evidence."
+        self.proposal_metadata[proposal] = {
+            "hypothesis": "Funding crowding can reverse across major perpetual markets.",
+            "expected_edge": "Funding extremes can flag crowded carry that unwinds across assets.",
+            "expected_failure_mode": "Persistent trend regimes may overwhelm funding mean reversion.",
+            "rewrite_plan_if_killed": "Blend with volatility or liquidity regime evidence.",
+        }
+        self.events.append({"source": "recording_rewrite", "requested": count, "accepted": 1, "error": None})
+        return [proposal]
+
+
+def test_selector_rewrite_merges_selector_forbidden_subtrees_into_generation(tmp_path) -> None:
+    targets = [
+        {
+            "factor_id": "weak_price",
+            "formula": "zscore(ret(close,6),48)",
+            "selector_verdict": "rewrite",
+            "rewrite_focus": "improve_cross_asset_robustness",
+            "matched_failed_subtrees": "zscore(ret(close,6),48)",
+        }
+    ]
+    generator = _RecordingRewriteGenerator()
+
+    candidates, events, manifest = build_selector_rewrite_candidates(
+        targets,
+        generator,
+        policy=CandidateRewritePolicy(max_targets=1, candidates_per_target=1),
+        forbidden=["zscore(close,48)"],
+        selector_forbidden_subtrees=["corr(funding_rate,volume,72)"],
+    )
+
+    assert generator.last_forbidden == [
+        "zscore(close,48)",
+        "corr(funding_rate,volume,72)",
+        "zscore(ret(close,6),48)",
+    ]
+    assert manifest["selector_forbidden_subtree_count"] == 1
+    assert candidates.iloc[0]["selector_forbidden_subtree_count"] == 3
+    assert "corr(funding_rate,volume,72)" in candidates.iloc[0]["selector_forbidden_subtrees"]
+    assert "zscore(ret(close,6),48)" in candidates.iloc[0]["parent_matched_failed_subtrees"]
+    assert events.iloc[0]["selector_forbidden_subtree_count"] == 3
 
 
 def test_write_selector_rewrite_report_outputs_leaderboard_style_json(tmp_path) -> None:

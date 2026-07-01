@@ -704,6 +704,14 @@ def _rewrite_guidance(failed_gates: list[str]) -> dict[str, str]:
         "homogeneity": "Preserve only the broad hypothesis; use a different field family or operator structure to reduce correlation.",
         "friction_audit": "Reduce turnover with slower windows, ema/sma smoothing, wider thresholds, or lower-churn funding/volume proxies.",
         "lifetime": "Improve regime stability with slower horizons, less reactive transforms, or a guard against transient market states.",
+        "cross_asset_robustness": (
+            "Avoid weak selector subtrees and shift toward funding, volatility, or liquidity regime signals that "
+            "plausibly transfer across BTC, ETH, SOL, BNB, and AVAX."
+        ),
+        "cross_asset_profitability": (
+            "Change the economic family or normalization so the signal can produce positive mean Sharpe across assets, "
+            "not just a BTC-local fit."
+        ),
     }
     return {gate: guidance.get(gate, "Make a simple interpretable rewrite tied to the failed metric.") for gate in failed_gates}
 

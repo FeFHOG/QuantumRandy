@@ -16,6 +16,8 @@ from .walk_forward import stable_factor_id
 class CandidateRewritePolicy:
     max_targets: int = 5
     candidates_per_target: int = 2
+    avoid_selector_failed_subtrees: bool = True
+    max_selector_forbidden_subtrees: int = 8
 
 
 def load_rewrite_targets(path: str | Path, *, max_targets: int | None = None) -> list[dict[str, Any]]:
@@ -31,15 +33,37 @@ def load_rewrite_targets(path: str | Path, *, max_targets: int | None = None) ->
     return [row for row in frame.to_dict(orient="records") if row.get("formula")]
 
 
+def load_selector_forbidden_subtrees(path: str | Path, *, max_subtrees: int = 8) -> list[str]:
+    if max_subtrees <= 0:
+        return []
+    root = Path(path)
+    if root.is_dir():
+        candidate_path = root / "candidate_selector.csv"
+        rewrite_path = root / "rewrite_targets.csv"
+        cluster_path = root / "multi_asset_failure_clusters.csv"
+    else:
+        candidate_path = root
+        rewrite_path = root.with_name("rewrite_targets.csv")
+        cluster_path = root.with_name("multi_asset_failure_clusters.csv")
+
+    out: list[str] = []
+    out.extend(_cluster_subtrees(cluster_path))
+    out.extend(_matched_failed_subtrees(rewrite_path))
+    out.extend(_matched_failed_subtrees(candidate_path))
+    return _dedupe_subtrees(out)[:max_subtrees]
+
+
 def build_selector_rewrite_candidates(
     rewrite_targets: list[dict[str, Any]],
     generator: FormulaGenerator,
     *,
     policy: CandidateRewritePolicy | None = None,
     forbidden: list[str] | None = None,
+    selector_forbidden_subtrees: list[str] | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
     policy = policy or CandidateRewritePolicy()
     forbidden = forbidden or []
+    selector_forbidden_subtrees = selector_forbidden_subtrees or []
     candidate_rows: list[dict[str, Any]] = []
     event_rows: list[dict[str, Any]] = []
     seen_formulas: set[str] = set()
@@ -50,13 +74,21 @@ def build_selector_rewrite_candidates(
             continue
         failed_gates = _failed_gates_for_focus(str(target.get("rewrite_focus", "")))
         detail = _target_failure_detail(target)
+        target_failed_subtrees = _split_subtrees(target.get("matched_failed_subtrees", ""))
+        effective_forbidden = _dedupe_subtrees(
+            [
+                *forbidden,
+                *(selector_forbidden_subtrees if policy.avoid_selector_failed_subtrees else []),
+                *(target_failed_subtrees if policy.avoid_selector_failed_subtrees else []),
+            ]
+        )
         before_events = len(generator.events)
         proposals = generator.rewrite(
             formula,
             failed_gates,
             detail,
             policy.candidates_per_target,
-            forbidden,
+            effective_forbidden,
         )
         for event in generator.events[before_events:]:
             event_rows.append(
@@ -71,6 +103,8 @@ def build_selector_rewrite_candidates(
                     "candidate_selector_rewrite_targets": event.get("candidate_selector_rewrite_targets", ""),
                     "candidate_selector_evidence_gaps": event.get("candidate_selector_evidence_gaps", ""),
                     "candidate_selector_clusters": event.get("candidate_selector_clusters", ""),
+                    "selector_forbidden_subtree_count": len(effective_forbidden),
+                    "selector_forbidden_subtrees": "|".join(effective_forbidden[:10]),
                 }
             )
         for proposal in proposals:
@@ -92,6 +126,9 @@ def build_selector_rewrite_candidates(
                     "parent_universe_pass_rate": target.get("universe_pass_rate", ""),
                     "parent_universe_mean_sharpe": target.get("universe_mean_sharpe", ""),
                     "parent_failed_assets": target.get("failed_assets", ""),
+                    "parent_matched_failed_subtrees": "|".join(target_failed_subtrees),
+                    "selector_forbidden_subtree_count": len(effective_forbidden),
+                    "selector_forbidden_subtrees": "|".join(effective_forbidden[:10]),
                     "rewrite_failed_gates": ",".join(failed_gates),
                     "hypothesis": metadata.get("hypothesis", ""),
                     "expected_edge": metadata.get("expected_edge", ""),
@@ -115,6 +152,8 @@ def build_selector_rewrite_candidates(
         "target_count": min(len(rewrite_targets), policy.max_targets),
         "candidate_count": len(candidates),
         "event_count": len(events),
+        "selector_forbidden_subtree_count": len(selector_forbidden_subtrees),
+        "selector_forbidden_subtrees": selector_forbidden_subtrees[: policy.max_selector_forbidden_subtrees],
         "usage": [
             "Evaluate these candidates with universe and portfolio-universe research scripts before admission review.",
             "Do not publish these candidates to runtime without separate evidence and manual approval.",
@@ -130,6 +169,7 @@ def write_selector_rewrite_report(
     *,
     policy: CandidateRewritePolicy | None = None,
     forbidden: list[str] | None = None,
+    selector_forbidden_subtrees: list[str] | None = None,
 ) -> dict[str, Any]:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -138,6 +178,7 @@ def write_selector_rewrite_report(
         generator,
         policy=policy,
         forbidden=forbidden,
+        selector_forbidden_subtrees=selector_forbidden_subtrees,
     )
     candidate_rows = candidates.to_dict(orient="records") if not candidates.empty else []
     safe_write_json(out / "selector_rewrite_candidates.json", candidate_rows, out / "events.jsonl")
@@ -162,6 +203,7 @@ def render_selector_rewrite_report(manifest: dict[str, Any], candidates: pd.Data
         "",
         f"- Rewrite targets: `{manifest['target_count']}`",
         f"- Candidate formulas: `{manifest['candidate_count']}`",
+        f"- Selector forbidden subtrees: `{manifest.get('selector_forbidden_subtree_count', 0)}`",
         "",
         "## Candidates",
         "",
@@ -201,13 +243,13 @@ def load_json_rows(path: str | Path) -> list[dict[str, Any]]:
 
 def _failed_gates_for_focus(rewrite_focus: str) -> list[str]:
     if rewrite_focus == "avoid_repeated_failed_subtrees":
-        return ["homogeneity"]
+        return ["cross_asset_robustness", "homogeneity"]
     if rewrite_focus == "improve_cross_asset_robustness":
-        return ["lifetime"]
+        return ["cross_asset_robustness", "lifetime"]
     if rewrite_focus == "improve_cross_asset_profitability":
-        return ["predictive_power"]
+        return ["cross_asset_profitability", "predictive_power"]
     if rewrite_focus == "abandon_or_change_economic_family":
-        return ["predictive_power", "lifetime"]
+        return ["cross_asset_robustness", "predictive_power", "lifetime"]
     return ["predictive_power"]
 
 
@@ -223,3 +265,51 @@ def _target_failure_detail(target: dict[str, Any]) -> dict[str, Any]:
             "failed_assets": target.get("failed_assets", ""),
         },
     }
+
+
+def _cluster_subtrees(path: Path) -> list[str]:
+    if not path.exists():
+        return []
+    try:
+        frame = pd.read_csv(path).fillna("")
+    except pd.errors.EmptyDataError:
+        return []
+    if "subtree" not in frame.columns:
+        return []
+    if {"count", "avg_universe_pass_rate", "avg_universe_mean_sharpe"}.issubset(frame.columns):
+        frame = frame.sort_values(
+            ["count", "avg_universe_pass_rate", "avg_universe_mean_sharpe"],
+            ascending=[False, True, True],
+        )
+    return [str(value) for value in frame["subtree"].tolist() if str(value)]
+
+
+def _matched_failed_subtrees(path: Path) -> list[str]:
+    if not path.exists():
+        return []
+    try:
+        frame = pd.read_csv(path).fillna("")
+    except pd.errors.EmptyDataError:
+        return []
+    if "matched_failed_subtrees" not in frame.columns:
+        return []
+    out: list[str] = []
+    for raw in frame["matched_failed_subtrees"].tolist():
+        out.extend(_split_subtrees(raw))
+    return out
+
+
+def _split_subtrees(value: Any) -> list[str]:
+    return [item.strip() for item in str(value or "").split("|") if item and item.strip()]
+
+
+def _dedupe_subtrees(values: list[str]) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        text = str(value).strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        out.append(text)
+    return out

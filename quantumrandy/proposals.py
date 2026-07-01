@@ -153,6 +153,21 @@ class LocalProposalEngine:
                 f"zscore(corr(funding_rate,ret(close,{fast}),{slow}),{vol_win})",
                 f"zscore(sub(ema({af},{fast}),ema({af},{slow})),{vol_win})",
             ],
+            "cross_asset_robustness": [
+                f"neg(zscore(funding_rate,{slow}))",
+                f"zscore(ema(funding_rate,{slow}),{vol_win})",
+                f"zscore(corr(funding_rate,ret(close,{fast}),{slow}),{vol_win})",
+                f"zscore(corr(funding_rate,volume,{slow}),{vol_win})",
+                f"zscore(div(sub(high,low),sma(close,{slow})),{vol_win})",
+                f"zscore(div(delta(volume,{slow}),sma(volume,{slow})),{vol_win})",
+            ],
+            "cross_asset_profitability": [
+                f"neg(zscore(funding_rate,{slow}))",
+                f"zscore(sub(ema(funding_rate,{fast}),ema(funding_rate,{slow})),{vol_win})",
+                f"zscore(corr(funding_rate,ret(close,{fast}),{slow}),{vol_win})",
+                f"zscore(div(delta(volume,{fast}),std(volume,{slow})),{vol_win})",
+                f"zscore(div(sub(high,low),std(close,{slow})),{vol_win})",
+            ],
             "homogeneity": [
                 f"zscore(corr(funding_rate,volume,{slow}),{vol_win})",
                 f"zscore(div(funding_rate,sma(volume,{slow})),{vol_win})",

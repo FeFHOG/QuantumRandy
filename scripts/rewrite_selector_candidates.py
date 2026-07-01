@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from quantumrandy.candidate_rewrite import (
     CandidateRewritePolicy,
     load_rewrite_targets,
+    load_selector_forbidden_subtrees,
     write_selector_rewrite_report,
 )
 from quantumrandy.config import PromptConfig
@@ -30,12 +31,20 @@ def main() -> None:
     parser.add_argument("--use-llm", action="store_true", help="Call DeepSeek if DEEPSEEK_API_KEY is configured")
     parser.add_argument("--candidate-selector-path", help="Optional selector artifact path to include in LLM prompt")
     parser.add_argument("--failure-memory-path", help="Optional failure memory artifact path to include in LLM prompt")
+    parser.add_argument(
+        "--no-selector-forbidden-subtrees",
+        action="store_true",
+        help="Do not convert selector weak clusters or matched failed subtrees into rewrite forbidden subtrees.",
+    )
+    parser.add_argument("--max-selector-forbidden-subtrees", type=int, default=8)
     parser.add_argument("--timeout-seconds", type=int, default=120)
     args = parser.parse_args()
 
     policy = CandidateRewritePolicy(
         max_targets=args.max_targets,
         candidates_per_target=args.candidates_per_target,
+        avoid_selector_failed_subtrees=not args.no_selector_forbidden_subtrees,
+        max_selector_forbidden_subtrees=args.max_selector_forbidden_subtrees,
     )
     prompt = PromptConfig(
         candidate_selector_path=args.candidate_selector_path or args.selector,
@@ -47,10 +56,23 @@ def main() -> None:
         prompt_config=prompt,
     )
     targets = load_rewrite_targets(args.selector, max_targets=args.max_targets)
-    manifest = write_selector_rewrite_report(targets, generator, args.out, policy=policy)
+    selector_forbidden = (
+        load_selector_forbidden_subtrees(args.selector, max_subtrees=args.max_selector_forbidden_subtrees)
+        if policy.avoid_selector_failed_subtrees
+        else []
+    )
+    manifest = write_selector_rewrite_report(
+        targets,
+        generator,
+        args.out,
+        policy=policy,
+        selector_forbidden_subtrees=selector_forbidden,
+    )
     print(
         f"Selector rewrite: targets={manifest['target_count']} "
-        f"candidates={manifest['candidate_count']} out={Path(args.out).resolve()}"
+        f"candidates={manifest['candidate_count']} "
+        f"selector_forbidden={manifest['selector_forbidden_subtree_count']} "
+        f"out={Path(args.out).resolve()}"
     )
 
 

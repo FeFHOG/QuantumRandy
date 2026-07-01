@@ -2,6 +2,7 @@ numpy>=1.26
 pandas>=2.2
 PyYAML>=6.0
 requests>=2.31
+scipy>=1.12
 
 # Optional, only needed if you want to run tests locally:
 pytest>=8.0
