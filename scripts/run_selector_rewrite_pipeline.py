@@ -19,7 +19,7 @@ def main() -> None:
     parser.add_argument("--window", choices=["training", "validation", "all"], default="validation")
     parser.add_argument("--max-targets", type=int, default=5)
     parser.add_argument("--candidates-per-target", type=int, default=2)
-    parser.add_argument("--use-llm", action="store_true", help="Call DeepSeek if DEEPSEEK_API_KEY is configured")
+    parser.add_argument("--use-llm", action="store_true", help="Call the configured LLM if LLM_API_KEY is configured")
     parser.add_argument("--failure-memory-path", help="Optional failure memory artifact path for prompt context")
     parser.add_argument("--timeout-seconds", type=int, default=120)
     parser.add_argument("--skip-universe", action="store_true", help="Generate rewrite candidates without universe eval")

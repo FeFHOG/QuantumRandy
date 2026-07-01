@@ -97,9 +97,9 @@ def mine_main() -> None:
             safe_write_csv(out / "top_ledger_validation.csv", validation_ledger.reset_index(names="timestamp"), out / "events.jsonl")
     _write_run_report(out, args, cfg, alphas, validation_rows, mcts.generator.events)
     print(f"Saved {len(alphas)} alphas to {out}")
-    deepseek_events = [e for e in mcts.generator.events if e["source"] == "deepseek"]
+    llm_events = [e for e in mcts.generator.events if e["source"] == "llm"]
     fallback_events = [e for e in mcts.generator.events if e["source"] == "fallback"]
-    print(f"DeepSeek accepted batches: {len(deepseek_events)}; fallback batches: {len(fallback_events)}")
+    print(f"LLM accepted batches: {len(llm_events)}; fallback batches: {len(fallback_events)}")
     if fallback_events:
         print(f"Last fallback reason: {fallback_events[-1]['error']}")
     for alpha in alphas[:5]:
@@ -145,7 +145,7 @@ def eval_formula_main() -> None:
 
 
 def _write_run_report(out: Path, args: argparse.Namespace, cfg: object, alphas: list, validation_rows: list[dict], events: list[dict]) -> None:
-    deepseek_events = [e for e in events if e["source"] == "deepseek"]
+    llm_events = [e for e in events if e["source"] == "llm"]
     fallback_events = [e for e in events if e["source"] == "fallback"]
     local_events = [e for e in events if e["source"] == "local"]
     lines = [
@@ -161,7 +161,7 @@ def _write_run_report(out: Path, args: argparse.Namespace, cfg: object, alphas: 
         "",
         "## LLM Status",
         "",
-        f"- DeepSeek accepted batches: `{len(deepseek_events)}`",
+        f"- LLM accepted batches: `{len(llm_events)}`",
         f"- Fallback batches: `{len(fallback_events)}`",
         f"- Local proposal batches: `{len(local_events)}`",
     ]
@@ -198,7 +198,7 @@ def _write_run_report(out: Path, args: argparse.Namespace, cfg: object, alphas: 
             "- `validation_alphas.csv`: validation metrics for top training alphas.",
             "- `top_ledger_train.csv`: train ledger for best training alpha.",
             "- `top_ledger_validation.csv`: validation ledger for best training alpha.",
-            "- `llm_events.json`: DeepSeek/local proposal events and fallback reasons.",
+            "- `llm_events.json`: LLM/local proposal events and fallback reasons.",
             "- `tree.json`: MCTS tree.",
         ]
     )

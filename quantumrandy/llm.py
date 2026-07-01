@@ -41,8 +41,8 @@ ECON_KEYWORDS = [
 
 @dataclass(frozen=True)
 class LLMSettings:
-    base_url: str = "https://api.deepseek.com"
-    model: str = "deepseek-chat"
+    base_url: str = ""
+    model: str = ""
     timeout_seconds: int = 120
     max_retries: int = 2
     retry_sleep_seconds: float = 3.0
@@ -60,13 +60,13 @@ class FormulaGenerator:
     ) -> None:
         _load_env_file()
         if llm_config is not None and llm_config.use_proxy:
-            os.environ.setdefault("DEEPSEEK_PROXY", f"http://{llm_config.proxy_host}:{llm_config.proxy_port}")
+            os.environ.setdefault("LLM_PROXY", f"http://{llm_config.proxy_host}:{llm_config.proxy_port}")
         self.use_llm = use_llm
         self.settings = settings or LLMSettings(
-            base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
-            model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
-            timeout_seconds=int(os.getenv("DEEPSEEK_TIMEOUT_SECONDS", "120")),
-            max_retries=int(os.getenv("DEEPSEEK_MAX_RETRIES", "2")),
+            base_url=_env("LLM_BASE_URL", _legacy_default_base_url(), legacy="DEEPSEEK_BASE_URL"),
+            model=_env("LLM_MODEL", _legacy_default_model(), legacy="DEEPSEEK_MODEL"),
+            timeout_seconds=int(_env("LLM_TIMEOUT_SECONDS", "120", legacy="DEEPSEEK_TIMEOUT_SECONDS")),
+            max_retries=int(_env("LLM_MAX_RETRIES", "2", legacy="DEEPSEEK_MAX_RETRIES")),
         )
         self.local = LocalProposalEngine()
         self.events: list[dict[str, Any]] = []
@@ -88,13 +88,13 @@ class FormulaGenerator:
         )
 
     def propose(self, base_formula: str, dimension: str, count: int, forbidden: list[str]) -> list[str]:
-        if self.use_llm and os.getenv("DEEPSEEK_API_KEY"):
+        if self.use_llm and _llm_api_key():
             existing = list(self.descriptions.keys())[-20:]
-            formulas, error, llm_detail = self._deepseek_propose(base_formula, dimension, count, forbidden, existing)
+            formulas, error, llm_detail = self._llm_propose(base_formula, dimension, count, forbidden, existing)
             if formulas:
                 self.events.append(
                     {
-                        "source": "deepseek",
+                        "source": "llm",
                         "base_formula": base_formula,
                         "dimension": dimension,
                         "requested": count,
@@ -119,12 +119,12 @@ class FormulaGenerator:
                     "dimension": dimension,
                     "requested": count,
                     "accepted": 0,
-                    "error": error or "DeepSeek returned no valid formulas.",
+                    "error": error or "LLM returned no valid formulas.",
                     "llm_response_snippet": llm_detail.get("error_full", llm_detail.get("response_snippet", "")),
                     "llm_duration_s": llm_detail.get("duration_s", 0),
                 }
             )
-        elif self.use_llm and not os.getenv("DEEPSEEK_API_KEY"):
+        elif self.use_llm and not _llm_api_key():
             self.events.append(
                 {
                     "source": "fallback",
@@ -132,7 +132,7 @@ class FormulaGenerator:
                     "dimension": dimension,
                     "requested": count,
                     "accepted": 0,
-                    "error": "DEEPSEEK_API_KEY is not set.",
+                    "error": "LLM_API_KEY is not set.",
                 }
             )
         formulas = []
@@ -164,9 +164,9 @@ class FormulaGenerator:
         count: int,
         forbidden: list[str],
     ) -> list[str]:
-        if self.use_llm and os.getenv("DEEPSEEK_API_KEY"):
+        if self.use_llm and _llm_api_key():
             existing = list(self.descriptions.keys())[-20:]
-            formulas, error, llm_detail = self._deepseek_rewrite(
+            formulas, error, llm_detail = self._llm_rewrite(
                 formula,
                 failed_gates,
                 failure_detail,
@@ -177,7 +177,7 @@ class FormulaGenerator:
             if formulas:
                 self.events.append(
                     {
-                        "source": "deepseek_rewrite",
+                        "source": "llm_rewrite",
                         "base_formula": formula,
                         "failed_gates": failed_gates,
                         "requested": count,
@@ -202,7 +202,7 @@ class FormulaGenerator:
                     "failed_gates": failed_gates,
                     "requested": count,
                     "accepted": 0,
-                    "error": error or "DeepSeek rewrite returned no valid formulas.",
+                    "error": error or "LLM rewrite returned no valid formulas.",
                     "llm_response_snippet": llm_detail.get("error_full", llm_detail.get("response_snippet", "")),
                     "llm_duration_s": llm_detail.get("duration_s", 0),
                 }
@@ -229,7 +229,7 @@ class FormulaGenerator:
         )
         return formulas
 
-    def _deepseek_propose(self, base_formula: str, dimension: str, count: int, forbidden: list[str], existing: list[str] | None = None) -> tuple[list[str], str | None, dict]:
+    def _llm_propose(self, base_formula: str, dimension: str, count: int, forbidden: list[str], existing: list[str] | None = None) -> tuple[list[str], str | None, dict]:
         detail: dict = {"response_snippet": "", "duration_s": 0}
         truncated_forbidden = forbidden[:5] if len(forbidden) > 5 else forbidden
         existing = existing or []
@@ -348,7 +348,7 @@ class FormulaGenerator:
         detail["forbidden_sent"] = len(truncated_forbidden)
         try:
             t0 = time.time()
-            content = call_deepseek(
+            content = call_llm(
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_msg},
@@ -396,10 +396,10 @@ class FormulaGenerator:
             self.events.append({"source": "validator", "accepted": len(out), "rejected": rejected[:20]})
         if not out:
             reject_summary = "; ".join(f"{r['formula'][:60]}: {r['reason']}" for r in rejected[:5])
-            return [], f"All {len(rejected)} DeepSeek formulas rejected: {reject_summary}", detail
+            return [], f"All {len(rejected)} LLM formulas rejected: {reject_summary}", detail
         return out, None, detail
 
-    def _deepseek_rewrite(
+    def _llm_rewrite(
         self,
         formula: str,
         failed_gates: list[str],
@@ -487,7 +487,7 @@ class FormulaGenerator:
         detail["forbidden_sent"] = len(truncated_forbidden)
         try:
             t0 = time.time()
-            content = call_deepseek(
+            content = call_llm(
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_msg},
@@ -507,7 +507,7 @@ class FormulaGenerator:
             self.events.append({"source": "rewrite_validator", "accepted": len(out), "rejected": rejected[:20]})
         if not out:
             reject_summary = "; ".join(f"{r['formula'][:60]}: {r['reason']}" for r in rejected[:5])
-            return [], f"All {len(rejected)} DeepSeek rewrite formulas rejected: {reject_summary}", detail
+            return [], f"All {len(rejected)} LLM rewrite formulas rejected: {reject_summary}", detail
         return out, None, detail
 
     def _parse_candidate_payload(
@@ -554,21 +554,25 @@ class FormulaGenerator:
         return out, rejected
 
 
-def call_deepseek(messages: list[dict[str, str]], settings: LLMSettings | None = None, temperature: float = 0.2) -> str:
+def call_llm(messages: list[dict[str, str]], settings: LLMSettings | None = None, temperature: float = 0.2) -> str:
     _load_env_file()
-    api_key = os.getenv("DEEPSEEK_API_KEY")
+    api_key = _llm_api_key()
     if not api_key:
-        raise RuntimeError("DEEPSEEK_API_KEY is not set.")
+        raise RuntimeError("LLM_API_KEY is not set.")
     settings = settings or LLMSettings(
-        base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
-        model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
-        timeout_seconds=int(os.getenv("DEEPSEEK_TIMEOUT_SECONDS", "120")),
-        max_retries=int(os.getenv("DEEPSEEK_MAX_RETRIES", "2")),
+        base_url=_env("LLM_BASE_URL", _legacy_default_base_url(), legacy="DEEPSEEK_BASE_URL"),
+        model=_env("LLM_MODEL", _legacy_default_model(), legacy="DEEPSEEK_MODEL"),
+        timeout_seconds=int(_env("LLM_TIMEOUT_SECONDS", "120", legacy="DEEPSEEK_TIMEOUT_SECONDS")),
+        max_retries=int(_env("LLM_MAX_RETRIES", "2", legacy="DEEPSEEK_MAX_RETRIES")),
     )
+    if not settings.base_url:
+        raise RuntimeError("LLM_BASE_URL is not set.")
+    if not settings.model:
+        raise RuntimeError("LLM_MODEL is not set.")
     connect_timeout = 15.0
     read_timeout = float(settings.timeout_seconds)
 
-    proxy_url = os.getenv("DEEPSEEK_PROXY") or os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY")
+    proxy_url = _env("LLM_PROXY", "", legacy="DEEPSEEK_PROXY") or os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY")
     proxies = {"http": proxy_url, "https": proxy_url} if proxy_url else None
 
     last_error: Exception | None = None
@@ -592,7 +596,7 @@ def call_deepseek(messages: list[dict[str, str]], settings: LLMSettings | None =
             try:
                 resp.raise_for_status()
             except requests.HTTPError as exc:
-                raise RuntimeError(f"DeepSeek HTTP {resp.status_code}: {resp.text[:500]}") from exc
+                raise RuntimeError(f"LLM HTTP {resp.status_code}: {resp.text[:500]}") from exc
             payload = resp.json()
             return payload["choices"][0]["message"]["content"]
         except requests.ConnectionError as exc:
@@ -613,7 +617,38 @@ def call_deepseek(messages: list[dict[str, str]], settings: LLMSettings | None =
             if attempt >= settings.max_retries:
                 break
             time.sleep(settings.retry_sleep_seconds * (attempt + 1))
-    raise RuntimeError(f"DeepSeek request failed after {settings.max_retries + 1} attempts: {last_error_detail}")
+    raise RuntimeError(f"LLM request failed after {settings.max_retries + 1} attempts: {last_error_detail}")
+
+
+def call_deepseek(messages: list[dict[str, str]], settings: LLMSettings | None = None, temperature: float = 0.2) -> str:
+    return call_llm(messages, settings=settings, temperature=temperature)
+
+
+def _env(name: str, default: str = "", *, legacy: str | None = None) -> str:
+    value = os.getenv(name)
+    if value:
+        return value
+    if legacy:
+        value = os.getenv(legacy)
+        if value:
+            return value
+    return default
+
+
+def _llm_api_key() -> str:
+    return _env("LLM_API_KEY", "", legacy="DEEPSEEK_API_KEY")
+
+
+def _legacy_default_base_url() -> str:
+    if os.getenv("DEEPSEEK_API_KEY") and not os.getenv("LLM_API_KEY"):
+        return "https://api.deepseek.com"
+    return ""
+
+
+def _legacy_default_model() -> str:
+    if os.getenv("DEEPSEEK_API_KEY") and not os.getenv("LLM_API_KEY"):
+        return "deepseek-chat"
+    return ""
 
 
 def _extract_json(content: str) -> dict[str, Any]:

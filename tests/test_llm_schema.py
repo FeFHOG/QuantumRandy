@@ -7,7 +7,7 @@ import pandas as pd
 from quantumrandy.candidate_selector import write_candidate_selector_report
 from quantumrandy.config import PromptConfig
 from quantumrandy.failure_memory import write_failure_memory
-from quantumrandy.llm import FormulaGenerator, LLMSettings
+from quantumrandy.llm import FormulaGenerator, LLMSettings, _llm_api_key
 
 
 def test_local_proposals_record_schema_v2_metadata() -> None:
@@ -24,7 +24,21 @@ def test_local_proposals_record_schema_v2_metadata() -> None:
         assert metadata["rewrite_plan_if_killed"]
 
 
-def test_deepseek_schema_v2_metadata_is_parsed(monkeypatch) -> None:
+def test_llm_api_key_prefers_generic_env(monkeypatch) -> None:
+    monkeypatch.setenv("LLM_API_KEY", "generic-key")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "legacy-key")
+
+    assert _llm_api_key() == "generic-key"
+
+
+def test_llm_api_key_accepts_legacy_env(monkeypatch) -> None:
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "legacy-key")
+
+    assert _llm_api_key() == "legacy-key"
+
+
+def test_llm_schema_v2_metadata_is_parsed(monkeypatch) -> None:
     response = {
         "candidates": [
             {
@@ -43,13 +57,13 @@ def test_deepseek_schema_v2_metadata_is_parsed(monkeypatch) -> None:
         ]
     }
 
-    def fake_call_deepseek(*args, **kwargs) -> str:
+    def fake_call_llm(*args, **kwargs) -> str:
         import json
 
         return json.dumps(response)
 
-    monkeypatch.setattr("quantumrandy.llm.call_deepseek", fake_call_deepseek)
-    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    monkeypatch.setattr("quantumrandy.llm.call_llm", fake_call_llm)
+    monkeypatch.setenv("LLM_API_KEY", "test-key")
     generator = FormulaGenerator(use_llm=True, settings=LLMSettings(max_retries=0))
 
     formulas = generator.propose("zscore(close,12)", "diversity", 1, [])
@@ -60,10 +74,10 @@ def test_deepseek_schema_v2_metadata_is_parsed(monkeypatch) -> None:
     assert "expensive long carry" in metadata["expected_edge"]
     assert "trending regimes" in metadata["expected_failure_mode"]
     assert "trend guards" in metadata["rewrite_plan_if_killed"]
-    os.environ.pop("DEEPSEEK_API_KEY", None)
+    os.environ.pop("LLM_API_KEY", None)
 
 
-def test_deepseek_prompt_includes_failure_memory(monkeypatch, tmp_path) -> None:
+def test_llm_prompt_includes_failure_memory(monkeypatch, tmp_path) -> None:
     write_failure_memory(
         [
             {
@@ -83,7 +97,7 @@ def test_deepseek_prompt_includes_failure_memory(monkeypatch, tmp_path) -> None:
     )
     captured = {}
 
-    def fake_call_deepseek(messages, *args, **kwargs) -> str:
+    def fake_call_llm(messages, *args, **kwargs) -> str:
         captured["prompt"] = messages[-1]["content"]
         import json
 
@@ -105,8 +119,8 @@ def test_deepseek_prompt_includes_failure_memory(monkeypatch, tmp_path) -> None:
             }
         )
 
-    monkeypatch.setattr("quantumrandy.llm.call_deepseek", fake_call_deepseek)
-    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    monkeypatch.setattr("quantumrandy.llm.call_llm", fake_call_llm)
+    monkeypatch.setenv("LLM_API_KEY", "test-key")
     generator = FormulaGenerator(
         use_llm=True,
         settings=LLMSettings(max_retries=0),
@@ -125,10 +139,10 @@ def test_deepseek_prompt_includes_failure_memory(monkeypatch, tmp_path) -> None:
     assert "friction_audit" in captured["prompt"]
     assert generator.events[-1]["failure_memory_examples"] == 1
     assert generator.events[-1]["failure_memory_clusters"] == 1
-    os.environ.pop("DEEPSEEK_API_KEY", None)
+    os.environ.pop("LLM_API_KEY", None)
 
 
-def test_deepseek_prompt_includes_candidate_selector_context(monkeypatch, tmp_path) -> None:
+def test_llm_prompt_includes_candidate_selector_context(monkeypatch, tmp_path) -> None:
     write_candidate_selector_report(
         [
             {
@@ -161,7 +175,7 @@ def test_deepseek_prompt_includes_candidate_selector_context(monkeypatch, tmp_pa
     )
     captured = {}
 
-    def fake_call_deepseek(messages, *args, **kwargs) -> str:
+    def fake_call_llm(messages, *args, **kwargs) -> str:
         captured["prompt"] = messages[-1]["content"]
         import json
 
@@ -183,8 +197,8 @@ def test_deepseek_prompt_includes_candidate_selector_context(monkeypatch, tmp_pa
             }
         )
 
-    monkeypatch.setattr("quantumrandy.llm.call_deepseek", fake_call_deepseek)
-    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    monkeypatch.setattr("quantumrandy.llm.call_llm", fake_call_llm)
+    monkeypatch.setenv("LLM_API_KEY", "test-key")
     generator = FormulaGenerator(
         use_llm=True,
         settings=LLMSettings(max_retries=0),
@@ -203,7 +217,7 @@ def test_deepseek_prompt_includes_candidate_selector_context(monkeypatch, tmp_pa
     assert "evidence_gap" in captured["prompt"]
     assert generator.events[-1]["candidate_selector_rewrite_targets"] == 1
     assert generator.events[-1]["candidate_selector_evidence_gaps"] == 1
-    os.environ.pop("DEEPSEEK_API_KEY", None)
+    os.environ.pop("LLM_API_KEY", None)
 
 
 def test_local_rewrite_records_schema_v2_metadata() -> None:
@@ -224,10 +238,10 @@ def test_local_rewrite_records_schema_v2_metadata() -> None:
         assert generator.descriptions[formula]
 
 
-def test_deepseek_rewrite_prompt_uses_failed_gate_guidance(monkeypatch) -> None:
+def test_llm_rewrite_prompt_uses_failed_gate_guidance(monkeypatch) -> None:
     captured = {}
 
-    def fake_call_deepseek(messages, *args, **kwargs) -> str:
+    def fake_call_llm(messages, *args, **kwargs) -> str:
         captured["prompt"] = messages[-1]["content"]
         import json
 
@@ -249,8 +263,8 @@ def test_deepseek_rewrite_prompt_uses_failed_gate_guidance(monkeypatch) -> None:
             }
         )
 
-    monkeypatch.setattr("quantumrandy.llm.call_deepseek", fake_call_deepseek)
-    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    monkeypatch.setattr("quantumrandy.llm.call_llm", fake_call_llm)
+    monkeypatch.setenv("LLM_API_KEY", "test-key")
     generator = FormulaGenerator(use_llm=True, settings=LLMSettings(max_retries=0))
 
     formulas = generator.rewrite(
@@ -265,11 +279,11 @@ def test_deepseek_rewrite_prompt_uses_failed_gate_guidance(monkeypatch) -> None:
     assert "Rewrite a failed crypto alpha factor" in captured["prompt"]
     assert "friction_audit" in captured["prompt"]
     assert "Reduce turnover" in captured["prompt"]
-    assert generator.events[-1]["source"] == "deepseek_rewrite"
-    os.environ.pop("DEEPSEEK_API_KEY", None)
+    assert generator.events[-1]["source"] == "llm_rewrite"
+    os.environ.pop("LLM_API_KEY", None)
 
 
-def test_deepseek_rewrite_prompt_includes_candidate_selector_context(monkeypatch, tmp_path) -> None:
+def test_llm_rewrite_prompt_includes_candidate_selector_context(monkeypatch, tmp_path) -> None:
     write_candidate_selector_report(
         [
             {
@@ -296,7 +310,7 @@ def test_deepseek_rewrite_prompt_includes_candidate_selector_context(monkeypatch
     )
     captured = {}
 
-    def fake_call_deepseek(messages, *args, **kwargs) -> str:
+    def fake_call_llm(messages, *args, **kwargs) -> str:
         captured["prompt"] = messages[-1]["content"]
         import json
 
@@ -318,8 +332,8 @@ def test_deepseek_rewrite_prompt_includes_candidate_selector_context(monkeypatch
             }
         )
 
-    monkeypatch.setattr("quantumrandy.llm.call_deepseek", fake_call_deepseek)
-    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    monkeypatch.setattr("quantumrandy.llm.call_llm", fake_call_llm)
+    monkeypatch.setenv("LLM_API_KEY", "test-key")
     generator = FormulaGenerator(
         use_llm=True,
         settings=LLMSettings(max_retries=0),
@@ -338,4 +352,4 @@ def test_deepseek_rewrite_prompt_includes_candidate_selector_context(monkeypatch
     assert "multi_asset_candidate_evidence" in captured["prompt"]
     assert "weak_conviction" in captured["prompt"]
     assert generator.events[-1]["candidate_selector_rewrite_targets"] == 1
-    os.environ.pop("DEEPSEEK_API_KEY", None)
+    os.environ.pop("LLM_API_KEY", None)

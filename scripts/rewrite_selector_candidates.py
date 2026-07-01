@@ -28,7 +28,7 @@ def main() -> None:
     parser.add_argument("--out", default="reports/selector_rewrite", help="Output directory")
     parser.add_argument("--max-targets", type=int, default=5)
     parser.add_argument("--candidates-per-target", type=int, default=2)
-    parser.add_argument("--use-llm", action="store_true", help="Call DeepSeek if DEEPSEEK_API_KEY is configured")
+    parser.add_argument("--use-llm", action="store_true", help="Call the configured LLM if LLM_API_KEY is configured")
     parser.add_argument("--candidate-selector-path", help="Optional selector artifact path to include in LLM prompt")
     parser.add_argument("--failure-memory-path", help="Optional failure memory artifact path to include in LLM prompt")
     parser.add_argument(

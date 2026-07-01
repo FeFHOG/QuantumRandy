@@ -157,7 +157,7 @@ class ResearchSession:
                     use_llm = self.state.use_llm
                     self.state.phase = "llm_or_local_proposal"
                     if use_llm:
-                        self.state.message = f"Calling DeepSeek API (connect 15s, read 120s, 2 attempts)..."
+                        self.state.message = "Calling configured LLM API (connect 15s, read 120s, 2 attempts)..."
                     else:
                         self.state.message = "Generating local template formulas..."
                     self.state.llm_wait_started_at = _now()
@@ -177,21 +177,21 @@ class ResearchSession:
                     snippet = evt.get("llm_response_snippet", "")
                     dur = evt.get("llm_duration_s", 0)
                     err = evt.get("error", "")
-                    if src == "deepseek":
+                    if src == "llm":
                         llm_status = f"ok ({acc}/{req} accepted, {dur}s)"
-                        _log(f"[iter {iter_no}] DeepSeek: {acc}/{req} accepted in {dur}s | {snippet[:120]}", C_GREEN)
+                        _log(f"[iter {iter_no}] LLM: {acc}/{req} accepted in {dur}s | {snippet[:120]}", C_GREEN)
                     elif src == "fallback":
                         err_detail = evt.get("error", "")
                         err_snippet = evt.get("llm_response_snippet", "")
                         llm_status = f"fallback ({dur}s): {err_detail[:80]}"
-                        _log(f"[iter {iter_no}] DeepSeek FAIL ({dur}s): {err_detail[:200]}", C_RED)
+                        _log(f"[iter {iter_no}] LLM FAIL ({dur}s): {err_detail[:200]}", C_RED)
                         if err_snippet:
                             _log(f"[iter {iter_no}] Detail: {err_snippet[:250]}", C_YELLOW)
                     elif src == "validator":
                         rejected = evt.get("rejected", [])
                         if rejected:
                             reasons = "; ".join(f"{r['formula'][:50]}->{r['reason']}" for r in rejected[:3])
-                            _log(f"[iter {iter_no}] DS rejected {len(rejected)}: {reasons}", C_YELLOW)
+                            _log(f"[iter {iter_no}] LLM rejected {len(rejected)}: {reasons}", C_YELLOW)
                 with self.lock:
                     self.state.last_llm_status = llm_status
                     self.state.llm_wait_started_at = None
@@ -251,8 +251,8 @@ class ResearchSession:
         validation = slice_window(data, cfg.windows.validation_start, cfg.windows.validation_end)
         if self.state.use_llm:
             # Respect .env settings if present, otherwise use faster defaults
-            _os.environ.setdefault("DEEPSEEK_TIMEOUT_SECONDS", "60")
-            _os.environ.setdefault("DEEPSEEK_MAX_RETRIES", "1")
+            _os.environ.setdefault("LLM_TIMEOUT_SECONDS", "60")
+            _os.environ.setdefault("LLM_MAX_RETRIES", "1")
         generator = FormulaGenerator(
             use_llm=self.state.use_llm,
             max_formula_depth=cfg.mcts.max_formula_depth,
@@ -519,24 +519,23 @@ class ResearchSession:
             _log(f"Auto-purged {len(killed)} killed factors from zoo", C_YELLOW)
         return len(killed)
 
-    def test_deepseek(self) -> dict:
-        import os as _os
-        from .llm import _load_env_file, call_deepseek, LLMSettings
+    def test_llm(self) -> dict:
+        from .llm import _load_env_file, call_llm, LLMSettings, _env, _legacy_default_base_url, _legacy_default_model
         _load_env_file()
-        api_key = _os.getenv("DEEPSEEK_API_KEY")
+        api_key = _env("LLM_API_KEY", "", legacy="DEEPSEEK_API_KEY")
         if not api_key:
-            result = {"ok": False, "message": "DEEPSEEK_API_KEY not set in .env. Check QuantumRandy/.env has DEEPSEEK_API_KEY=sk-..."}
-            self._log_llm_event("deepseek_test", result)
+            result = {"ok": False, "message": "LLM_API_KEY not set in .env. Check QuantumRandy/.env has LLM_API_KEY=..."}
+            self._log_llm_event("llm_test", result)
             return result
         settings = LLMSettings(
-            base_url=_os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
-            model=_os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
+            base_url=_env("LLM_BASE_URL", _legacy_default_base_url(), legacy="DEEPSEEK_BASE_URL"),
+            model=_env("LLM_MODEL", _legacy_default_model(), legacy="DEEPSEEK_MODEL"),
             timeout_seconds=10,
             max_retries=0,
         )
         t0 = time.time()
         try:
-            content = call_deepseek(
+            content = call_llm(
                 messages=[
                     {"role": "user", "content": "Reply with exactly: OK"},
                 ],
@@ -545,13 +544,16 @@ class ResearchSession:
             )
             dur = time.time() - t0
             result = {"ok": True, "message": f"OK ({dur:.1f}s) — {content[:80].strip()}"}
-            self._log_llm_event("deepseek_test", result)
+            self._log_llm_event("llm_test", result)
             return result
         except Exception as exc:
             dur = time.time() - t0
             result = {"ok": False, "message": f"Failed after {dur:.1f}s: {exc}"}
-            self._log_llm_event("deepseek_test", result)
+            self._log_llm_event("llm_test", result)
             return result
+
+    def test_deepseek(self) -> dict:
+        return self.test_llm()
 
     def _log_llm_event(self, source: str, detail: dict) -> None:
         if self.mcts is not None:

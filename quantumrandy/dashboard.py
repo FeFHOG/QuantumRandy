@@ -164,9 +164,9 @@ HTML = r"""<!doctype html>
   <main>
     <section class="toolbar">
       <label>Hours <input id="hours" type="number" min="0.05" step="0.25" value="24"></label>
-      <label><input id="useLlm" type="checkbox"> Use DeepSeek</label>
+      <label><input id="useLlm" type="checkbox"> Use LLM</label>
       <button class="primary" onclick="post('/api/start', {hours: Number(hours.value), use_llm: useLlm.checked})">Start / Resume Research</button>
-      <button onclick="testDeepSeek()" style="border-color:var(--gold);color:var(--gold)">Test DeepSeek Connection</button>
+      <button onclick="testLlm()" style="border-color:var(--gold);color:var(--gold)">Test LLM Connection</button>
       <button class="warn" onclick="post('/api/stop', {})">Stop After Current Iteration</button>
       <button onclick="post('/api/save', {})">Save &amp; Backup Now</button>
       <button class="danger" onclick="post('/api/emergency', {})">Emergency Stop</button>
@@ -182,7 +182,7 @@ HTML = r"""<!doctype html>
       <div class="metric"><span>Best Score</span><strong id="bestScore">-</strong></div>
       <div class="metric"><span>Elapsed</span><strong id="elapsed">0m</strong></div>
       <div class="metric"><span>Phase</span><strong id="phase">-</strong></div>
-      <div class="metric"><span>DS Status</span><strong id="llmStatus" style="font-size:14px">-</strong></div>
+      <div class="metric"><span>LLM Status</span><strong id="llmStatus" style="font-size:14px">-</strong></div>
     </section>
     <section class="panel" id="killPanel" style="display:none">
       <h2>Kill Breakdown <span class="muted" style="font-size:12px;font-weight:400">(Why factors are killed in the brutal filter)</span></h2>
@@ -216,7 +216,7 @@ HTML = r"""<!doctype html>
       </table>
     </section>
     <section class="panel" id="llmLogPanel">
-      <h2>DeepSeek Call Log</h2>
+      <h2>LLM Call Log</h2>
       <div id="llmLog" style="padding:8px 14px;max-height:200px;overflow-y:auto;font-family:Consolas,monospace;font-size:12px">
         <span class="muted">No records yet</span>
       </div>
@@ -354,7 +354,7 @@ HTML = r"""<!doctype html>
       if (state.use_llm) {
         document.body.className = 'llm-mode';
         modeBadge.className = 'badge llm';
-        modeBadge.textContent = 'DEEPSEEK';
+        modeBadge.textContent = 'LLM';
       } else {
         document.body.className = 'local-mode';
         modeBadge.className = 'badge local';
@@ -403,7 +403,7 @@ HTML = r"""<!doctype html>
       }
       if (llmLog && llmLog.length > 0) {
         document.getElementById('llmLog').innerHTML = llmLog.slice(-12).reverse().map(e => {
-          const color = e.source === 'deepseek' ? 'var(--good)' : e.source === 'fallback' ? 'var(--bad)' : 'var(--muted)';
+          const color = e.source === 'llm' || e.source === 'llm_rewrite' ? 'var(--good)' : e.source === 'fallback' ? 'var(--bad)' : 'var(--muted)';
           const acc = e.accepted !== undefined ? ` accepted=${e.accepted}/${e.requested}` : '';
           const dur = e.llm_duration_s ? ` ${e.llm_duration_s}s` : '';
           const chars = e.prompt_chars ? ` ${e.prompt_chars}chars` : '';
@@ -411,7 +411,7 @@ HTML = r"""<!doctype html>
           return `<div style="color:${color};margin-bottom:2px">[${e.source.toUpperCase()}]${acc}${dur}${chars}${err ? ' err=' + err.substring(0,100) : ''}</div>`;
         }).join('');
       } else {
-        document.getElementById('llmLog').innerHTML = '<span class="muted">No records (enable DeepSeek and start research)</span>';
+        document.getElementById('llmLog').innerHTML = '<span class="muted">No records (enable LLM and start research)</span>';
       }
       renderResearchReview(review);
     }
@@ -781,19 +781,19 @@ HTML = r"""<!doctype html>
       }
     }
 
-    async function testDeepSeek() {
-      message.textContent = 'Testing DeepSeek connectivity...';
+    async function testLlm() {
+      message.textContent = 'Testing LLM connectivity...';
       try {
-        const res = await fetch('/api/test_deepseek');
+        const res = await fetch('/api/test_llm');
         const data = await res.json();
         if (data.ok) {
-          message.innerHTML = '<span style="color:var(--good)">DeepSeek OK: ' + data.message + '</span>';
+          message.innerHTML = '<span style="color:var(--good)">LLM OK: ' + data.message + '</span>';
         } else {
-          message.innerHTML = '<span style="color:var(--bad)">DeepSeek FAIL: ' + data.message + '</span>';
+          message.innerHTML = '<span style="color:var(--bad)">LLM FAIL: ' + data.message + '</span>';
         }
         refresh();
       } catch(e) {
-        message.innerHTML = '<span style="color:var(--bad)">DeepSeek test error: ' + e.message + '</span>';
+        message.innerHTML = '<span style="color:var(--bad)">LLM test error: ' + e.message + '</span>';
       }
     }
     refresh();
@@ -1248,8 +1248,8 @@ def run_dashboard(config: str, out: str, host: str = "127.0.0.1", port: int = 87
                 self._json(session.llm_log())
             elif parsed.path == "/api/research_review":
                 self._json(build_research_review_payload(session.output_dir))
-            elif parsed.path == "/api/test_deepseek":
-                self._json(session.test_deepseek())
+            elif parsed.path in {"/api/test_llm", "/api/test_deepseek"}:
+                self._json(session.test_llm())
             elif parsed.path == "/api/validate_factor":
                 formula = params.get("formula", [None])[0]
                 if not formula:

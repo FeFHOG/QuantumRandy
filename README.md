@@ -14,10 +14,10 @@ pip install -r requirements.txt
 
 # 2. Set your API key
 copy .env.example .env
-notepad .env          # fill in your DeepSeek key
+notepad .env          # fill in your LLM API key/base URL/model
 
-# 3. Verify DeepSeek
-python scripts\check_deepseek.py
+# 3. Verify LLM connectivity
+python scripts\check_llm.py
 
 # 4. Mine factors
 python scripts\mine.py --config configs\btcusdt.yaml --iterations 50 --use-llm --out reports\btc_llm_50
@@ -44,7 +44,7 @@ QuantumRandy/
     evaluator.py            # Multi-dim factor scoring
     mcts.py                 # MCTS search with UCT + zoo cap
     fsa.py                  # Frequent subtree avoidance
-    llm.py                  # DeepSeek API + local fallback
+    llm.py                  # OpenAI-compatible LLM API + local fallback
     proposals.py            # Template engine (46% funding_rate coverage)
     lab.py                  # 4-gate brutal filter + kill diagnosis
     research.py             # Background research session + auto-purge
@@ -71,7 +71,7 @@ QuantumRandy/
     build_admission.py      # Build research-only factor admission decisions
     run_btc.py              # One-command BTC mining
     dashboard.py            # Launch research dashboard
-    check_deepseek.py       # Verify DeepSeek connectivity
+    check_llm.py            # Verify configured LLM connectivity
   tests/
     test_smoke.py
   CHANGELOG.md              # Version history
@@ -138,7 +138,7 @@ All thresholds are configurable in `configs/btcusdt.yaml` → `filter`.
 - **Max depth limit**: formulas capped at 5 depth / 6 operators — no meaningless nesting like `Log(Abs(Exp(...)))`.
 - **Forced explanation**: LLM must output ≥60 char economic rationale with finance keywords (momentum, reversal, volatility, etc.).
 - **Occam's razor**: exponential operator penalty — when two formulas backtest similarly, the simpler one wins.
-- **API cooldown**: minimum 30s between DeepSeek calls to control cost (~$1-2 per 8h night run).
+- **API cooldown**: minimum 30s between LLM calls to control cost.
 - **Funding rate focus**: local templates weight funding_rate at 35% (up from 20%) — it has the highest pass rate through the brutal filter.
 - **FSA whitelist**: funding_rate patterns are exempt from subtree bans — effective structures shouldn't be blocked.
 - **Auto-purge**: killed non-seed factors removed from zoo each iteration to prevent homogeneity drift.
