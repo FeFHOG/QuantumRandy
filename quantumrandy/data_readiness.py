@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -106,6 +107,9 @@ def inspect_asset_readiness(
         "bar_hours": None,
         "ohlcv_csv": "",
         "ohlcv_exists": False,
+        "ohlcv_file_size_bytes": 0,
+        "ohlcv_file_mtime": "",
+        "ohlcv_sha256_16": "",
         "ohlcv_rows": 0,
         "ohlcv_start": "",
         "ohlcv_end": "",
@@ -116,14 +120,30 @@ def inspect_asset_readiness(
         "ohlcv_interval_ok": False,
         "funding_csv": "",
         "funding_exists": False,
+        "funding_file_size_bytes": 0,
+        "funding_file_mtime": "",
+        "funding_sha256_16": "",
         "funding_rows": 0,
         "funding_start": "",
         "funding_end": "",
         "funding_missing_columns": "",
         "funding_duplicate_timestamps": 0,
         "funding_alignment_coverage": 0.0,
+        "funding_expected_observations": 0,
+        "funding_observations_in_window": 0,
+        "funding_raw_coverage": 0.0,
+        "funding_max_staleness_hours": 0.0,
+        "research_bars": 0,
+        "research_expected_bars": 0,
+        "research_coverage_ratio": 0.0,
         "training_bars": 0,
+        "training_expected_bars": 0,
+        "training_coverage_ratio": 0.0,
+        "training_missing_bars": 0,
         "validation_bars": 0,
+        "validation_expected_bars": 0,
+        "validation_coverage_ratio": 0.0,
+        "validation_missing_bars": 0,
         "training_window_covered": False,
         "validation_window_covered": False,
         "training_start": "",
@@ -159,6 +179,8 @@ def inspect_asset_readiness(
             "validation_end": cfg.windows.validation_end or "",
         }
     )
+    _merge_file_stats(row, "ohlcv", cfg.ohlcv_csv)
+    _merge_file_stats(row, "funding", cfg.funding_csv)
     if expected_symbol and cfg.symbol.upper() != expected_symbol.upper():
         reasons.append("symbol_mismatch")
 
@@ -189,10 +211,14 @@ def inspect_asset_readiness(
         funding_frame = funding["frame"]
         if isinstance(funding_frame, pd.DataFrame):
             coverage_index = research_frame.index if len(research_frame) else ohlcv_frame.index
-            aligned_funding = funding_frame.reindex(coverage_index.union(funding_frame.index)).sort_index().ffill()
-            coverage = aligned_funding.reindex(coverage_index)["funding_rate"].notna().mean()
-            row["funding_alignment_coverage"] = round(float(coverage), 6)
-            if coverage < 0.95:
+            funding_stats = _funding_quality_stats(
+                funding_frame,
+                coverage_index,
+                cfg.windows.training_start,
+                cfg.windows.validation_end,
+            )
+            row.update(funding_stats)
+            if float(funding_stats["funding_alignment_coverage"]) < 0.95:
                 reasons.append("funding_alignment_low")
 
     ready = not reasons
@@ -251,12 +277,13 @@ def data_fetch_plan(frame: pd.DataFrame, *, randyslab_dir: str = "../RandysLab-S
                 "end": end,
                 "command": (
                     f"cd {randyslab_dir} && python scripts/fetch_binance.py "
-                    f"--symbol {_binance_usdm_symbol(symbol)} --file-prefix {symbol} --start {start} --end {end}"
+                    f"--symbol {_binance_usdm_symbol(symbol)} --file-prefix {symbol} --start {start} --end {end} "
+                    "--method archive"
                 ),
                 "proxy_command": (
                     f"cd {randyslab_dir} && python scripts/fetch_binance.py "
                     f"--symbol {_binance_usdm_symbol(symbol)} --file-prefix {symbol} --start {start} --end {end} "
-                    "--proxy http://127.0.0.1:7890"
+                    "--method archive --proxy http://127.0.0.1:7890"
                 ),
             }
         )
@@ -338,15 +365,19 @@ def readiness_report(frame: pd.DataFrame, policy: ReadinessPolicy) -> str:
         "",
         "## Assets",
         "",
-        "| Expected | Symbol | Status | Total Bars | Training Bars | Validation Bars | Funding Coverage | Reasons |",
-        "|---|---|---|---:|---:|---:|---:|---|",
+        "| Expected | Symbol | Status | Research Coverage | Missing Bars | Funding Align | Funding Stale Hrs | CSV Hashes | Reasons |",
+        "|---|---|---|---:|---:|---:|---:|---|---|",
     ]
     for row in frame.to_dict(orient="records"):
+        expected = row.get("expected_symbol", "") or row.get("symbol", "")
         lines.append(
             "| "
-            f"`{row.get('expected_symbol', '')}` | `{row.get('symbol', '')}` | `{row.get('status', '')}` | "
-            f"{int(row.get('ohlcv_rows') or 0)} | {int(row.get('training_bars') or 0)} | "
-            f"{int(row.get('validation_bars') or 0)} | {float(row.get('funding_alignment_coverage') or 0.0):.2f} | "
+            f"`{expected}` | `{row.get('symbol', '')}` | `{row.get('status', '')}` | "
+            f"{float(row.get('research_coverage_ratio') or 0.0):.2%} | "
+            f"{int(row.get('ohlcv_missing_bars') or 0)} | "
+            f"{float(row.get('funding_alignment_coverage') or 0.0):.2%} | "
+            f"{float(row.get('funding_max_staleness_hours') or 0.0):.1f} | "
+            f"`ohlcv:{row.get('ohlcv_sha256_16', '')} funding:{row.get('funding_sha256_16', '')}` | "
             f"`{row.get('reasons', '')}` |"
         )
 
@@ -427,6 +458,32 @@ def _merge_csv_stats(row: dict[str, object], prefix: str, stats: dict[str, objec
     row[f"{prefix}_duplicate_timestamps"] = stats["duplicate_timestamps"]
 
 
+def _merge_file_stats(row: dict[str, object], prefix: str, path: Path) -> None:
+    stats = _file_stats(path)
+    row[f"{prefix}_file_size_bytes"] = stats["size_bytes"]
+    row[f"{prefix}_file_mtime"] = stats["mtime"]
+    row[f"{prefix}_sha256_16"] = stats["sha256_16"]
+
+
+def _file_stats(path: Path) -> dict[str, object]:
+    if not path.exists() or not path.is_file():
+        return {"size_bytes": 0, "mtime": "", "sha256_16": ""}
+    stat = path.stat()
+    return {
+        "size_bytes": int(stat.st_size),
+        "mtime": pd.Timestamp(stat.st_mtime, unit="s", tz="UTC").isoformat(),
+        "sha256_16": _sha256_16(path),
+    }
+
+
+def _sha256_16(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()[:16]
+
+
 def _interval_stats(index: pd.DatetimeIndex, bar_hours: int, policy: ReadinessPolicy) -> dict[str, object]:
     if len(index) < 2:
         return {"ohlcv_missing_bars": 0, "ohlcv_max_gap_hours": 0.0, "ohlcv_interval_ok": False}
@@ -444,9 +501,22 @@ def _interval_stats(index: pd.DatetimeIndex, bar_hours: int, policy: ReadinessPo
 def _window_stats(data: pd.DataFrame, cfg: ProjectConfig, policy: ReadinessPolicy) -> dict[str, object]:
     training = slice_window(data, cfg.windows.training_start, cfg.windows.training_end)
     validation = slice_window(data, cfg.windows.validation_start, cfg.windows.validation_end)
+    research = slice_window(data, cfg.windows.training_start, cfg.windows.validation_end)
+    training_expected = _expected_bar_count(cfg.windows.training_start, cfg.windows.training_end, cfg.bar_hours)
+    validation_expected = _expected_bar_count(cfg.windows.validation_start, cfg.windows.validation_end, cfg.bar_hours)
+    research_expected = _expected_bar_count(cfg.windows.training_start, cfg.windows.validation_end, cfg.bar_hours)
     return {
+        "research_bars": len(research),
+        "research_expected_bars": research_expected,
+        "research_coverage_ratio": _coverage_ratio(len(research), research_expected),
         "training_bars": len(training),
+        "training_expected_bars": training_expected,
+        "training_coverage_ratio": _coverage_ratio(len(training), training_expected),
+        "training_missing_bars": max(training_expected - len(training), 0),
         "validation_bars": len(validation),
+        "validation_expected_bars": validation_expected,
+        "validation_coverage_ratio": _coverage_ratio(len(validation), validation_expected),
+        "validation_missing_bars": max(validation_expected - len(validation), 0),
         "training_window_covered": _window_covered(
             data,
             cfg.windows.training_start,
@@ -478,11 +548,68 @@ def _window_covered(
         return False
     index_min = data.index.min()
     index_max = data.index.max()
-    if start and pd.Timestamp(start, tz="UTC") < index_min:
+    if start and _utc_timestamp(start) < index_min:
         return False
-    if end and pd.Timestamp(end, tz="UTC") - pd.Timedelta(hours=bar_hours) > index_max:
+    if end and _utc_timestamp(end) - pd.Timedelta(hours=bar_hours) > index_max:
         return False
     return True
+
+
+def _expected_bar_count(start: str | None, end: str | None, bar_hours: int) -> int:
+    if not start or not end:
+        return 0
+    start_ts = _utc_timestamp(start)
+    end_ts = _utc_timestamp(end)
+    last_ts = end_ts - pd.Timedelta(hours=bar_hours)
+    if last_ts < start_ts:
+        return 0
+    return len(pd.date_range(start_ts, last_ts, freq=f"{bar_hours}h", tz="UTC"))
+
+
+def _coverage_ratio(actual: int, expected: int) -> float:
+    if expected <= 0:
+        return 0.0
+    return round(min(float(actual) / float(expected), 1.0), 6)
+
+
+def _funding_quality_stats(
+    funding: pd.DataFrame,
+    coverage_index: pd.DatetimeIndex,
+    start: str | None,
+    end: str | None,
+) -> dict[str, object]:
+    if len(coverage_index) == 0:
+        return {
+            "funding_alignment_coverage": 0.0,
+            "funding_expected_observations": 0,
+            "funding_observations_in_window": 0,
+            "funding_raw_coverage": 0.0,
+            "funding_max_staleness_hours": 0.0,
+        }
+    start_ts = _utc_timestamp(start) if start else coverage_index.min()
+    end_ts = _utc_timestamp(end) if end else coverage_index.max() + pd.Timedelta(hours=4)
+    expected_funding = _expected_bar_count(str(start_ts), str(end_ts), 8)
+    funding_in_window = funding[(funding.index >= start_ts) & (funding.index < end_ts)]
+
+    bars = pd.DataFrame({"bar_ts": pd.DatetimeIndex(coverage_index).sort_values()})
+    events = pd.DataFrame({"funding_ts": pd.DatetimeIndex(funding.index).sort_values()})
+    merged = pd.merge_asof(bars, events, left_on="bar_ts", right_on="funding_ts", direction="backward")
+    has_funding = merged["funding_ts"].notna()
+    staleness = (merged.loc[has_funding, "bar_ts"] - merged.loc[has_funding, "funding_ts"]).dt.total_seconds().div(3600)
+    return {
+        "funding_alignment_coverage": round(float(has_funding.mean()), 6),
+        "funding_expected_observations": expected_funding,
+        "funding_observations_in_window": int(len(funding_in_window)),
+        "funding_raw_coverage": _coverage_ratio(len(funding_in_window), expected_funding),
+        "funding_max_staleness_hours": round(float(staleness.max()), 6) if not staleness.empty else 0.0,
+    }
+
+
+def _utc_timestamp(value: object) -> pd.Timestamp:
+    ts = pd.Timestamp(value)
+    if ts.tzinfo is None:
+        return ts.tz_localize("UTC")
+    return ts.tz_convert("UTC")
 
 
 def _asset_config_from_template(raw: dict[str, object], symbol: str, data_root: Path) -> dict[str, object]:

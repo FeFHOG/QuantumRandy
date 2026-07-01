@@ -76,9 +76,21 @@ def test_run_data_readiness_marks_complete_asset_ready(tmp_path: Path) -> None:
     assert row["status"] == "ready"
     assert row["symbol"] == "ETHUSDT"
     assert row["ohlcv_rows"] == 216
+    assert row["research_bars"] == 216
+    assert row["research_expected_bars"] == 216
+    assert row["research_coverage_ratio"] == 1.0
+    assert row["training_expected_bars"] == 114
+    assert row["validation_expected_bars"] == 102
+    assert row["training_missing_bars"] == 0
     assert bool(row["training_window_covered"]) is True
     assert bool(row["validation_window_covered"]) is True
     assert row["funding_alignment_coverage"] == 1.0
+    assert row["funding_expected_observations"] == 108
+    assert row["funding_observations_in_window"] == 108
+    assert row["funding_raw_coverage"] == 1.0
+    assert row["funding_max_staleness_hours"] == 4.0
+    assert row["ohlcv_file_size_bytes"] > 0
+    assert len(row["ohlcv_sha256_16"]) == 16
 
 
 def test_run_data_readiness_reports_missing_config() -> None:
@@ -192,6 +204,7 @@ def test_data_fetch_plan_lists_missing_asset_csv_commands(tmp_path: Path) -> Non
     assert plan[0]["incomplete_window"] is True
     assert "--file-prefix AVAXUSDT" in plan[0]["command"]
     assert "--start 2024-01-01 --end 2024-02-06" in plan[0]["command"]
+    assert "--method archive" in plan[0]["command"]
     assert "does not download data" in runbook
     assert "python scripts/fetch_binance.py" in runbook
 
