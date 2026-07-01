@@ -542,6 +542,8 @@ Expected value:
     coverage-only candidates from hiding lower-pass but genuinely Sharpe-improving rewrites;
   - review rows now include per-parent candidate verdict counts and a best-candidate rank reason, making it easier to
     audit whether an improved parent also had rejected or coverage-only alternatives;
+  - the review stage also writes `selector_pipeline_candidate_review.csv`, a candidate-level parent-vs-rewrite table
+    with per-candidate verdicts and deltas before parent-level best-candidate aggregation;
   - selector rewrite prompts now ask LLM candidates to optimize both `pass_rate_delta > 0` and
     `mean_sharpe_delta >= 0`, justify normalized range/volatility profitability, and predict likely cross-asset failure
     modes before evaluation;

@@ -7,7 +7,11 @@ import pandas as pd
 import yaml
 
 from quantumrandy.candidate_selector import write_candidate_selector_report
-from quantumrandy.selector_pipeline import build_selector_pipeline_review, run_selector_rewrite_pipeline
+from quantumrandy.selector_pipeline import (
+    build_selector_pipeline_candidate_review,
+    build_selector_pipeline_review,
+    run_selector_rewrite_pipeline,
+)
 
 
 def _market(periods: int = 240, *, drift: float = 1.0) -> pd.DataFrame:
@@ -117,16 +121,22 @@ def test_selector_rewrite_pipeline_runs_research_only_evidence_chain(tmp_path) -
     assert (tmp_path / "pipeline" / "portfolio" / "portfolio_manifest.json").exists()
     assert (tmp_path / "pipeline" / "portfolio_universe" / "portfolio_universe_summary.csv").exists()
     assert (tmp_path / "pipeline" / "review" / "selector_pipeline_review.csv").exists()
+    assert (tmp_path / "pipeline" / "review" / "selector_pipeline_candidate_review.csv").exists()
 
     persisted = json.loads(
         (tmp_path / "pipeline" / "selector_rewrite_pipeline_manifest.json").read_text(encoding="utf-8")
     )
     assert persisted["portfolio_universe"]["status"] == "completed"
     assert persisted["review"]["status"] == "completed"
+    assert "pipeline_candidate_review" in persisted["outputs"]
     report = (tmp_path / "pipeline" / "SELECTOR_REWRITE_PIPELINE_REPORT.md").read_text(encoding="utf-8")
     assert "research artifact only" in report
     review_report = (tmp_path / "pipeline" / "review" / "SELECTOR_PIPELINE_REVIEW.md").read_text(encoding="utf-8")
     assert "research comparison artifact only" in review_report
+    review_manifest = json.loads(
+        (tmp_path / "pipeline" / "review" / "selector_pipeline_review_manifest.json").read_text(encoding="utf-8")
+    )
+    assert review_manifest["candidate_review_rows"] >= review_manifest["review_rows"]
 
 
 def test_selector_rewrite_pipeline_can_stop_after_rewrite_without_configs(tmp_path) -> None:
@@ -283,6 +293,7 @@ def test_selector_pipeline_review_compares_parent_and_rewrite_evidence(tmp_path)
     )
 
     review = build_selector_pipeline_review(candidate_path, universe_summary)
+    candidate_review = build_selector_pipeline_candidate_review(candidate_path, universe_summary)
 
     by_parent = {row["parent_factor_id"]: row for row in review.to_dict(orient="records")}
     assert by_parent["parent_a"]["best_candidate_factor_id"] == "rewrite_a"
@@ -300,3 +311,8 @@ def test_selector_pipeline_review_compares_parent_and_rewrite_evidence(tmp_path)
     assert by_parent["parent_e"]["review_verdict"] == "improved"
     assert by_parent["parent_e"]["candidate_verdict_counts"] == "improved:1|coverage_only:1"
     assert review.iloc[0]["review_verdict"] == "improved"
+    by_candidate = {row["factor_id"]: row for row in candidate_review.to_dict(orient="records")}
+    assert by_candidate["rewrite_f"]["candidate_review_verdict"] == "coverage_only"
+    assert by_candidate["rewrite_g"]["candidate_review_verdict"] == "improved"
+    assert by_candidate["rewrite_g"]["pass_rate_delta"] == 0.2
+    assert by_candidate["rewrite_g"]["mean_sharpe_delta"] == 0.1

@@ -112,8 +112,12 @@ def run_selector_rewrite_pipeline(
             ascending=[False, False, False, False],
         )
         _write_universe_outputs(universe_out, details=details, summary=summary, assets=assets, window=window)
-        review = build_selector_pipeline_review(rewrite_out / "selector_rewrite_candidates.csv", summary)
-        _write_review_outputs(out / "review", review=review)
+        candidate_review = build_selector_pipeline_candidate_review(
+            rewrite_out / "selector_rewrite_candidates.csv",
+            summary,
+        )
+        review = build_selector_pipeline_review_from_candidates(candidate_review)
+        _write_review_outputs(out / "review", review=review, candidate_review=candidate_review)
         manifest["universe"] = {
             "status": "completed",
             "out_dir": universe_out.as_posix(),
@@ -128,6 +132,9 @@ def run_selector_rewrite_pipeline(
         }
         manifest["outputs"]["universe_summary"] = (universe_out / "universe_summary.csv").as_posix()
         manifest["outputs"]["pipeline_review"] = (out / "review" / "selector_pipeline_review.csv").as_posix()
+        manifest["outputs"]["pipeline_candidate_review"] = (
+            out / "review" / "selector_pipeline_candidate_review.csv"
+        ).as_posix()
     elif run_universe:
         manifest["universe"] = {"status": "skipped", "reason": "no asset config paths provided"}
         manifest["review"] = {"status": "skipped", "reason": "no universe evaluation"}
@@ -251,6 +258,68 @@ def build_selector_pipeline_review(
     rewrite_candidates_path: str | Path,
     universe_summary: pd.DataFrame,
 ) -> pd.DataFrame:
+    candidate_review = build_selector_pipeline_candidate_review(rewrite_candidates_path, universe_summary)
+    return build_selector_pipeline_review_from_candidates(candidate_review)
+
+
+def build_selector_pipeline_review_from_candidates(candidate_review: pd.DataFrame) -> pd.DataFrame:
+    if candidate_review.empty:
+        return pd.DataFrame()
+
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for row in candidate_review.to_dict(orient="records"):
+        grouped.setdefault(str(row.get("parent_factor_id", "")), []).append(row)
+
+    review_rows: list[dict[str, Any]] = []
+    for parent_factor_id, rows in grouped.items():
+        parent_pass_rate = _num(rows[0].get("parent_universe_pass_rate"))
+        parent_mean_sharpe = _num(rows[0].get("parent_universe_mean_sharpe"))
+        candidate_verdict_counts = _candidate_verdict_counts(rows, parent_pass_rate, parent_mean_sharpe)
+        ranked = sorted(
+            rows,
+            key=lambda row: _candidate_review_rank(row, parent_pass_rate, parent_mean_sharpe),
+            reverse=True,
+        )
+        best = ranked[0]
+        review_rows.append(
+            {
+                "parent_factor_id": parent_factor_id,
+                "parent_formula": best.get("parent_formula", ""),
+                "parent_rewrite_focus": best.get("parent_rewrite_focus", ""),
+                "parent_universe_pass_rate": parent_pass_rate,
+                "parent_universe_mean_sharpe": parent_mean_sharpe,
+                "candidate_count": len(rows),
+                "evaluated_candidate_count": sum(1 for row in rows if int(row.get("candidate_evaluated_assets", 0)) > 0),
+                "best_candidate_factor_id": best.get("factor_id", ""),
+                "best_candidate_formula": best.get("formula", ""),
+                "best_candidate_pass_rate": _num(best.get("candidate_pass_rate")),
+                "best_candidate_mean_sharpe": _num(best.get("candidate_mean_sharpe")),
+                "best_candidate_median_rank_ic": _num(best.get("candidate_median_rank_ic")),
+                "best_candidate_robustness_score": _num(best.get("candidate_robustness_score")),
+                "best_candidate_failed_assets": best.get("candidate_failed_assets", ""),
+                "best_candidate_rank_reason": best.get("candidate_rank_reason", ""),
+                "candidate_verdict_counts": _format_verdict_counts(candidate_verdict_counts),
+                "pass_rate_delta": _num(best.get("pass_rate_delta")),
+                "mean_sharpe_delta": _num(best.get("mean_sharpe_delta")),
+                "improvement_gate": "pass_rate_delta > 0 and mean_sharpe_delta >= 0",
+                "review_verdict": best.get("candidate_review_verdict", ""),
+            }
+        )
+
+    frame = pd.DataFrame(review_rows)
+    if frame.empty:
+        return frame
+    frame["review_verdict_rank"] = frame["review_verdict"].map(_VERDICT_RANK).fillna(0).astype(int)
+    return frame.sort_values(
+        ["review_verdict_rank", "pass_rate_delta", "mean_sharpe_delta"],
+        ascending=[False, False, False],
+    ).reset_index(drop=True)
+
+
+def build_selector_pipeline_candidate_review(
+    rewrite_candidates_path: str | Path,
+    universe_summary: pd.DataFrame,
+) -> pd.DataFrame:
     candidates = _read_csv(rewrite_candidates_path)
     if candidates.empty:
         return pd.DataFrame()
@@ -265,73 +334,43 @@ def build_selector_pipeline_review(
     for row in candidates.fillna("").to_dict(orient="records"):
         factor_id = str(row.get("factor_id", ""))
         evidence = summary_by_factor.get(factor_id, {})
-        candidate_rows.append(
-            {
-                **row,
-                "candidate_pass_rate": _num(evidence.get("pass_rate")),
-                "candidate_mean_sharpe": _num(evidence.get("mean_sharpe")),
-                "candidate_median_rank_ic": _num(evidence.get("median_rank_ic")),
-                "candidate_robustness_score": _num(evidence.get("robustness_score")),
-                "candidate_failed_assets": str(evidence.get("failed_assets", "")),
-                "candidate_evaluated_assets": int(_num(evidence.get("evaluated_assets"))),
-            }
+        parent_pass_rate = _num(row.get("parent_universe_pass_rate"))
+        parent_mean_sharpe = _num(row.get("parent_universe_mean_sharpe"))
+        candidate_pass_rate = _num(evidence.get("pass_rate"))
+        candidate_mean_sharpe = _num(evidence.get("mean_sharpe"))
+        pass_rate_delta = round(candidate_pass_rate - parent_pass_rate, 8)
+        mean_sharpe_delta = round(candidate_mean_sharpe - parent_mean_sharpe, 8)
+        evaluated_assets = int(_num(evidence.get("evaluated_assets")))
+        enriched = {
+            **row,
+            "candidate_pass_rate": candidate_pass_rate,
+            "candidate_mean_sharpe": candidate_mean_sharpe,
+            "candidate_median_rank_ic": _num(evidence.get("median_rank_ic")),
+            "candidate_robustness_score": _num(evidence.get("robustness_score")),
+            "candidate_failed_assets": str(evidence.get("failed_assets", "")),
+            "candidate_evaluated_assets": evaluated_assets,
+            "pass_rate_delta": pass_rate_delta,
+            "mean_sharpe_delta": mean_sharpe_delta,
+            "candidate_review_verdict": _review_verdict(
+                evaluated=evaluated_assets,
+                pass_rate_delta=pass_rate_delta,
+                mean_sharpe_delta=mean_sharpe_delta,
+            ),
+        }
+        enriched["candidate_verdict_rank"] = _VERDICT_RANK.get(str(enriched["candidate_review_verdict"]), 0)
+        enriched["candidate_rank_reason"] = _candidate_rank_reason(
+            enriched,
+            parent_pass_rate,
+            parent_mean_sharpe,
         )
+        candidate_rows.append(enriched)
 
-    grouped: dict[str, list[dict[str, Any]]] = {}
-    for row in candidate_rows:
-        grouped.setdefault(str(row.get("parent_factor_id", "")), []).append(row)
-
-    review_rows: list[dict[str, Any]] = []
-    for parent_factor_id, rows in grouped.items():
-        parent_pass_rate = _num(rows[0].get("parent_universe_pass_rate"))
-        parent_mean_sharpe = _num(rows[0].get("parent_universe_mean_sharpe"))
-        candidate_verdict_counts = _candidate_verdict_counts(rows, parent_pass_rate, parent_mean_sharpe)
-        ranked = sorted(
-            rows,
-            key=lambda row: _candidate_review_rank(row, parent_pass_rate, parent_mean_sharpe),
-            reverse=True,
-        )
-        best = ranked[0]
-        best_pass_rate = _num(best.get("candidate_pass_rate"))
-        best_mean_sharpe = _num(best.get("candidate_mean_sharpe"))
-        pass_rate_delta = round(best_pass_rate - parent_pass_rate, 8)
-        mean_sharpe_delta = round(best_mean_sharpe - parent_mean_sharpe, 8)
-        review_rows.append(
-            {
-                "parent_factor_id": parent_factor_id,
-                "parent_formula": best.get("parent_formula", ""),
-                "parent_rewrite_focus": best.get("parent_rewrite_focus", ""),
-                "parent_universe_pass_rate": parent_pass_rate,
-                "parent_universe_mean_sharpe": parent_mean_sharpe,
-                "candidate_count": len(rows),
-                "evaluated_candidate_count": sum(1 for row in rows if int(row.get("candidate_evaluated_assets", 0)) > 0),
-                "best_candidate_factor_id": best.get("factor_id", ""),
-                "best_candidate_formula": best.get("formula", ""),
-                "best_candidate_pass_rate": best_pass_rate,
-                "best_candidate_mean_sharpe": best_mean_sharpe,
-                "best_candidate_median_rank_ic": _num(best.get("candidate_median_rank_ic")),
-                "best_candidate_robustness_score": _num(best.get("candidate_robustness_score")),
-                "best_candidate_failed_assets": best.get("candidate_failed_assets", ""),
-                "best_candidate_rank_reason": _candidate_rank_reason(best, parent_pass_rate, parent_mean_sharpe),
-                "candidate_verdict_counts": _format_verdict_counts(candidate_verdict_counts),
-                "pass_rate_delta": pass_rate_delta,
-                "mean_sharpe_delta": mean_sharpe_delta,
-                "improvement_gate": "pass_rate_delta > 0 and mean_sharpe_delta >= 0",
-                "review_verdict": _review_verdict(
-                    evaluated=sum(1 for row in rows if int(row.get("candidate_evaluated_assets", 0)) > 0),
-                    pass_rate_delta=pass_rate_delta,
-                    mean_sharpe_delta=mean_sharpe_delta,
-                ),
-            }
-        )
-
-    frame = pd.DataFrame(review_rows)
+    frame = pd.DataFrame(candidate_rows)
     if frame.empty:
         return frame
-    frame["review_verdict_rank"] = frame["review_verdict"].map(_VERDICT_RANK).fillna(0).astype(int)
     return frame.sort_values(
-        ["review_verdict_rank", "pass_rate_delta", "mean_sharpe_delta"],
-        ascending=[False, False, False],
+        ["parent_factor_id", "candidate_verdict_rank", "pass_rate_delta", "mean_sharpe_delta"],
+        ascending=[True, False, False, False],
     ).reset_index(drop=True)
 
 
@@ -399,8 +438,9 @@ def _write_portfolio_outputs(
     )
 
 
-def _write_review_outputs(out: Path, *, review: pd.DataFrame) -> None:
+def _write_review_outputs(out: Path, *, review: pd.DataFrame, candidate_review: pd.DataFrame | None = None) -> None:
     out.mkdir(parents=True, exist_ok=True)
+    candidate_review = candidate_review if candidate_review is not None else pd.DataFrame()
     manifest = {
         "artifact_type": "quantumrandy_selector_rewrite_pipeline_review",
         "schema_version": 1,
@@ -411,9 +451,12 @@ def _write_review_outputs(out: Path, *, review: pd.DataFrame) -> None:
             "does_not_auto_admit_factors": True,
         },
         "review_rows": len(review),
+        "candidate_review_rows": len(candidate_review),
         "verdict_counts": _value_counts(review, "review_verdict"),
+        "candidate_verdict_counts": _value_counts(candidate_review, "candidate_review_verdict"),
     }
     safe_write_csv(out / "selector_pipeline_review.csv", review, out / "events.jsonl")
+    safe_write_csv(out / "selector_pipeline_candidate_review.csv", candidate_review, out / "events.jsonl")
     safe_write_json(out / "selector_pipeline_review_manifest.json", manifest, out / "events.jsonl")
     safe_write_text(out / "SELECTOR_PIPELINE_REVIEW.md", render_review_report(manifest, review), out / "events.jsonl")
 
@@ -428,6 +471,7 @@ def render_review_report(manifest: dict[str, Any], review: pd.DataFrame) -> str:
         "## Summary",
         "",
         f"- Review rows: `{manifest['review_rows']}`",
+        f"- Candidate review rows: `{manifest.get('candidate_review_rows', 0)}`",
         "",
         "## Verdict Counts",
         "",
@@ -456,6 +500,16 @@ def render_review_report(manifest: dict[str, Any], review: pd.DataFrame) -> str:
                 f"{row['mean_sharpe_delta']:.2f} | `{row['best_candidate_factor_id']}` | "
                 f"{row['best_candidate_pass_rate']:.2f} | `{row['best_candidate_formula']}` |"
             )
+    lines.extend(
+        [
+            "",
+            "## Files",
+            "",
+            "- `selector_pipeline_review.csv`: parent-level best-candidate summary.",
+            "- `selector_pipeline_candidate_review.csv`: candidate-level parent-vs-rewrite verdicts and deltas.",
+            "- `selector_pipeline_review_manifest.json`: machine-readable review counts and safety metadata.",
+        ]
+    )
     return "\n".join(lines) + "\n"
 
 
