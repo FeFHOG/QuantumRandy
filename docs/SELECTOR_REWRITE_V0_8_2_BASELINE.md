@@ -433,3 +433,128 @@ surfaces run counts, LLM true-improvement evidence counts, coverage-only trap ru
 true-improved candidates. It also surfaces the highlighted-candidate aggregate so repeated or one-off LLM improvements
 can be compared without opening raw CSV files. This is display-only review context and does not change admission,
 publishing, or runtime state.
+
+## LLM-Only Hard-Gate Repeats 7 And 8
+
+Date: 2026-07-02
+
+Two more LLM-only selector rewrite repeats were run with the same hard gate used in attempt 6:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence7_llm_only_required \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke
+```
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence8_llm_only_required \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke
+```
+
+Both attempts completed the full research pipeline and produced valid LLM policy evidence, but both exited with code
+`3` because the hard gate correctly rejected runs with no LLM-sourced true-improved highlight.
+
+Attempt 7:
+
+- `allow_local_fallback`: `false`
+- `llm_rewrite_accepted`: `3`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- Candidate generation source counts: `llm_rewrite:3`
+- Candidate verdicts: `not_improved:3`
+- Candidate highlights: `0`
+- `llm_true_improved_count`: `0`
+- `is_llm_true_improvement_evidence`: `false`
+- Coverage-only traps: `0`
+
+Attempt 8:
+
+- `allow_local_fallback`: `false`
+- `llm_rewrite_accepted`: `3`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- Candidate generation source counts: `llm_rewrite:3`
+- Candidate verdicts: `not_improved:3`
+- Candidate highlights: `0`
+- `llm_true_improved_count`: `0`
+- `is_llm_true_improvement_evidence`: `false`
+- Coverage-only traps: `0`
+
+The useful result is negative evidence discipline: the LLM path accepted candidates and the universe/review stages
+completed, but the stricter gate prevented those runs from being counted as LLM true-improvement evidence. Attempts 7
+and 8 also show policy drift toward slow contrarian funding rewrites that were materially worse than their parents on
+five-asset review. These runs remain research-only negative controls, not admission evidence and not runtime publish
+material.
+
+## Five-Run Evidence Summary Update
+
+Date: 2026-07-02
+
+The multi-run summary was refreshed with attempts 4 through 8:
+
+```bash
+.venv/bin/python scripts/summarize_selector_evidence.py \
+  reports/selector_rewrite_pipeline_llm_v082_evidence4 \
+  reports/selector_rewrite_pipeline_llm_v082_evidence5_llm_only \
+  reports/selector_rewrite_pipeline_llm_v082_evidence6_llm_only_required \
+  reports/selector_rewrite_pipeline_llm_v082_evidence7_llm_only_required \
+  reports/selector_rewrite_pipeline_llm_v082_evidence8_llm_only_required \
+  --out reports/selector_pipeline_evidence_v082_summary
+```
+
+The refreshed summary reported:
+
+- Runs: `5`
+- LLM policy evidence runs: `5`
+- LLM true-improvement evidence runs: `2`
+- Runs with coverage-only traps: `0`
+- Highlighted candidate rows: `3`
+- Distinct highlighted candidates: `3`
+
+Run-level result:
+
+| Run | LLM Evidence | LLM True Improvement | Candidate Sources | Highlight Sources | Best LLM True Improved |
+|---|---:|---:|---|---|---|
+| `selector_rewrite_pipeline_llm_v082_evidence5_llm_only` | `true` | `true` | `llm_rewrite:5` | `llm_rewrite:1` | `qr_cd595899ee` |
+| `selector_rewrite_pipeline_llm_v082_evidence6_llm_only_required` | `true` | `true` | `llm_rewrite:4` | `llm_rewrite:1` | `qr_d907a41282` |
+| `selector_rewrite_pipeline_llm_v082_evidence4` | `true` | `false` | `llm_rewrite:4|local_rewrite:2` | `local_rewrite:1` | `none` |
+| `selector_rewrite_pipeline_llm_v082_evidence7_llm_only_required` | `true` | `false` | `llm_rewrite:3` | `none` | `none` |
+| `selector_rewrite_pipeline_llm_v082_evidence8_llm_only_required` | `true` | `false` | `llm_rewrite:3` | `none` | `none` |
+
+The highlighted candidate aggregate still contains only one occurrence each of the two LLM-sourced true improvements:
+
+- `qr_cd595899ee`: `zscore(corr(sub(close,open),volume,36),96)`, pass-rate delta `+0.20`, mean-Sharpe delta
+  `+0.04900644`.
+- `qr_d907a41282`: `neg(zscore(sma(funding_rate,48),120))`, pass-rate delta `+0.20`, mean-Sharpe delta `+0.02518252`.
+
+Interpretation: the LLM-only audit path is now repeatable, but the evidence is not stable enough to claim a reliable
+selector rewrite improvement policy. The two positive LLM true-improved candidates did not repeat, attempts 7 and 8
+were cleanly rejected by the hard gate, and every highlighted candidate still failed four of five assets. The next useful
+algorithm step is not runtime promotion; it is to revise selector rewrite prompting or target selection so LLM repeats
+are less likely to collapse into weak slow-funding variants and more likely to produce repeatable, profitability-aware
+cross-asset improvements.

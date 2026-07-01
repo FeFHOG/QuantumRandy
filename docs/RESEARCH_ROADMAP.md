@@ -573,6 +573,24 @@ Expected value:
     modes before evaluation;
   - all outputs remain offline research artifacts and do not admit, publish, or update runtime strategies.
 
+### 2026-07-02
+
+- Continued the v0.8.2 LLM-only selector rewrite audit with hard-gated repeats 7 and 8:
+  - both runs used `--llm-only --require-llm-evidence --require-llm-true-improvement`;
+  - both completed rewrite, universe, portfolio, portfolio-universe, and review stages;
+  - both produced valid LLM policy evidence with local fallback disabled;
+  - both were correctly rejected by the true-improvement hard gate because all accepted candidates were
+    `not_improved`.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 8:
+  - runs: `5`;
+  - LLM policy evidence runs: `5`;
+  - LLM true-improvement evidence runs: `2`;
+  - coverage-only trap runs: `0`;
+  - distinct highlighted candidates: `3`.
+- Current interpretation: the LLM-only audit path is repeatable and attribution-clean, but the positive candidates are
+  not stable across repeats. Attempts 7 and 8 drifted toward weak slow-funding variants and should be treated as
+  research-only negative controls, not admission or runtime publish evidence.
+
 ## Next Session Prompt
 
 If continuing this work in a new session, use this prompt:
