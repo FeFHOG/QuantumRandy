@@ -189,7 +189,7 @@ HTML = r"""<!doctype html>
       <div id="killBreakdown" style="padding:10px 14px;display:flex;gap:16px;flex-wrap:wrap;font-size:13px"></div>
     </section>
     <section class="panel" id="reviewPanel" style="display:none">
-      <h2>Research Review <span class="muted" style="font-size:12px;font-weight:400">(Read-only data, universe, admission, failure memory, and portfolio artifacts)</span></h2>
+      <h2>Research Review <span class="muted" style="font-size:12px;font-weight:400">(Read-only data, universe, selector rewrite, admission, failure memory, and portfolio artifacts)</span></h2>
       <div id="researchReview" class="review-grid"></div>
     </section>
     <section class="panel">
@@ -427,6 +427,7 @@ HTML = r"""<!doctype html>
       const dataReadiness = review.data_readiness || {};
       const universe = review.universe_robustness || {};
       const portfolioUniverse = review.portfolio_universe || {};
+      const selectorPipeline = review.selector_pipeline_review || {};
       const admission = review.admission || {};
       const failure = review.failure_memory || {};
       const portfolio = review.portfolio_walk_forward || {};
@@ -435,6 +436,7 @@ HTML = r"""<!doctype html>
         reviewDataReadinessCard(dataReadiness) +
         reviewUniverseCard(universe) +
         reviewPortfolioUniverseCard(portfolioUniverse) +
+        reviewSelectorPipelineCard(selectorPipeline) +
         reviewAdmissionCard(admission) +
         reviewFailureCard(failure) +
         reviewPortfolioCard(portfolio) +
@@ -484,6 +486,27 @@ HTML = r"""<!doctype html>
           '<div class="review-row"><strong>' + escapeHtml(r.portfolio_id || '-') +
           '</strong><br><span class="muted">pass=' + fmt(r.pass_rate, 2) + ' sharpe=' + fmt(r.mean_sharpe, 2) +
           ' rank_ic=' + fmt(r.median_rank_ic, 4) + '</span></div>'
+        ).join('') + '</div></div>';
+    }
+
+    function reviewSelectorPipelineCard(data) {
+      const rows = data.top || [];
+      return '<div class="review-card"><h3>Selector Pipeline Review</h3>' +
+        '<div class="review-stats">' +
+        '<div class="review-stat"><span>Improved</span><strong style="color:var(--good)">' + (data.improved ?? 0) + '</strong></div>' +
+        '<div class="review-stat"><span>Mixed</span><strong style="color:var(--warn)">' + (data.mixed ?? 0) + '</strong></div>' +
+        '<div class="review-stat"><span>Not Improved</span><strong style="color:var(--bad)">' + (data.not_improved ?? 0) + '</strong></div>' +
+        '<div class="review-stat"><span>Needs Eval</span><strong>' + (data.needs_evaluation ?? 0) + '</strong></div>' +
+        '</div><div class="muted" style="font-size:11px;margin-bottom:8px">' + (data.source || 'No selector pipeline review artifact') + '</div>' +
+        '<div class="muted" style="font-size:11px;margin-bottom:8px">parents=' + (data.parents ?? 0) +
+        ' candidates=' + (data.candidates ?? 0) + ' evaluated=' + (data.evaluated_candidates ?? 0) + '</div>' +
+        '<div class="review-list">' + rows.map(r =>
+          '<div class="review-row"><strong class="' + (r.verdict === 'improved' ? 'pass' : r.verdict === 'not_improved' ? 'fail' : '') + '">' +
+          escapeHtml(r.verdict || '-') + '</strong> <span class="muted">' + escapeHtml(r.parent_factor_id || '-') +
+          '</span><br><span class="muted">pass_delta=' + fmt(r.pass_rate_delta, 2) + ' sharpe_delta=' + fmt(r.mean_sharpe_delta, 2) +
+          ' best_pass=' + fmt(r.best_candidate_pass_rate, 2) + ' best_sharpe=' + fmt(r.best_candidate_mean_sharpe, 2) +
+          '</span><br><span style="font-family:Consolas,monospace;color:var(--gold)">' + escapeHtml(r.best_candidate_factor_id || '-') +
+          '</span><br><span class="muted">' + escapeHtml(r.best_candidate_formula || '-') + '</span></div>'
         ).join('') + '</div></div>';
     }
 
@@ -896,6 +919,9 @@ def build_research_review_payload(output_dir: str | Path) -> dict:
     portfolio_universe = _portfolio_universe_payload(
         _latest_artifact(reports_root, "portfolio_universe*", "portfolio_universe_summary.csv")
     )
+    selector_pipeline = _selector_pipeline_review_payload(
+        _latest_artifact(reports_root, "selector_rewrite_pipeline*/review", "selector_pipeline_review.csv")
+    )
     admission = _admission_payload(_latest_artifact(reports_root, "admission*", "admission_decisions.csv"))
     failure = _failure_payload(
         _latest_artifact(reports_root, "failure_memory*", "failure_memory.csv"),
@@ -905,13 +931,14 @@ def build_research_review_payload(output_dir: str | Path) -> dict:
         _latest_artifact(reports_root, "portfolio_walk_forward*", "portfolio_walk_forward_summary.csv")
     )
     pareto = _pareto_payload(_latest_artifact(reports_root, "*", "pareto_archive.json"))
-    sections = (data_readiness, universe, portfolio_universe, admission, failure, portfolio, pareto)
+    sections = (data_readiness, universe, portfolio_universe, selector_pipeline, admission, failure, portfolio, pareto)
     available = any(section.get("available") for section in sections)
     return {
         "available": available,
         "data_readiness": data_readiness,
         "universe_robustness": universe,
         "portfolio_universe": portfolio_universe,
+        "selector_pipeline_review": selector_pipeline,
         "admission": admission,
         "failure_memory": failure,
         "portfolio_walk_forward": portfolio,
@@ -1021,6 +1048,48 @@ def _portfolio_universe_payload(path: Path | None) -> dict:
                 "robustness_score": _num(row.get("robustness_score")),
             }
             for row in frame.head(5).to_dict(orient="records")
+        ],
+    }
+
+
+def _selector_pipeline_review_payload(path: Path | None) -> dict:
+    if path is None:
+        return {"available": False}
+    try:
+        frame = pd.read_csv(path)
+    except Exception as exc:
+        return {"available": False, "source": str(path), "error": str(exc)}
+    verdicts = frame.get("review_verdict", pd.Series(dtype=str)).fillna("")
+    top = frame.copy()
+    if not top.empty:
+        for column in ("pass_rate_delta", "mean_sharpe_delta"):
+            if column not in top.columns:
+                top[column] = 0.0
+        top = top.sort_values(["pass_rate_delta", "mean_sharpe_delta"], ascending=[False, False])
+    return {
+        "available": True,
+        "source": _display_path(path),
+        "parents": int(len(frame)),
+        "candidates": int(sum(_num(value) for value in frame.get("candidate_count", pd.Series(dtype=float)))),
+        "evaluated_candidates": int(
+            sum(_num(value) for value in frame.get("evaluated_candidate_count", pd.Series(dtype=float)))
+        ),
+        "improved": int((verdicts == "improved").sum()),
+        "mixed": int((verdicts == "mixed").sum()),
+        "not_improved": int((verdicts == "not_improved").sum()),
+        "needs_evaluation": int((verdicts == "needs_evaluation").sum()),
+        "top": [
+            {
+                "parent_factor_id": row.get("parent_factor_id", ""),
+                "verdict": row.get("review_verdict", ""),
+                "pass_rate_delta": _num(row.get("pass_rate_delta")),
+                "mean_sharpe_delta": _num(row.get("mean_sharpe_delta")),
+                "best_candidate_factor_id": row.get("best_candidate_factor_id", ""),
+                "best_candidate_formula": row.get("best_candidate_formula", ""),
+                "best_candidate_pass_rate": _num(row.get("best_candidate_pass_rate")),
+                "best_candidate_mean_sharpe": _num(row.get("best_candidate_mean_sharpe")),
+            }
+            for row in top.head(5).to_dict(orient="records")
         ],
     }
 

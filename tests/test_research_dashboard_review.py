@@ -131,6 +131,61 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
         ]
     ).to_csv(portfolio_universe / "portfolio_universe_summary.csv", index=False)
 
+    selector_review = reports / "selector_rewrite_pipeline_smoke" / "review"
+    selector_review.mkdir(parents=True)
+    pd.DataFrame(
+        [
+            {
+                "parent_factor_id": "carry_parent",
+                "review_verdict": "improved",
+                "candidate_count": 2,
+                "evaluated_candidate_count": 2,
+                "best_candidate_factor_id": "carry_rewrite",
+                "best_candidate_formula": "neg(zscore(funding_rate,72))",
+                "best_candidate_pass_rate": 0.8,
+                "best_candidate_mean_sharpe": 0.7,
+                "pass_rate_delta": 0.4,
+                "mean_sharpe_delta": 0.3,
+            },
+            {
+                "parent_factor_id": "trend_parent",
+                "review_verdict": "mixed",
+                "candidate_count": 1,
+                "evaluated_candidate_count": 1,
+                "best_candidate_factor_id": "trend_rewrite",
+                "best_candidate_formula": "zscore(ret(close,24),96)",
+                "best_candidate_pass_rate": 0.4,
+                "best_candidate_mean_sharpe": 0.1,
+                "pass_rate_delta": 0.2,
+                "mean_sharpe_delta": -0.1,
+            },
+            {
+                "parent_factor_id": "range_parent",
+                "review_verdict": "not_improved",
+                "candidate_count": 2,
+                "evaluated_candidate_count": 2,
+                "best_candidate_factor_id": "range_rewrite",
+                "best_candidate_formula": "zscore(sub(high,low),96)",
+                "best_candidate_pass_rate": 0.0,
+                "best_candidate_mean_sharpe": -0.2,
+                "pass_rate_delta": -0.2,
+                "mean_sharpe_delta": -0.3,
+            },
+            {
+                "parent_factor_id": "fresh_parent",
+                "review_verdict": "needs_evaluation",
+                "candidate_count": 1,
+                "evaluated_candidate_count": 0,
+                "best_candidate_factor_id": "fresh_rewrite",
+                "best_candidate_formula": "zscore(volume,48)",
+                "best_candidate_pass_rate": 0.0,
+                "best_candidate_mean_sharpe": 0.0,
+                "pass_rate_delta": 0.0,
+                "mean_sharpe_delta": 0.0,
+            },
+        ]
+    ).to_csv(selector_review / "selector_pipeline_review.csv", index=False)
+
     research = reports / "research_live"
     (research / "pareto_archive.json").write_text(
         json.dumps(
@@ -172,6 +227,15 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
     assert payload["portfolio_universe"]["best_pass_rate"] == 0.4
     assert payload["portfolio_universe"]["max_pass_rate"] == 0.4
     assert payload["portfolio_universe"]["top"][0]["portfolio_id"] == "equal_weight_accepted"
+    assert payload["selector_pipeline_review"]["parents"] == 4
+    assert payload["selector_pipeline_review"]["candidates"] == 6
+    assert payload["selector_pipeline_review"]["evaluated_candidates"] == 5
+    assert payload["selector_pipeline_review"]["improved"] == 1
+    assert payload["selector_pipeline_review"]["mixed"] == 1
+    assert payload["selector_pipeline_review"]["not_improved"] == 1
+    assert payload["selector_pipeline_review"]["needs_evaluation"] == 1
+    assert payload["selector_pipeline_review"]["top"][0]["parent_factor_id"] == "carry_parent"
+    assert payload["selector_pipeline_review"]["top"][0]["best_candidate_factor_id"] == "carry_rewrite"
 
 
 def test_research_review_payload_hides_when_no_artifacts(tmp_path) -> None:
