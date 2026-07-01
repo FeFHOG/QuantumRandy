@@ -10,6 +10,7 @@ from quantumrandy.candidate_selector import write_candidate_selector_report
 from quantumrandy.selector_pipeline import (
     build_selector_pipeline_candidate_review,
     build_selector_pipeline_review,
+    render_review_report,
     run_selector_rewrite_pipeline,
 )
 
@@ -134,6 +135,7 @@ def test_selector_rewrite_pipeline_runs_research_only_evidence_chain(tmp_path) -
     review_report = (tmp_path / "pipeline" / "review" / "SELECTOR_PIPELINE_REVIEW.md").read_text(encoding="utf-8")
     assert "research comparison artifact only" in review_report
     assert "Candidate Verdict Counts" in review_report
+    assert "Candidate-Level Highlights" in review_report
     review_manifest = json.loads(
         (tmp_path / "pipeline" / "review" / "selector_pipeline_review_manifest.json").read_text(encoding="utf-8")
     )
@@ -317,3 +319,21 @@ def test_selector_pipeline_review_compares_parent_and_rewrite_evidence(tmp_path)
     assert by_candidate["rewrite_g"]["candidate_review_verdict"] == "improved"
     assert by_candidate["rewrite_g"]["pass_rate_delta"] == 0.2
     assert by_candidate["rewrite_g"]["mean_sharpe_delta"] == 0.1
+
+    report = render_review_report(
+        {
+            "review_rows": len(review),
+            "candidate_review_rows": len(candidate_review),
+            "verdict_counts": {"improved": 2},
+            "candidate_verdict_counts": {"improved": 2, "coverage_only": 2, "mixed": 1},
+        },
+        review,
+        candidate_review=candidate_review,
+    )
+    assert "True Improved Candidates" in report
+    assert "`rewrite_g`" in report
+    assert "ETHUSDT" in report
+    assert "Coverage-Only Traps" in report
+    assert "`rewrite_f`" in report
+    assert "Sharpe-Improved Without Pass-Rate Lift" in report
+    assert "`rewrite_e`" in report

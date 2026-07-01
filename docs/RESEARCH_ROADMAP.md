@@ -546,8 +546,9 @@ Expected value:
     with per-candidate verdicts and deltas before parent-level best-candidate aggregation;
   - the mining dashboard review payload reads the candidate-level selector review when present and summarizes
     candidate verdict counts plus top candidate-level rows without changing runtime or admission behavior;
-  - `SELECTOR_PIPELINE_REVIEW.md` now includes candidate-level verdict counts so the same review can be audited without
-    opening the dashboard.
+  - `SELECTOR_PIPELINE_REVIEW.md` now includes candidate-level verdict counts and highlight tables for true improved
+    candidates, coverage-only traps, and Sharpe-improved/no-pass-lift candidates so the same review can be audited
+    without opening the dashboard or raw CSV.
   - selector rewrite prompts now ask LLM candidates to optimize both `pass_rate_delta > 0` and
     `mean_sharpe_delta >= 0`, justify normalized range/volatility profitability, and predict likely cross-asset failure
     modes before evaluation;

@@ -458,10 +458,19 @@ def _write_review_outputs(out: Path, *, review: pd.DataFrame, candidate_review: 
     safe_write_csv(out / "selector_pipeline_review.csv", review, out / "events.jsonl")
     safe_write_csv(out / "selector_pipeline_candidate_review.csv", candidate_review, out / "events.jsonl")
     safe_write_json(out / "selector_pipeline_review_manifest.json", manifest, out / "events.jsonl")
-    safe_write_text(out / "SELECTOR_PIPELINE_REVIEW.md", render_review_report(manifest, review), out / "events.jsonl")
+    safe_write_text(
+        out / "SELECTOR_PIPELINE_REVIEW.md",
+        render_review_report(manifest, review, candidate_review=candidate_review),
+        out / "events.jsonl",
+    )
 
 
-def render_review_report(manifest: dict[str, Any], review: pd.DataFrame) -> str:
+def render_review_report(
+    manifest: dict[str, Any],
+    review: pd.DataFrame,
+    *,
+    candidate_review: pd.DataFrame | None = None,
+) -> str:
     lines = [
         "# QuantumRandy Selector Rewrite Pipeline Review",
         "",
@@ -493,6 +502,33 @@ def render_review_report(manifest: dict[str, Any], review: pd.DataFrame) -> str:
     else:
         lines.append("| none | 0 |")
 
+    if candidate_review is not None and not candidate_review.empty:
+        lines.extend(["", "## Candidate-Level Highlights", ""])
+        lines.extend(
+            _render_candidate_highlight_table(
+                candidate_review,
+                title="True Improved Candidates",
+                verdicts={"improved"},
+                empty_message="No candidates improved pass rate while preserving or improving mean Sharpe.",
+            )
+        )
+        lines.extend(
+            _render_candidate_highlight_table(
+                candidate_review,
+                title="Coverage-Only Traps",
+                verdicts={"coverage_only"},
+                empty_message="No candidates only improved coverage while reducing mean Sharpe.",
+            )
+        )
+        lines.extend(
+            _render_candidate_highlight_table(
+                candidate_review,
+                title="Sharpe-Improved Without Pass-Rate Lift",
+                verdicts={"mixed"},
+                empty_message="No candidates improved mean Sharpe without a pass-rate lift.",
+            )
+        )
+
     lines.extend(["", "## Parent vs Rewrite Evidence", ""])
     if review.empty:
         lines.append("No reviewed rewrite candidates.")
@@ -519,6 +555,60 @@ def render_review_report(manifest: dict[str, Any], review: pd.DataFrame) -> str:
         ]
     )
     return "\n".join(lines) + "\n"
+
+
+def _render_candidate_highlight_table(
+    candidate_review: pd.DataFrame,
+    *,
+    title: str,
+    verdicts: set[str],
+    empty_message: str,
+    limit: int = 10,
+) -> list[str]:
+    lines = [f"### {title}", ""]
+    if "candidate_review_verdict" not in candidate_review.columns:
+        lines.extend([empty_message, ""])
+        return lines
+
+    rows = candidate_review[
+        candidate_review["candidate_review_verdict"].fillna("").isin(verdicts)
+    ].copy()
+    if rows.empty:
+        lines.extend([empty_message, ""])
+        return lines
+
+    for column in ("candidate_verdict_rank", "pass_rate_delta", "mean_sharpe_delta", "candidate_mean_sharpe"):
+        if column not in rows.columns:
+            rows[column] = 0.0
+    rows = rows.sort_values(
+        ["candidate_verdict_rank", "pass_rate_delta", "mean_sharpe_delta", "candidate_mean_sharpe"],
+        ascending=[False, False, False, False],
+    )
+    lines.append("| Parent | Candidate | Verdict | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |")
+    lines.append("|---|---|---|---:|---:|---|---|")
+    for row in rows.head(limit).to_dict(orient="records"):
+        lines.append(
+            "| "
+            f"`{row.get('parent_factor_id', '')}` | `{row.get('factor_id', '')}` | "
+            f"`{row.get('candidate_review_verdict', '')}` | {_num(row.get('pass_rate_delta')):.2f} | "
+            f"{_num(row.get('mean_sharpe_delta')):.2f} | "
+            f"{_md_cell(row.get('candidate_failed_assets', ''))} | "
+            f"`{_short_formula(row.get('formula', ''))}` |"
+        )
+    lines.append("")
+    return lines
+
+
+def _short_formula(value: Any, *, limit: int = 96) -> str:
+    formula = str(value).replace("\n", " ").strip()
+    if len(formula) <= limit:
+        return formula
+    return formula[: limit - 3].rstrip() + "..."
+
+
+def _md_cell(value: Any) -> str:
+    text = str(value).replace("\n", " ").strip()
+    return text.replace("|", "\\|") if text else "none"
 
 
 def _review_verdict(*, evaluated: int, pass_rate_delta: float, mean_sharpe_delta: float) -> str:
