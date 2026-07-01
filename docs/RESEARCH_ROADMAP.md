@@ -516,6 +516,15 @@ Expected value:
   - DeepSeek generate and rewrite prompts include rewrite targets, evidence gaps, and weak cross-asset clusters;
   - LLM events record how many selector rewrite targets, evidence gaps, and clusters were sent;
   - this remains prompt context only and does not auto-admit, auto-publish, or update runtime strategies.
+- Added a research-only selector rewrite batch:
+  - added `QuantumRandy/quantumrandy/candidate_rewrite.py`;
+  - added `QuantumRandy/scripts/rewrite_selector_candidates.py`;
+  - added tests in `QuantumRandy/tests/test_candidate_rewrite.py`;
+  - writes leaderboard-style `selector_rewrite_candidates.json` plus CSV, event, manifest, and Markdown artifacts;
+  - local archive smoke generated 6 candidates from the top 3 selector rewrite targets and evaluated them across
+    BTC/ETH/SOL/BNB/AVAX into `reports/selector_rewrite_universe_archive_eval`;
+  - the local fallback rewrite smoke did not improve robustness materially: best pass rate was `0.20`, so the next
+    useful experiment should be a small LLM rewrite batch with selector context or a stronger local rewrite policy.
 
 ## Next Session Prompt
 

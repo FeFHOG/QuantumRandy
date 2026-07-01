@@ -65,7 +65,9 @@ Implemented:
 - LLM proposal schema v2 fields for hypothesis, expected edge, expected failure mode, and rewrite plan;
 - research-only candidate selector that combines leaderboard, universe robustness, portfolio-universe robustness, and
   failure-memory evidence into rewrite, deprioritize, and needs-evidence queues;
-- optional candidate selector prompt context for LLM generation and targeted rewrites.
+- optional candidate selector prompt context for LLM generation and targeted rewrites;
+- research-only selector rewrite batch artifacts for turning selector rewrite targets into downstream universe-evaluable
+  candidate JSON files.
 
 What this means:
 
@@ -87,6 +89,8 @@ Remaining algorithm risks:
   offline research triage artifact rather than an automated mining or promotion gate.
 - LLM prompts can consume candidate selector evidence, but the loop still needs repeated archive-backed runs to prove
   that this improves out-of-sample and cross-asset candidates.
+- The first local selector rewrite smoke did not materially improve multi-asset robustness, so candidate quality still
+  depends on better rewrite policy or an LLM run with selector evidence.
 - Pareto MCTS archive exists as a research review artifact; MCTS acquisition still uses the scalar reward.
 - DSL still uses a compact OHLCV/funding field set; open interest, basis, taker flow, liquidation, and cross-asset fields
   remain future work.
@@ -100,8 +104,8 @@ Remaining algorithm risks:
 - Phase 3 manual publishing flow: first implementation complete.
 - Phase 4 multi-factor portfolio layer: first offline implementation complete; runtime promotion remains manual.
 - Phase 5 algorithm upgrades: schema-v2 proposals, failure memory, admission, candidate selector with prompt context,
-  portfolio walk-forward, dashboard review, and first Pareto archive are implemented; richer Pareto-guided acquisition
-  is still pending.
+  selector rewrite batches, portfolio walk-forward, dashboard review, and first Pareto archive are implemented; richer
+  Pareto-guided acquisition is still pending.
 - Phase 6 live execution: planning only; no live execution code should be added in v0.8.
 
 ## Practical Next Steps
@@ -112,8 +116,9 @@ While the server agent handles the 48-hour paper trial:
 2. Continue algorithm work in research-only artifacts.
 3. Formalize a factor admission policy that combines brutal filter, blind validation, walk-forward survival, multi-asset
    robustness, correlation, turnover, and drawdown.
-4. Run a research-only LLM rewrite batch with `prompt.candidate_selector_path` pointed at the latest selector artifact,
-   then evaluate candidates through universe and portfolio-universe evidence before any admission review.
+4. Run a small research-only LLM selector rewrite batch with `prompt.candidate_selector_path` pointed at the latest
+   selector artifact, then evaluate candidates through universe and portfolio-universe evidence before any admission
+   review.
 5. Build failure memory from rejected candidates and schema-v2 proposal fields.
 6. Expand review panels with deeper drill-downs and artifact freshness checks.
 7. Prepare v0.8 beta release notes only after the server trial result is known.
