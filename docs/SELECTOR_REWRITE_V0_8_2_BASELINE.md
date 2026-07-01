@@ -219,3 +219,50 @@ source provenance:
 
 This does not change evaluation metrics, admission policy, publishing, or runtime behavior. It only makes the audit
 chain explicit enough to answer: "Did the highlighted improvement come from an LLM rewrite or from local fallback?"
+
+## LLM Evidence Repeat 4
+
+Date: 2026-07-02
+
+Command:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence4 \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --require-llm-evidence \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke
+```
+
+Attempt 4 completed as a research-only mixed-source repeat:
+
+- `known_selector_formula_count`: `3`
+- `llm_rewrite_accepted`: `4`
+- `fallback_rewrite_accepted`: `2`
+- `is_llm_policy_evidence`: `true`
+- `llm_error_count`: `0`
+- Candidate generation source counts: `llm_rewrite:4|local_rewrite:2`
+- Candidate verdicts: `not_improved:5|improved:1`
+- Candidate highlights: `true_improved:1`
+- Candidate highlight source counts: `local_rewrite:1`
+- Coverage-only traps: `0`
+
+The only true improved candidate was again:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_7a765d304b` | `qr_e033dc4b6b` | `local_rewrite` | 0.20 | 0.09427579 | BTCUSDT,SOLUSDT,BNBUSDT,AVAXUSDT | `zscore(corr(funding_rate,ret(close,42),120),72)` |
+
+Interpretation: attempt 4 reconfirms that the LLM rewrite path is reachable and accepted four candidates without
+errors, but the single highlighted improvement came from the local fallback fill candidate. This run should therefore
+be treated as LLM-path evidence plus a local-improvement repeat, not as evidence that the LLM policy itself generated a
+new true-improved selector rewrite. The candidate-level source provenance is doing its job: it prevents a mixed batch
+from over-attributing local improvements to LLM rewrites.
