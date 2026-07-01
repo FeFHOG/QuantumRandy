@@ -146,6 +146,9 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
                 "best_candidate_mean_sharpe": 0.7,
                 "pass_rate_delta": 0.4,
                 "mean_sharpe_delta": 0.3,
+                "review_verdict_rank": 4,
+                "candidate_verdict_counts": "improved:1|not_improved:1",
+                "best_candidate_rank_reason": "verdict_rank=4; pass_rate_delta=0.40000000",
             },
             {
                 "parent_factor_id": "trend_parent",
@@ -158,6 +161,9 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
                 "best_candidate_mean_sharpe": 0.1,
                 "pass_rate_delta": 0.2,
                 "mean_sharpe_delta": -0.1,
+                "review_verdict_rank": 2,
+                "candidate_verdict_counts": "coverage_only:1",
+                "best_candidate_rank_reason": "verdict_rank=2; pass_rate_delta=0.20000000",
             },
             {
                 "parent_factor_id": "profit_parent",
@@ -170,6 +176,9 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
                 "best_candidate_mean_sharpe": 0.1,
                 "pass_rate_delta": 0.0,
                 "mean_sharpe_delta": 0.2,
+                "review_verdict_rank": 3,
+                "candidate_verdict_counts": "mixed:1",
+                "best_candidate_rank_reason": "verdict_rank=3; mean_sharpe_delta=0.20000000",
             },
             {
                 "parent_factor_id": "range_parent",
@@ -249,6 +258,8 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
     assert payload["selector_pipeline_review"]["needs_evaluation"] == 1
     assert payload["selector_pipeline_review"]["top"][0]["parent_factor_id"] == "carry_parent"
     assert payload["selector_pipeline_review"]["top"][0]["best_candidate_factor_id"] == "carry_rewrite"
+    assert payload["selector_pipeline_review"]["top"][0]["candidate_verdict_counts"] == "improved:1|not_improved:1"
+    assert "verdict_rank=4" in payload["selector_pipeline_review"]["top"][0]["best_candidate_rank_reason"]
 
 
 def test_research_review_payload_hides_when_no_artifacts(tmp_path) -> None:

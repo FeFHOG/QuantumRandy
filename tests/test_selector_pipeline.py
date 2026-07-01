@@ -289,6 +289,8 @@ def test_selector_pipeline_review_compares_parent_and_rewrite_evidence(tmp_path)
     assert by_parent["parent_a"]["review_verdict"] == "improved"
     assert by_parent["parent_a"]["pass_rate_delta"] == 0.4
     assert by_parent["parent_a"]["improvement_gate"] == "pass_rate_delta > 0 and mean_sharpe_delta >= 0"
+    assert by_parent["parent_a"]["candidate_verdict_counts"] == "improved:1|coverage_only:1"
+    assert "verdict_rank=4" in by_parent["parent_a"]["best_candidate_rank_reason"]
     assert by_parent["parent_b"]["review_verdict"] == "not_improved"
     assert by_parent["parent_c"]["review_verdict"] == "coverage_only"
     assert by_parent["parent_c"]["pass_rate_delta"] == 0.4
@@ -296,3 +298,5 @@ def test_selector_pipeline_review_compares_parent_and_rewrite_evidence(tmp_path)
     assert by_parent["parent_d"]["review_verdict"] == "mixed"
     assert by_parent["parent_e"]["best_candidate_factor_id"] == "rewrite_g"
     assert by_parent["parent_e"]["review_verdict"] == "improved"
+    assert by_parent["parent_e"]["candidate_verdict_counts"] == "improved:1|coverage_only:1"
+    assert review.iloc[0]["review_verdict"] == "improved"

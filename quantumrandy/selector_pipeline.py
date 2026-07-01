@@ -285,6 +285,7 @@ def build_selector_pipeline_review(
     for parent_factor_id, rows in grouped.items():
         parent_pass_rate = _num(rows[0].get("parent_universe_pass_rate"))
         parent_mean_sharpe = _num(rows[0].get("parent_universe_mean_sharpe"))
+        candidate_verdict_counts = _candidate_verdict_counts(rows, parent_pass_rate, parent_mean_sharpe)
         ranked = sorted(
             rows,
             key=lambda row: _candidate_review_rank(row, parent_pass_rate, parent_mean_sharpe),
@@ -311,6 +312,8 @@ def build_selector_pipeline_review(
                 "best_candidate_median_rank_ic": _num(best.get("candidate_median_rank_ic")),
                 "best_candidate_robustness_score": _num(best.get("candidate_robustness_score")),
                 "best_candidate_failed_assets": best.get("candidate_failed_assets", ""),
+                "best_candidate_rank_reason": _candidate_rank_reason(best, parent_pass_rate, parent_mean_sharpe),
+                "candidate_verdict_counts": _format_verdict_counts(candidate_verdict_counts),
                 "pass_rate_delta": pass_rate_delta,
                 "mean_sharpe_delta": mean_sharpe_delta,
                 "improvement_gate": "pass_rate_delta > 0 and mean_sharpe_delta >= 0",
@@ -325,9 +328,10 @@ def build_selector_pipeline_review(
     frame = pd.DataFrame(review_rows)
     if frame.empty:
         return frame
+    frame["review_verdict_rank"] = frame["review_verdict"].map(_VERDICT_RANK).fillna(0).astype(int)
     return frame.sort_values(
-        ["review_verdict", "pass_rate_delta", "mean_sharpe_delta"],
-        ascending=[True, False, False],
+        ["review_verdict_rank", "pass_rate_delta", "mean_sharpe_delta"],
+        ascending=[False, False, False],
     ).reset_index(drop=True)
 
 
@@ -467,6 +471,15 @@ def _review_verdict(*, evaluated: int, pass_rate_delta: float, mean_sharpe_delta
     return "not_improved"
 
 
+_VERDICT_RANK = {
+    "improved": 4,
+    "mixed": 3,
+    "coverage_only": 2,
+    "not_improved": 1,
+    "needs_evaluation": 0,
+}
+
+
 def _candidate_review_rank(row: dict[str, Any], parent_pass_rate: float, parent_mean_sharpe: float) -> tuple[int, float, float, float, float]:
     evaluated = int(row.get("candidate_evaluated_assets", 0))
     pass_rate = _num(row.get("candidate_pass_rate"))
@@ -478,19 +491,44 @@ def _candidate_review_rank(row: dict[str, Any], parent_pass_rate: float, parent_
         pass_rate_delta=pass_rate_delta,
         mean_sharpe_delta=mean_sharpe_delta,
     )
-    verdict_rank = {
-        "improved": 4,
-        "mixed": 3,
-        "coverage_only": 2,
-        "not_improved": 1,
-        "needs_evaluation": 0,
-    }.get(verdict, 0)
+    verdict_rank = _VERDICT_RANK.get(verdict, 0)
     return (
         verdict_rank,
         pass_rate_delta,
         mean_sharpe_delta,
         mean_sharpe,
         _num(row.get("candidate_robustness_score")),
+    )
+
+
+def _candidate_verdict_counts(
+    rows: list[dict[str, Any]],
+    parent_pass_rate: float,
+    parent_mean_sharpe: float,
+) -> dict[str, int]:
+    counts = {verdict: 0 for verdict in _VERDICT_RANK}
+    for row in rows:
+        pass_rate = _num(row.get("candidate_pass_rate"))
+        mean_sharpe = _num(row.get("candidate_mean_sharpe"))
+        verdict = _review_verdict(
+            evaluated=int(row.get("candidate_evaluated_assets", 0)),
+            pass_rate_delta=round(pass_rate - parent_pass_rate, 8),
+            mean_sharpe_delta=round(mean_sharpe - parent_mean_sharpe, 8),
+        )
+        counts[verdict] = counts.get(verdict, 0) + 1
+    return {verdict: counts[verdict] for verdict in _VERDICT_RANK if counts.get(verdict)}
+
+
+def _format_verdict_counts(counts: dict[str, int]) -> str:
+    return "|".join(f"{verdict}:{count}" for verdict, count in counts.items() if count)
+
+
+def _candidate_rank_reason(row: dict[str, Any], parent_pass_rate: float, parent_mean_sharpe: float) -> str:
+    rank = _candidate_review_rank(row, parent_pass_rate, parent_mean_sharpe)
+    return (
+        f"verdict_rank={rank[0]}; pass_rate_delta={rank[1]:.8f}; "
+        f"mean_sharpe_delta={rank[2]:.8f}; mean_sharpe={rank[3]:.8f}; "
+        f"robustness_score={rank[4]:.8f}"
     )
 
 

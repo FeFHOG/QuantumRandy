@@ -1066,7 +1066,20 @@ def _selector_pipeline_review_payload(path: Path | None) -> dict:
         for column in ("pass_rate_delta", "mean_sharpe_delta"):
             if column not in top.columns:
                 top[column] = 0.0
-        top = top.sort_values(["pass_rate_delta", "mean_sharpe_delta"], ascending=[False, False])
+        if "review_verdict_rank" not in top.columns:
+            top["review_verdict_rank"] = verdicts.map(
+                {
+                    "improved": 4,
+                    "mixed": 3,
+                    "coverage_only": 2,
+                    "not_improved": 1,
+                    "needs_evaluation": 0,
+                }
+            ).fillna(0)
+        top = top.sort_values(
+            ["review_verdict_rank", "pass_rate_delta", "mean_sharpe_delta"],
+            ascending=[False, False, False],
+        )
     return {
         "available": True,
         "source": _display_path(path),
@@ -1090,6 +1103,8 @@ def _selector_pipeline_review_payload(path: Path | None) -> dict:
                 "best_candidate_formula": row.get("best_candidate_formula", ""),
                 "best_candidate_pass_rate": _num(row.get("best_candidate_pass_rate")),
                 "best_candidate_mean_sharpe": _num(row.get("best_candidate_mean_sharpe")),
+                "candidate_verdict_counts": row.get("candidate_verdict_counts", ""),
+                "best_candidate_rank_reason": row.get("best_candidate_rank_reason", ""),
             }
             for row in top.head(5).to_dict(orient="records")
         ],

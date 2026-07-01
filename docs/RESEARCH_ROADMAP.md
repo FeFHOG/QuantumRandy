@@ -540,6 +540,8 @@ Expected value:
     pass rate while reducing parent mean Sharpe are not treated as acceptable improvements;
   - parent-level review selection now ranks candidates by improvement-gate quality before raw pass rate, preventing
     coverage-only candidates from hiding lower-pass but genuinely Sharpe-improving rewrites;
+  - review rows now include per-parent candidate verdict counts and a best-candidate rank reason, making it easier to
+    audit whether an improved parent also had rejected or coverage-only alternatives;
   - selector rewrite prompts now ask LLM candidates to optimize both `pass_rate_delta > 0` and
     `mean_sharpe_delta >= 0`, justify normalized range/volatility profitability, and predict likely cross-asset failure
     modes before evaluation;
