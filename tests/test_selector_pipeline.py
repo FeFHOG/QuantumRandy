@@ -131,10 +131,15 @@ def test_selector_rewrite_pipeline_runs_research_only_evidence_chain(tmp_path) -
     )
     assert persisted["portfolio_universe"]["status"] == "completed"
     assert persisted["review"]["status"] == "completed"
+    assert persisted["review"]["candidate_review_rows"] >= persisted["review"]["review_rows"]
+    assert "candidate_verdict_counts" in persisted["review"]
+    assert "candidate_highlight_counts" in persisted["review"]
     assert "pipeline_candidate_review" in persisted["outputs"]
     assert "pipeline_candidate_highlights" in persisted["outputs"]
     report = (tmp_path / "pipeline" / "SELECTOR_REWRITE_PIPELINE_REPORT.md").read_text(encoding="utf-8")
     assert "research artifact only" in report
+    assert "Reviewed candidates" in report
+    assert "Candidate highlight mix" in report
     review_report = (tmp_path / "pipeline" / "review" / "SELECTOR_PIPELINE_REVIEW.md").read_text(encoding="utf-8")
     assert "research comparison artifact only" in review_report
     assert "Candidate Verdict Counts" in review_report

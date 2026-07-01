@@ -118,6 +118,7 @@ def run_selector_rewrite_pipeline(
         )
         review = build_selector_pipeline_review_from_candidates(candidate_review)
         _write_review_outputs(out / "review", review=review, candidate_review=candidate_review)
+        candidate_highlights = build_selector_pipeline_candidate_highlights(candidate_review)
         manifest["universe"] = {
             "status": "completed",
             "out_dir": universe_out.as_posix(),
@@ -129,6 +130,10 @@ def run_selector_rewrite_pipeline(
             "out_dir": (out / "review").as_posix(),
             "review_rows": len(review),
             "verdict_counts": _value_counts(review, "review_verdict"),
+            "candidate_review_rows": len(candidate_review),
+            "candidate_verdict_counts": _value_counts(candidate_review, "candidate_review_verdict"),
+            "candidate_highlight_rows": len(candidate_highlights),
+            "candidate_highlight_counts": _value_counts(candidate_highlights, "highlight_type"),
         }
         manifest["outputs"]["universe_summary"] = (universe_out / "universe_summary.csv").as_posix()
         manifest["outputs"]["pipeline_review"] = (out / "review" / "selector_pipeline_review.csv").as_posix()
@@ -229,17 +234,27 @@ def render_pipeline_report(manifest: dict[str, Any]) -> str:
         f"- Window: `{manifest['window']}`",
         f"- Rewrite candidates: `{manifest['rewrite']['candidate_count']}`",
         f"- Selector forbidden subtrees: `{manifest['rewrite']['selector_forbidden_subtree_count']}`",
-        "",
-        "## Stages",
-        "",
-        "| Stage | Status | Detail |",
-        "|---|---|---|",
     ]
+    review = manifest.get("review", {})
+    if review.get("status") == "completed":
+        lines.extend(
+            [
+                f"- Reviewed parents: `{review.get('review_rows', 0)}`",
+                f"- Reviewed candidates: `{review.get('candidate_review_rows', 0)}`",
+                f"- Candidate highlights: `{review.get('candidate_highlight_rows', 0)}`",
+            ]
+        )
+        candidate_counts = review.get("candidate_verdict_counts") or {}
+        highlight_counts = review.get("candidate_highlight_counts") or {}
+        if candidate_counts:
+            lines.append(f"- Candidate verdict mix: `{_format_counts(candidate_counts)}`")
+        if highlight_counts:
+            lines.append(f"- Candidate highlight mix: `{_format_counts(highlight_counts)}`")
+    lines.extend(["", "## Stages", "", "| Stage | Status | Detail |", "|---|---|---|"])
     for stage in ["rewrite", "universe", "portfolio", "portfolio_universe"]:
         payload = manifest.get(stage, {})
         detail = payload.get("out_dir") or payload.get("reason") or ""
         lines.append(f"| `{stage}` | `{payload.get('status', '')}` | `{detail}` |")
-    review = manifest.get("review", {})
     lines.append(f"| `review` | `{review.get('status', '')}` | `{review.get('out_dir') or review.get('reason') or ''}` |")
     lines.extend(
         [
@@ -729,6 +744,10 @@ def _candidate_verdict_counts(
 
 def _format_verdict_counts(counts: dict[str, int]) -> str:
     return "|".join(f"{verdict}:{count}" for verdict, count in counts.items() if count)
+
+
+def _format_counts(counts: dict[str, Any]) -> str:
+    return "|".join(f"{key}:{value}" for key, value in counts.items() if value)
 
 
 def _candidate_rank_reason(row: dict[str, Any], parent_pass_rate: float, parent_mean_sharpe: float) -> str:

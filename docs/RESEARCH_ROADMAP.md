@@ -546,6 +546,8 @@ Expected value:
     with per-candidate verdicts and deltas before parent-level best-candidate aggregation;
   - the review stage also writes `selector_pipeline_candidate_highlights.csv`, a compact machine-readable audit queue
     for true improvements, coverage-only traps, and Sharpe-improved/no-pass-lift candidates;
+  - the top-level selector rewrite pipeline manifest and report summarize candidate verdict and highlight mixes so a
+    handoff can audit rewrite quality without opening the review subdirectory first;
   - the mining dashboard review payload reads the candidate-level selector review when present and summarizes
     candidate verdict counts plus top candidate-level rows with failed-asset and formula context, without changing
     runtime or admission behavior;
