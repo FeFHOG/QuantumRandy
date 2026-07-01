@@ -138,7 +138,7 @@ HTML = r"""<!doctype html>
     .metric-grid .mv { border-left: 2px solid var(--accent); padding-left: 8px; }
     .metric-grid .mv span { display: block; color: var(--muted); font-size: 11px; }
     .metric-grid .mv strong { display: block; font-size: 15px; margin-top: 2px; }
-    .review-grid { padding: 12px 14px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .review-grid { padding: 12px 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
     .review-card { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; min-height: 120px; }
     .review-card h3 { margin: 0 0 10px; font-size: 14px; color: var(--accent); }
     .review-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
@@ -189,7 +189,7 @@ HTML = r"""<!doctype html>
       <div id="killBreakdown" style="padding:10px 14px;display:flex;gap:16px;flex-wrap:wrap;font-size:13px"></div>
     </section>
     <section class="panel" id="reviewPanel" style="display:none">
-      <h2>Research Review <span class="muted" style="font-size:12px;font-weight:400">(Read-only admission, failure memory, and portfolio walk-forward artifacts)</span></h2>
+      <h2>Research Review <span class="muted" style="font-size:12px;font-weight:400">(Read-only data, universe, admission, failure memory, and portfolio artifacts)</span></h2>
       <div id="researchReview" class="review-grid"></div>
     </section>
     <section class="panel">
@@ -424,15 +424,50 @@ HTML = r"""<!doctype html>
         return;
       }
       panel.style.display = '';
+      const dataReadiness = review.data_readiness || {};
+      const universe = review.universe_robustness || {};
       const admission = review.admission || {};
       const failure = review.failure_memory || {};
       const portfolio = review.portfolio_walk_forward || {};
       const pareto = review.pareto_archive || {};
       box.innerHTML =
+        reviewDataReadinessCard(dataReadiness) +
+        reviewUniverseCard(universe) +
         reviewAdmissionCard(admission) +
         reviewFailureCard(failure) +
         reviewPortfolioCard(portfolio) +
         reviewParetoCard(pareto);
+    }
+
+    function reviewDataReadinessCard(data) {
+      const rows = data.rows || [];
+      return '<div class="review-card"><h3>Data Readiness</h3>' +
+        '<div class="review-stats">' +
+        '<div class="review-stat"><span>Ready</span><strong style="color:var(--good)">' + (data.ready ?? 0) + '/' + (data.assets ?? 0) + '</strong></div>' +
+        '<div class="review-stat"><span>Min Coverage</span><strong>' + fmt(data.min_research_coverage, 2) + '</strong></div>' +
+        '<div class="review-stat"><span>Max Gap</span><strong>' + (data.max_missing_bars ?? 0) + '</strong></div>' +
+        '</div><div class="muted" style="font-size:11px;margin-bottom:8px">' + (data.source || 'No data readiness artifact') + '</div>' +
+        '<div class="review-list">' + rows.map(r =>
+          '<div class="review-row"><strong class="' + (r.status === 'ready' ? 'pass' : 'fail') + '">' + escapeHtml(r.symbol || '-') +
+          '</strong><br><span class="muted">coverage=' + fmt(r.research_coverage_ratio, 2) +
+          ' funding=' + fmt(r.funding_alignment_coverage, 2) + ' stale_h=' + fmt(r.funding_max_staleness_hours, 1) +
+          '</span></div>'
+        ).join('') + '</div></div>';
+    }
+
+    function reviewUniverseCard(data) {
+      const rows = data.top || [];
+      return '<div class="review-card"><h3>Universe Robustness</h3>' +
+        '<div class="review-stats">' +
+        '<div class="review-stat"><span>Formulas</span><strong>' + (data.formulas ?? 0) + '</strong></div>' +
+        '<div class="review-stat"><span>Best Pass</span><strong style="color:var(--warn)">' + fmt(data.best_pass_rate, 2) + '</strong></div>' +
+        '<div class="review-stat"><span>Assets</span><strong>' + (data.assets ?? 0) + '</strong></div>' +
+        '</div><div class="muted" style="font-size:11px;margin-bottom:8px">' + (data.source || 'No universe artifact') + '</div>' +
+        '<div class="review-list">' + rows.map(r =>
+          '<div class="review-row"><span style="font-family:Consolas,monospace;color:var(--gold)">' + escapeHtml(r.factor_id || '-') +
+          '</span><br><span class="muted">pass=' + fmt(r.pass_rate, 2) + ' sharpe=' + fmt(r.mean_sharpe, 2) +
+          ' rank_ic=' + fmt(r.median_rank_ic, 4) + '</span></div>'
+        ).join('') + '</div></div>';
     }
 
     function reviewAdmissionCard(data) {
@@ -837,6 +872,10 @@ def build_research_review_payload(output_dir: str | Path) -> dict:
         out = Path(__file__).resolve().parents[1] / out
     reports_root = out.parent
 
+    data_readiness = _data_readiness_payload(
+        _latest_artifact(reports_root, "data*", "data_readiness.csv")
+    )
+    universe = _universe_payload(_latest_artifact(reports_root, "universe*", "universe_summary.csv"))
     admission = _admission_payload(_latest_artifact(reports_root, "admission*", "admission_decisions.csv"))
     failure = _failure_payload(
         _latest_artifact(reports_root, "failure_memory*", "failure_memory.csv"),
@@ -846,9 +885,12 @@ def build_research_review_payload(output_dir: str | Path) -> dict:
         _latest_artifact(reports_root, "portfolio_walk_forward*", "portfolio_walk_forward_summary.csv")
     )
     pareto = _pareto_payload(_latest_artifact(reports_root, "*", "pareto_archive.json"))
-    available = any(section.get("available") for section in (admission, failure, portfolio, pareto))
+    sections = (data_readiness, universe, admission, failure, portfolio, pareto)
+    available = any(section.get("available") for section in sections)
     return {
         "available": available,
+        "data_readiness": data_readiness,
+        "universe_robustness": universe,
         "admission": admission,
         "failure_memory": failure,
         "portfolio_walk_forward": portfolio,
@@ -861,6 +903,70 @@ def _latest_artifact(root: Path, directory_glob: str, filename: str) -> Path | N
     if not candidates:
         return None
     return max(candidates, key=lambda path: path.stat().st_mtime)
+
+
+def _data_readiness_payload(path: Path | None) -> dict:
+    if path is None:
+        return {"available": False}
+    try:
+        frame = pd.read_csv(path)
+    except Exception as exc:
+        return {"available": False, "source": str(path), "error": str(exc)}
+    ready = frame.get("ready", pd.Series(dtype=bool)).fillna(False).astype(bool)
+    coverage = [_num(value) for value in frame.get("research_coverage_ratio", pd.Series(dtype=float))]
+    missing = [_num(value) for value in frame.get("ohlcv_missing_bars", pd.Series(dtype=float))]
+    return {
+        "available": True,
+        "source": _display_path(path),
+        "assets": int(len(frame)),
+        "ready": int(ready.sum()),
+        "min_research_coverage": min(coverage) if coverage else 0.0,
+        "max_missing_bars": int(max(missing)) if missing else 0,
+        "rows": [
+            {
+                "symbol": row.get("symbol") or row.get("expected_symbol", ""),
+                "status": row.get("status", ""),
+                "research_coverage_ratio": _num(row.get("research_coverage_ratio")),
+                "funding_alignment_coverage": _num(row.get("funding_alignment_coverage")),
+                "funding_max_staleness_hours": _num(row.get("funding_max_staleness_hours")),
+            }
+            for row in frame.head(6).to_dict(orient="records")
+        ],
+    }
+
+
+def _universe_payload(path: Path | None) -> dict:
+    if path is None:
+        return {"available": False}
+    try:
+        frame = pd.read_csv(path)
+    except Exception as exc:
+        return {"available": False, "source": str(path), "error": str(exc)}
+    if "robustness_score" in frame.columns:
+        frame = frame.sort_values(
+            ["robustness_score", "pass_rate", "mean_sharpe", "median_rank_ic"],
+            ascending=[False, False, False, False],
+        )
+    best = frame.iloc[0].to_dict() if not frame.empty else {}
+    return {
+        "available": True,
+        "source": _display_path(path),
+        "formulas": int(len(frame)),
+        "assets": int(_num(best.get("asset_count"))),
+        "best_pass_rate": _num(best.get("pass_rate")),
+        "best_robustness_score": _num(best.get("robustness_score")),
+        "top": [
+            {
+                "factor_id": row.get("factor_id", ""),
+                "formula": row.get("formula", ""),
+                "pass_rate": _num(row.get("pass_rate")),
+                "mean_sharpe": _num(row.get("mean_sharpe")),
+                "median_rank_ic": _num(row.get("median_rank_ic")),
+                "robustness_score": _num(row.get("robustness_score")),
+            }
+            for row in frame.head(5).to_dict(orient="records")
+        ],
+    }
 
 
 def _admission_payload(path: Path | None) -> dict:

@@ -57,6 +57,57 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
             },
         ]
     ).to_csv(portfolio / "portfolio_walk_forward_summary.csv", index=False)
+
+    data_readiness = reports / "data_quality"
+    data_readiness.mkdir()
+    pd.DataFrame(
+        [
+            {
+                "symbol": "BTCUSDT",
+                "status": "ready",
+                "ready": True,
+                "research_coverage_ratio": 1.0,
+                "ohlcv_missing_bars": 0,
+                "funding_alignment_coverage": 1.0,
+                "funding_max_staleness_hours": 8.0,
+            },
+            {
+                "symbol": "ETHUSDT",
+                "status": "incomplete",
+                "ready": False,
+                "research_coverage_ratio": 0.8,
+                "ohlcv_missing_bars": 12,
+                "funding_alignment_coverage": 0.9,
+                "funding_max_staleness_hours": 16.0,
+            },
+        ]
+    ).to_csv(data_readiness / "data_readiness.csv", index=False)
+
+    universe = reports / "universe_archive_eval"
+    universe.mkdir()
+    pd.DataFrame(
+        [
+            {
+                "factor_id": "carry",
+                "formula": "neg(zscore(funding_rate,42))",
+                "asset_count": 5,
+                "pass_rate": 0.6,
+                "mean_sharpe": 0.4,
+                "median_rank_ic": 0.02,
+                "robustness_score": 1.2,
+            },
+            {
+                "factor_id": "trend",
+                "formula": "zscore(close,48)",
+                "asset_count": 5,
+                "pass_rate": 0.2,
+                "mean_sharpe": 0.1,
+                "median_rank_ic": 0.0,
+                "robustness_score": -0.5,
+            },
+        ]
+    ).to_csv(universe / "universe_summary.csv", index=False)
+
     research = reports / "research_live"
     (research / "pareto_archive.json").write_text(
         json.dumps(
@@ -86,6 +137,13 @@ def test_research_review_payload_reads_artifact_summaries(tmp_path) -> None:
     assert payload["portfolio_walk_forward"]["top"][0]["portfolio_id"] == "equal_weight_accepted"
     assert payload["pareto_archive"]["front_count"] == 2
     assert payload["pareto_archive"]["front"][0]["formula"] == "strong"
+    assert payload["data_readiness"]["ready"] == 1
+    assert payload["data_readiness"]["assets"] == 2
+    assert payload["data_readiness"]["min_research_coverage"] == 0.8
+    assert payload["data_readiness"]["max_missing_bars"] == 12
+    assert payload["universe_robustness"]["formulas"] == 2
+    assert payload["universe_robustness"]["best_pass_rate"] == 0.6
+    assert payload["universe_robustness"]["top"][0]["factor_id"] == "carry"
 
 
 def test_research_review_payload_hides_when_no_artifacts(tmp_path) -> None:
