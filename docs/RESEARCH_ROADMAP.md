@@ -690,6 +690,27 @@ Expected value:
   - distinct highlighted candidates: `6`;
   - negative candidate rows: `30`;
   - negative candidate family rows: `12`.
+- Ran negative-memory attempt 16 as another hard-gated repeat:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence16_negative_memory_repeat`;
+  - the run remained valid LLM policy evidence with `llm_rewrite_accepted=4` and `fallback_rewrite_accepted=0`;
+  - the true-improvement hard gate correctly rejected the run because all four reviewed candidates were
+    `not_improved`;
+  - no candidate highlight rows were produced;
+  - the price-parent target rejected one exact disallowed failed formula and one over-depth formula before review;
+  - accepted candidates reinforced negative memory against pure-funding parents drifting into funding-price or
+    volume-shock reversals, and against volume-liquidity parents drifting into funding-volume interactions;
+  - new or reinforced negative formulas included `neg(corr(funding_rate,sub(close,open),96))`,
+    `neg(zscore(delta(volume,24),120))`, `neg(corr(funding_rate,volume,96))`, and
+    `neg(zscore(delta(volume,12),96))`.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 16:
+  - runs: `13`;
+  - LLM policy evidence runs: `13`;
+  - LLM true-improvement evidence runs: `5`;
+  - coverage-only trap runs: `1`;
+  - highlighted candidate rows: `8`;
+  - distinct highlighted candidates: `6`;
+  - negative candidate rows: `34`;
+  - negative candidate family rows: `13`.
 
 ## Next Session Prompt
 

@@ -952,3 +952,69 @@ Interpretation: attempt 15 adds a clean negative-control run after the coverage-
 rows and added another `price` parent to `funding_interaction` negative family example, reinforcing that the selector
 loop should not drift from price parents into funding interactions unless both cross-asset pass rate and mean Sharpe
 improve. The hard gate and DSL validator both behaved as intended.
+
+## Negative-Memory Repeat 16
+
+Date: 2026-07-02
+
+Attempt 16 repeated the same hard-gated negative-memory command:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence16_negative_memory_repeat \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+The command exited with code `3`, as intended, because the completed review produced no LLM true-improved candidates:
+
+- `llm_rewrite_accepted`: `4`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- `llm_error_count`: `1`
+- Candidate verdicts: `not_improved:4`
+- Candidate highlights: `0`
+- `llm_true_improved_count`: `0`
+- Coverage-only traps: `0`
+- Rewrite events again recorded `selector_negative_disallowed_formulas=12`.
+
+The rejected LLM formulas for the price parent are also useful audit evidence: one copied an exact disallowed failed
+formula (`zscore(corr(sub(close,open),volume,48),72)`), and one failed the formula-depth guard.
+
+Reviewed candidates:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_1c002c4c13` | `qr_f601c23c4e` | `llm_rewrite` | -0.20 | -0.37907329 | BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,AVAXUSDT | `neg(corr(funding_rate,sub(close,open),96))` |
+| `qr_1c002c4c13` | `qr_eb18ffbb62` | `llm_rewrite` | -0.20 | -1.47893646 | BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,AVAXUSDT | `neg(zscore(delta(volume,24),120))` |
+| `qr_cb62796f3b` | `qr_c4479c5050` | `llm_rewrite` | -0.20 | -0.69316767 | BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,AVAXUSDT | `neg(corr(funding_rate,volume,96))` |
+| `qr_cb62796f3b` | `qr_039d2acc19` | `llm_rewrite` | -0.20 | -1.86926194 | BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,AVAXUSDT | `neg(zscore(delta(volume,12),96))` |
+
+The refreshed attempts 4-16 summary reported:
+
+- Runs: `13`
+- LLM policy evidence runs: `13`
+- LLM true-improvement evidence runs: `5`
+- Runs with coverage-only traps: `1`
+- Highlighted candidate rows: `8`
+- Distinct highlighted candidates: `6`
+- Negative candidate rows: `34`
+- Negative candidate family rows: `13`
+
+Interpretation: attempt 16 is a stronger negative-memory repeat than attempt 15 because it accepted four LLM candidates
+and all four failed both pass-rate and mean-Sharpe deltas. It reinforces three prompt-memory lessons: pure-funding
+parents should not drift into funding-price or volume-shock reversals, volume-liquidity parents should not drift into
+funding-volume interactions, and exact disallowed failed formulas must remain mechanically blocked. This is still
+research-only selector evidence and should not affect runtime or admission policy.
