@@ -672,6 +672,24 @@ Expected value:
   - distinct highlighted candidates: `6`;
   - negative candidate rows: `29`;
   - negative candidate family rows: `12`.
+- Ran negative-memory attempt 15 after refreshing memory with the attempt 14 coverage-only trap:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence15_negative_memory_after_trap`;
+  - the run remained valid LLM policy evidence with `llm_rewrite_accepted=1` and `fallback_rewrite_accepted=0`;
+  - the true-improvement hard gate correctly rejected the run because `llm_true_improved_count=0`;
+  - no candidate highlight rows were produced;
+  - the only reviewed candidate was `qr_a3c34a6150`, `neg(corr(funding_rate,sub(close,open),72))`, with pass-rate
+    delta `0.00` and mean-Sharpe delta `-0.65077117`;
+  - two target attempts produced only rejected LLM formulas, caught by formula-depth and DSL validation guards;
+  - this added another `price` parent to `funding_interaction` negative example for selector prompt memory.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 15:
+  - runs: `12`;
+  - LLM policy evidence runs: `12`;
+  - LLM true-improvement evidence runs: `5`;
+  - coverage-only trap runs: `1`;
+  - highlighted candidate rows: `8`;
+  - distinct highlighted candidates: `6`;
+  - negative candidate rows: `30`;
+  - negative candidate family rows: `12`.
 
 ## Next Session Prompt
 

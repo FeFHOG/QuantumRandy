@@ -890,3 +890,65 @@ disallow also remained active; the accepted candidates were not repeats of the m
 formulas, while two rejected LLM formulas failed the formula-depth guard. The next selector-layer step should mine this
 new negative evidence into prompt memory and keep pressure on price-volume variants that improve both pass-rate and
 mean Sharpe, without relaxing the true-improvement gate.
+
+## Negative-Memory Repeat 15
+
+Date: 2026-07-02
+
+Attempt 15 reused the refreshed selector evidence summary after attempt 14:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence15_negative_memory_after_trap \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+The command exited with code `3`, again as intended, because there were no LLM true-improved candidates:
+
+- `llm_rewrite_accepted`: `1`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- `llm_error_count`: `2`
+- Candidate verdicts: `not_improved:1`
+- Candidate highlights: `0`
+- `llm_true_improved_count`: `0`
+- Coverage-only traps: `0`
+- Rewrite events again recorded `selector_negative_disallowed_formulas=12`.
+
+The only reviewed candidate was:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_7a765d304b` | `qr_a3c34a6150` | `llm_rewrite` | 0.00 | -0.65077117 | BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,AVAXUSDT | `neg(corr(funding_rate,sub(close,open),72))` |
+
+Two target attempts produced only rejected LLM formulas before review. The rejected formulas failed the formula-depth
+guard or DSL validation (`ret(close,1)` is below the allowed return window).
+
+The refreshed attempts 4-15 summary reported:
+
+- Runs: `12`
+- LLM policy evidence runs: `12`
+- LLM true-improvement evidence runs: `5`
+- Runs with coverage-only traps: `1`
+- Highlighted candidate rows: `8`
+- Distinct highlighted candidates: `6`
+- Negative candidate rows: `30`
+- Negative candidate family rows: `12`
+
+Interpretation: attempt 15 adds a clean negative-control run after the coverage-only trap. It produced no highlight
+rows and added another `price` parent to `funding_interaction` negative family example, reinforcing that the selector
+loop should not drift from price parents into funding interactions unless both cross-asset pass rate and mean Sharpe
+improve. The hard gate and DSL validator both behaved as intended.
