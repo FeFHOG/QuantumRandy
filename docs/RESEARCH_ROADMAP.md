@@ -1027,6 +1027,34 @@ Expected value:
   pass-rate delta, but it remains a one-run artifact. Negative variants from the same broad family show the effect is
   sign and smoothing sensitive, so conflict-aware family memory should continue to keep exact negative formulas blocked
   without mechanically banning the whole volume-liquidity family.
+- Ran attempt 34 as another conflict-aware-memory repeat:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence34_conflict_aware_memory_repeat`;
+  - the run passed the LLM true-improvement hard gate with `llm_rewrite_accepted=6`,
+    `fallback_rewrite_accepted=0`, and `llm_true_improved_count=4`;
+  - rewrite events recorded `selector_target_skip:4` and `llm_rewrite:3`, with no LLM candidate requiring validator
+    rejection;
+  - candidate highlight mix was `true_improved:4`;
+  - true-improved candidates:
+    `qr_a2cd9fd69f`, `zscore(ema(volume,48),120)`, pass-rate delta `+0.80`, mean-Sharpe delta `+0.44211152`;
+    `qr_c3ccb8e228`, `zscore(std(close,48),120)`, pass-rate delta `+0.60`, mean-Sharpe delta `+0.84810419`;
+    `qr_aded180101`, `zscore(ema(volume,24),96)`, pass-rate delta `+0.60`, mean-Sharpe delta `+0.67117528`;
+    `qr_6cab970b52`, `zscore(std(close,12),120)`, pass-rate delta `+0.20`, mean-Sharpe delta `+0.29108682`;
+  - the two not-improved candidates were volume-acceleration variants:
+    `zscore(delta(volume,48),144)` and `zscore(delta(volume,6),96)`.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 34:
+  - runs: `31`;
+  - LLM policy evidence runs: `28`;
+  - LLM true-improvement evidence runs: `11`;
+  - coverage-only trap runs: `2`;
+  - highlighted candidate rows: `31`;
+  - distinct highlighted candidates: `25`;
+  - negative candidate rows: `73`;
+  - negative candidate family rows: `19`.
+- Current interpretation: `zscore(ema(volume,48),120)` now has three true-improved highlights against the price
+  parent in the aggregate summary, while `qr_cd595899ee` remains the earlier three-repeat cluster. The latest positives
+  also reinforce that some range-volatility shapes can help funding-interaction parents, but volume acceleration
+  remains repeatedly negative. Keep the selector memory conflict-aware rather than mechanically blocking whole
+  volume-liquidity or range-volatility families.
 
 ## Next Session Prompt
 
