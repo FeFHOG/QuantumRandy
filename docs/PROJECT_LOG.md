@@ -1,5 +1,28 @@
 # QuantumRandy Project Log
 
+## 2026-07-02 Selector Evidence56 Research Repeat
+
+- Retried pushing local commit `0c06646` to `origin/main`, but GitHub transport failed again:
+  - plain `git push origin main`: HTTP2 framing layer error.
+  - `git -c http.version=HTTP/1.1 push origin main`: empty reply from server.
+- Ran hard-gated LLM-only selector rewrite attempt 56:
+  `reports/selector_rewrite_pipeline_llm_v082_evidence56_conflict_aware_memory_repeat`.
+- The run produced LLM policy evidence and passed the LLM true-improvement gate with `5` accepted LLM rewrites,
+  `0` fallback rewrites, and `4` true-improved highlights.
+- True-improved repeats:
+  - `zscore(ema(volume,24),96)` against parent `qr_ccda5f2f68`.
+  - `zscore(ema(volume,48),120)` against parent `qr_4a7fa246c2`.
+  - `zscore(std(close,36),120)` against parent `qr_4a7fa246c2`.
+  - `zscore(sub(high,low),144)` against parent `qr_ccda5f2f68`.
+- The coverage-only trap was `corr(volume,ret(close,6),72)` against parent `qr_7a765d304b`; it improved pass-rate but
+  reduced mean Sharpe.
+- The validator again blocked the exact failed-formula repeat `zscore(corr(sub(close,open),volume,48),72)`.
+- Refreshed `reports/selector_pipeline_evidence_v082_summary` across attempts 4-56:
+  `53` runs, `49` LLM policy evidence runs, `31` LLM true-improvement evidence runs, `103` highlighted candidate rows,
+  and `101` negative candidate rows.
+- This remains research-only selector evidence. It does not admit factors, publish runtime strategies, or alter active
+  runtime behavior.
+
 ## 2026-07-02 Selector Evidence55 Negative Research Repeat
 
 - Ran hard-gated LLM-only selector rewrite attempt 55:
