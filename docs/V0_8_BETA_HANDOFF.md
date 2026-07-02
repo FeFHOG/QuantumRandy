@@ -1,6 +1,6 @@
 # QuantumRandy v0.8 Beta Handoff
 
-Last updated: 2026-06-30
+Last updated: 2026-07-02
 
 This handoff records the v0.8 beta state of the Randy quant stack after the first server-paper application layer and
 Phase 4 portfolio research path. GitHub-facing notes are intentionally in English.
@@ -35,6 +35,8 @@ For a maturity-level view of what is beta-ready versus still research-only, see
 
 ## Safety Boundary
 
+- Target three-project architecture and interface-first boundary note:
+  `docs/RANDY_STACK_TARGET_ARCHITECTURE.md`.
 - No live exchange orders.
 - No exchange trading keys.
 - Runtime admin endpoints must stay on `127.0.0.1` or a private interface.
@@ -42,6 +44,8 @@ For a maturity-level view of what is beta-ready versus still research-only, see
 - Newly mined factors cannot auto-promote into runtime.
 - Runtime updates require a manual publisher or another explicit review flow.
 - RandysLab baseline exports are control artifacts, not QuantumRandy runtime publish payloads.
+- Current QuantumRandy portfolio, portfolio-universe, and walk-forward modules are research scaffolds, not the final
+  RandyPortfolio layer.
 - Future live execution is only a reserved roadmap interface after stable multi-factor paper validation. It is not part
   of this beta deployment.
 
@@ -54,8 +58,8 @@ For a maturity-level view of what is beta-ready versus still research-only, see
 - Read-only runtime web dashboard: `scripts/runtime_dashboard.py`
 - Optional RandysLab baseline comparison in runtime reports via `configs/runtime_monitor.yaml`
 - Manual factor publisher: `scripts/publish_factors.py`
-- Offline portfolio research builder: `scripts/build_portfolio.py`
-- Portfolio fixed-blend walk-forward validator: `scripts/portfolio_walk_forward.py`
+- Offline portfolio research builder: `scripts/build_portfolio.py` (temporary research scaffold)
+- Portfolio fixed-blend walk-forward validator: `scripts/portfolio_walk_forward.py` (temporary research scaffold)
 - Optional RandysLab baseline comparison in `PORTFOLIO_REPORT.md` via `--baseline-summary`
 - Portfolio contribution and ablation analysis
 - Reviewable runtime proposal flow for fixed portfolio blends
