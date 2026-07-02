@@ -1221,6 +1221,34 @@ Expected value:
   coverage-only trap for the price parent. The strongest repeated artifact remains `zscore(ema(volume,48),120)`, now
   with eleven true-improved highlights across the two reviewed parent contexts. Specific range/volatility shapes are
   increasingly useful, but family-level memory should remain conflict-aware rather than whole-family acceptance.
+- Ran attempt 41 as another conflict-aware-memory repeat:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence41_conflict_aware_memory_repeat`;
+  - the run passed the LLM true-improvement hard gate with `llm_rewrite_accepted=4`,
+    `fallback_rewrite_accepted=0`, and `llm_true_improved_count=3`;
+  - rewrite events recorded `selector_target_skip:4`, `rewrite_validator:2`, and `llm_rewrite:3`;
+  - candidate verdict mix was `improved:3|not_improved:1`;
+  - candidate highlight mix was `true_improved:3`;
+  - true-improved candidates:
+    `qr_e23cfc8ae6`, `zscore(std(close,48),144)`, pass-rate delta `+0.80`, mean-Sharpe delta `+1.49835622`;
+    `qr_d96fec850d`, `zscore(ema(volume,36),120)`, pass-rate delta `+0.80`, mean-Sharpe delta `+1.10976543`;
+    `qr_fcc0b75150`, `zscore(std(close,36),120)`, pass-rate delta `+0.40`, mean-Sharpe delta `+0.66090047`;
+  - not-improved candidate:
+    `qr_62da79b468`, `neg(zscore(ema(volume,48),120))`, pass-rate delta `0.00`, mean-Sharpe delta `-1.33201839`;
+  - the rewrite validator blocked one exact failed-formula repeat and one depth-5 negative volume/range correlation.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 41:
+  - runs: `38`;
+  - LLM policy evidence runs: `35`;
+  - LLM true-improvement evidence runs: `18`;
+  - coverage-only trap runs: `3`;
+  - highlighted candidate rows: `57`;
+  - distinct highlighted candidates: `38`;
+  - negative candidate rows: `80`;
+  - negative candidate family rows: `19`.
+- Current interpretation: attempt 41 strengthens the sign-sensitive smoothed-volume read. Positive smoothed
+  participation keeps accumulating true-improved evidence, while `neg(zscore(ema(volume,48),120))` was broadly
+  negative. Medium-horizon realized-volatility regimes also continue to add true-improved evidence in specific shapes.
+  Keep exact failed-formula blocking and negative-sign volume memory, but keep conflict-aware family memory so positive
+  smoothed-volume and selected volatility-regime candidates remain reachable.
 
 ## Next Session Prompt
 
