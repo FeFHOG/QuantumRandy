@@ -1,4 +1,24 @@
-# QuantumRandy 项目日志
+# QuantumRandy Project Log
+
+## 2026-07-02 Selector Evidence51 Research Repeat
+
+- Ran hard-gated LLM-only selector rewrite attempt 51:
+  `reports/selector_rewrite_pipeline_llm_v082_evidence51_conflict_aware_memory_repeat`.
+- The run produced LLM policy evidence and passed the LLM true-improvement gate with `4` accepted LLM rewrites,
+  `0` fallback rewrites, and `3` true-improved highlights.
+- True-improved repeats:
+  - `zscore(ema(volume,96),192)` against parent `qr_ccda5f2f68`.
+  - `zscore(ema(volume,48),120)` against parent `qr_7a765d304b`.
+  - `zscore(ema(volume,24),96)` against parent `qr_4a7fa246c2`.
+- The not-improved candidate was raw range expansion `zscore(sub(high,low),96)`, reinforcing that the useful range
+  evidence remains shape-specific and stronger in normalized volatility variants than in plain high-low range.
+- The validator blocked the exact failed-formula repeat `zscore(corr(sub(close,open),volume,48),72)` and one depth-5
+  negative realized-volatility formula.
+- Refreshed `reports/selector_pipeline_evidence_v082_summary` across attempts 4-51:
+  `48` runs, `44` LLM policy evidence runs, `27` LLM true-improvement evidence runs, `87` highlighted candidate rows,
+  and `92` negative candidate rows.
+- This remains research-only selector evidence. It does not admit factors, publish runtime strategies, or alter active
+  runtime behavior.
 
 ## 2026-07-02 Selector Evidence50 Research Repeat
 
