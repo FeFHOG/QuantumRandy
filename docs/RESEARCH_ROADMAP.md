@@ -881,6 +881,39 @@ Expected value:
   - distinct highlighted candidates: `9`;
   - negative candidate rows: `55`;
   - negative candidate family rows: `17`.
+- Ran attempt 27 as an exhausted-target-skip repeat:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence27_exhausted_target_skip_repeat`;
+  - the run remained valid LLM policy evidence with `llm_rewrite_accepted=3` and `fallback_rewrite_accepted=0`;
+  - rewrite events recorded `selector_target_skip:7`, confirming saturated top targets were still bypassed;
+  - the true-improvement hard gate correctly rejected the run because `llm_true_improved_count=0`;
+  - highlight mix was `sharpe_improved_no_pass_lift:1`;
+  - highlighted-but-not-true-improved candidate: `qr_a853a7393b`, `corr(sub(close,open),volume,96)`, with pass-rate
+    delta `0.00` and mean-Sharpe delta `+0.19930544`.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 27:
+  - runs: `24`;
+  - LLM policy evidence runs: `21`;
+  - LLM true-improvement evidence runs: `5`;
+  - negative candidate rows: `58`;
+  - negative candidate family rows: `17`.
+- Ran attempt 28 with the updated selector negative memory:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence28_exhausted_target_skip_repeat`;
+  - the run passed the LLM true-improvement hard gate with `llm_rewrite_accepted=4`,
+    `fallback_rewrite_accepted=0`, and `llm_true_improved_count=2`;
+  - rewrite events recorded `selector_target_skip:7`, so the same saturated top targets were skipped before later
+    selector targets were evaluated;
+  - true-improved candidates:
+    `qr_e23cfc8ae6`, `zscore(std(close,48),144)`, pass-rate delta `+0.80`, mean-Sharpe delta `+1.49835622`;
+    `qr_a2cd9fd69f`, `zscore(ema(volume,48),120)`, pass-rate delta `+0.60`, mean-Sharpe delta `+0.77176916`;
+  - one additional Sharpe-only/no-pass-lift highlight was recorded for `qr_1a08a872ec`, `zscore(volume,120)`.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 28:
+  - runs: `25`;
+  - LLM policy evidence runs: `22`;
+  - LLM true-improvement evidence runs: `6`;
+  - coverage-only trap runs: `2`;
+  - highlighted candidate rows: `16`;
+  - distinct highlighted candidates: `13`;
+  - negative candidate rows: `60`;
+  - negative candidate family rows: `18`.
 
 ## Next Session Prompt
 

@@ -1524,3 +1524,109 @@ recognized as exhausted under current negative memory, so the research loop can 
 of spending repeated LLM calls on mechanically impossible family transitions. Attempt 26 restored LLM policy evidence
 but still produced only a Sharpe-only/no-pass-lift candidate, which remains negative memory rather than admission or
 runtime publish evidence.
+
+## Exhausted Target Skip Repeats 27 And 28
+
+Date: 2026-07-02
+
+Attempt 27 reused the hard-gated LLM-only command after refreshing the attempts 4-26 selector evidence summary:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence27_exhausted_target_skip_repeat \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+The command exited with code `3`, as intended, because there were no LLM true-improved candidates:
+
+- `llm_rewrite_accepted`: `3`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- `llm_error_count`: `0`
+- Candidate verdicts: `not_improved:2|mixed:1`
+- Candidate highlights: `sharpe_improved_no_pass_lift:1`
+- `llm_true_improved_count`: `0`
+- Coverage-only traps: `0`
+- Rewrite events recorded `selector_target_skip:7`, `llm_rewrite:2`, and `rewrite_validator:1`.
+
+The highlighted-but-not-true-improved candidate was:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_ccda5f2f68` | `qr_a853a7393b` | `llm_rewrite` | 0.00 | 0.19930544 | BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,AVAXUSDT | `corr(sub(close,open),volume,96)` |
+
+After refreshing the attempts 4-27 summary, negative candidate rows rose from `55` to `58`. Attempt 28 then reused the
+same hard-gated command:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence28_exhausted_target_skip_repeat \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+Attempt 28 completed successfully and passed the LLM true-improvement hard gate:
+
+- `llm_rewrite_accepted`: `4`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- `llm_error_count`: `0`
+- Candidate verdicts: `improved:2|not_improved:1|mixed:1`
+- Candidate highlights: `true_improved:2|sharpe_improved_no_pass_lift:1`
+- `llm_true_improved_count`: `2`
+- Coverage-only traps: `0`
+- Rewrite events recorded `selector_target_skip:7` and `llm_rewrite:2`.
+
+The true-improved LLM candidates were:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_ccda5f2f68` | `qr_e23cfc8ae6` | `llm_rewrite` | 0.80 | 1.49835622 | AVAXUSDT | `zscore(std(close,48),144)` |
+| `qr_4a7fa246c2` | `qr_a2cd9fd69f` | `llm_rewrite` | 0.60 | 0.77176916 | BTCUSDT | `zscore(ema(volume,48),120)` |
+
+Attempt 28 also produced one Sharpe-only/no-pass-lift highlight:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_ccda5f2f68` | `qr_1a08a872ec` | `llm_rewrite` | 0.00 | 0.08509279 | BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,AVAXUSDT | `zscore(volume,120)` |
+
+The refreshed attempts 4-28 summary reported:
+
+- Runs: `25`
+- LLM policy evidence runs: `22`
+- LLM true-improvement evidence runs: `6`
+- Runs with coverage-only traps: `2`
+- Highlighted candidate rows: `16`
+- Distinct highlighted candidates: `13`
+- Negative candidate rows: `60`
+- Negative candidate family rows: `18`
+
+Interpretation: exhausted-target skipping is now doing useful work. It bypasses saturated top targets while preserving
+auditability, and attempt 28 found two LLM-sourced true-improved candidates on later selector targets. These are still
+research-only selector rewrite evidence: neither candidate is admitted, published, or runtime-ready without separate
+admission, walk-forward, portfolio, and manual review.
