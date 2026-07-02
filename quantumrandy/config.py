@@ -82,6 +82,8 @@ class PromptConfig:
     selector_negative_examples: int = 5
     selector_negative_families: int = 5
     selector_negative_disallowed_formulas: int = 20
+    selector_negative_block_families: int = 20
+    selector_negative_block_min_count: int = 3
 
 
 @dataclass(frozen=True)

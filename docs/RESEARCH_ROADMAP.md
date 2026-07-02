@@ -711,6 +711,32 @@ Expected value:
   - distinct highlighted candidates: `6`;
   - negative candidate rows: `34`;
   - negative candidate family rows: `13`.
+- Promoted repeated selector negative family memory from prompt-only guidance to a conservative parser rule:
+  - `PromptConfig.selector_negative_block_families` defaults to `20`;
+  - `PromptConfig.selector_negative_block_min_count` defaults to `3`;
+  - selector negative memory now returns `blocked_family_pairs` when a parent/candidate family pair has enough negative
+    rows and negative average mean-Sharpe delta;
+  - LLM rewrite prompts expose `blocked_candidate_family_pairs`, and the rewrite parser rejects candidates whose
+    parent/candidate family pair is mechanically blocked;
+  - rewrite events now record `selector_negative_blocked_family_pairs`.
+- Ran attempt 17 with negative family-pair blocking active:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence17_family_block`;
+  - the run remained valid LLM policy evidence with `llm_rewrite_accepted=4` and `fallback_rewrite_accepted=0`;
+  - rewrite events recorded `selector_negative_blocked_family_pairs=6` and
+    `selector_negative_disallowed_formulas=13`;
+  - the true-improvement hard gate correctly rejected the run because `llm_true_improved_count=0`;
+  - highlight mix was `sharpe_improved_no_pass_lift:1`, repeating `qr_cd595899ee` for the pure-funding parent with
+    mean-Sharpe delta `+0.12454568` but pass-rate delta `0.00`;
+  - no coverage-only traps were produced.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 17:
+  - runs: `14`;
+  - LLM policy evidence runs: `14`;
+  - LLM true-improvement evidence runs: `5`;
+  - coverage-only trap runs: `1`;
+  - highlighted candidate rows: `9`;
+  - distinct highlighted candidates: `6`;
+  - negative candidate rows: `37`;
+  - negative candidate family rows: `13`.
 
 ## Next Session Prompt
 

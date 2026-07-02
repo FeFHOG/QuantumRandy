@@ -71,9 +71,17 @@ def load_selector_negative_prompt_context(
     max_examples: int = 5,
     max_families: int = 5,
     max_disallowed_formulas: int = 20,
+    max_blocked_family_pairs: int = 20,
+    min_block_count: int = 3,
 ) -> dict[str, Any]:
     if not path:
-        return {"available": False, "examples": [], "families": [], "disallowed_formulas": []}
+        return {
+            "available": False,
+            "examples": [],
+            "families": [],
+            "disallowed_formulas": [],
+            "blocked_family_pairs": [],
+        }
     root = Path(path)
     negative_path = (
         root / "selector_pipeline_negative_candidate_summary.csv"
@@ -82,7 +90,14 @@ def load_selector_negative_prompt_context(
     )
     frame = _read_csv(negative_path)
     if frame.empty:
-        return {"available": False, "source": root.as_posix(), "examples": [], "families": [], "disallowed_formulas": []}
+        return {
+            "available": False,
+            "source": root.as_posix(),
+            "examples": [],
+            "families": [],
+            "disallowed_formulas": [],
+            "blocked_family_pairs": [],
+        }
     rows = frame.to_dict(orient="records")
     examples = [
         {
@@ -106,12 +121,18 @@ def load_selector_negative_prompt_context(
         for row in rows[:max_families]
     ]
     disallowed_formulas = _negative_disallowed_formula_rows(rows, max_items=max_disallowed_formulas)
+    blocked_family_pairs = _negative_blocked_family_pair_rows(
+        rows,
+        max_items=max_blocked_family_pairs,
+        min_count=min_block_count,
+    )
     return {
-        "available": bool(examples or families or disallowed_formulas),
+        "available": bool(examples or families or disallowed_formulas or blocked_family_pairs),
         "source": root.as_posix(),
         "examples": examples,
         "families": families,
         "disallowed_formulas": disallowed_formulas,
+        "blocked_family_pairs": blocked_family_pairs,
     }
 
 
@@ -407,6 +428,38 @@ def _negative_disallowed_formula_rows(rows: list[dict[str, Any]], *, max_items: 
             continue
         seen.add(formula)
         out.append(formula)
+        if len(out) >= max_items:
+            break
+    return out
+
+
+def _negative_blocked_family_pair_rows(
+    rows: list[dict[str, Any]],
+    *,
+    max_items: int,
+    min_count: int,
+) -> list[dict[str, str]]:
+    if max_items <= 0 or min_count <= 0:
+        return []
+    out: list[dict[str, str]] = []
+    for row in rows:
+        parent_family = str(row.get("parent_formula_family", "")).strip()
+        candidate_family = str(row.get("candidate_formula_family", "")).strip()
+        if not parent_family or not candidate_family:
+            continue
+        negative_count = _num(row.get("negative_count", 0))
+        avg_mean_sharpe_delta = _num(row.get("avg_mean_sharpe_delta", 0))
+        if negative_count < min_count or avg_mean_sharpe_delta >= 0:
+            continue
+        out.append(
+            {
+                "parent_formula_family": parent_family,
+                "candidate_formula_family": candidate_family,
+                "negative_count": str(int(negative_count)),
+                "avg_mean_sharpe_delta": str(row.get("avg_mean_sharpe_delta", "")),
+                "worst_mean_sharpe_delta": str(row.get("worst_mean_sharpe_delta", "")),
+            }
+        )
         if len(out) >= max_items:
             break
     return out

@@ -526,6 +526,14 @@ def test_llm_rewrite_prompt_includes_selector_negative_evidence(monkeypatch, tmp
                         "expected_edge": "Volume expansion can proxy broad risk appetite and persistent flow.",
                         "expected_failure_mode": "Volume may remain exchange-specific on lower-liquidity assets.",
                         "rewrite_plan_if_killed": "Switch to price-volume interaction or abandon this family.",
+                    },
+                    {
+                        "formula": "zscore(ret(close,24),96)",
+                        "description": "Slower price momentum can test whether the failed parent was too reactive while staying in the price family.",
+                        "hypothesis": "A slower price return window may generalize better across crypto perpetual assets.",
+                        "expected_edge": "Persistent price pressure can transfer across liquid markets when the horizon is less noisy.",
+                        "expected_failure_mode": "It may still fail in mean-reverting chop or after crowded breakouts.",
+                        "rewrite_plan_if_killed": "Try a sign flip or abandon price-only momentum for this parent.",
                     }
                 ]
             }
@@ -548,13 +556,19 @@ def test_llm_rewrite_prompt_includes_selector_negative_evidence(monkeypatch, tmp
         allow_local_fallback=False,
     )
 
-    assert formulas == ["zscore(volume,96)"]
+    assert formulas == ["zscore(ret(close,24),96)"]
     assert "selector_negative_evidence" in captured["prompt"]
+    assert "blocked_candidate_family_pairs" in captured["prompt"]
     assert "range_volatility" in captured["prompt"]
     assert "neg(zscore(std(close,24),120))" in captured["prompt"]
     validator_event = next(event for event in generator.events if event["source"] == "rewrite_validator")
     assert validator_event["rejected"][0]["reason"] == "copies disallowed failed formula"
+    assert (
+        validator_event["rejected"][1]["reason"]
+        == "candidate family is blocked by negative selector memory (price->volume_liquidity)"
+    )
     assert generator.events[-1]["selector_negative_examples"] == 1
     assert generator.events[-1]["selector_negative_families"] == 2
     assert generator.events[-1]["selector_negative_disallowed_formulas"] == 2
+    assert generator.events[-1]["selector_negative_blocked_family_pairs"] == 1
     os.environ.pop("LLM_API_KEY", None)

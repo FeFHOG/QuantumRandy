@@ -1018,3 +1018,76 @@ and all four failed both pass-rate and mean-Sharpe deltas. It reinforces three p
 parents should not drift into funding-price or volume-shock reversals, volume-liquidity parents should not drift into
 funding-volume interactions, and exact disallowed failed formulas must remain mechanically blocked. This is still
 research-only selector evidence and should not affect runtime or admission policy.
+
+## Negative Family-Pair Blocking And Attempt 17
+
+Date: 2026-07-02
+
+Attempts 14-16 showed that prompt-only negative family memory was not enough: the LLM still drifted from specific
+parent families into candidate families that had repeatedly lowered mean Sharpe. The selector negative evidence loader
+therefore now exposes a mechanical family-pair block list in addition to prompt examples and exact formula disallows.
+
+New prompt config defaults:
+
+- `selector_negative_block_families`: `20`
+- `selector_negative_block_min_count`: `3`
+
+Only parent/candidate family pairs with at least `selector_negative_block_min_count` negative rows and negative average
+mean-Sharpe delta are blocked. This keeps the rule conservative: isolated failed families remain prompt guidance, while
+repeatedly bad family transitions are rejected by the LLM rewrite parser. The rewrite event CSV now records
+`selector_negative_blocked_family_pairs`.
+
+Attempt 17 then ran the same hard-gated command with the new parser rule:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence17_family_block \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+The command exited with code `3`, as intended, because there were no LLM true-improved candidates:
+
+- `llm_rewrite_accepted`: `4`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- Candidate verdicts: `not_improved:3|mixed:1`
+- Candidate highlights: `sharpe_improved_no_pass_lift:1`
+- `llm_true_improved_count`: `0`
+- Coverage-only traps: `0`
+- Rewrite events recorded `selector_negative_blocked_family_pairs=6` and
+  `selector_negative_disallowed_formulas=13`.
+
+The only highlight was again a Sharpe-only/no-pass-lift repeat:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_1c002c4c13` | `qr_cd595899ee` | `llm_rewrite` | 0.00 | 0.12454568 | BTCUSDT,ETHUSDT,BNBUSDT,AVAXUSDT | `zscore(corr(sub(close,open),volume,36),96)` |
+
+The refreshed attempts 4-17 summary reported:
+
+- Runs: `14`
+- LLM policy evidence runs: `14`
+- LLM true-improvement evidence runs: `5`
+- Runs with coverage-only traps: `1`
+- Highlighted candidate rows: `9`
+- Distinct highlighted candidates: `6`
+- Negative candidate rows: `37`
+- Negative candidate family rows: `13`
+
+Interpretation: family-pair blocking is now active and audit-visible, but attempt 17 is not positive evidence. It
+removed neither the need for the true-improvement hard gate nor the need for broader validation of price-volume
+variants. The useful outcome is process-level: repeated bad family transitions can now be converted from prompt hints
+into deterministic research-only parser rejections while exact formula blocking remains separate.

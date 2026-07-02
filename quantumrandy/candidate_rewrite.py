@@ -120,6 +120,10 @@ def build_selector_rewrite_candidates(
                         "selector_negative_disallowed_formulas",
                         "",
                     ),
+                    "selector_negative_blocked_family_pairs": event.get(
+                        "selector_negative_blocked_family_pairs",
+                        "",
+                    ),
                     "selector_forbidden_subtree_count": len(effective_forbidden),
                     "selector_forbidden_subtrees": "|".join(effective_forbidden[:10]),
                     "known_selector_formula_count": len(known_selector_formulas),

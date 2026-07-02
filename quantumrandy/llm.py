@@ -89,6 +89,16 @@ class FormulaGenerator:
             max_disallowed_formulas=(
                 prompt_config.selector_negative_disallowed_formulas if prompt_config else 0
             ),
+            max_blocked_family_pairs=(
+                getattr(prompt_config, "selector_negative_block_families", 0)
+                if prompt_config
+                else 0
+            ),
+            min_block_count=(
+                getattr(prompt_config, "selector_negative_block_min_count", 0)
+                if prompt_config
+                else 0
+            ),
         )
 
     def propose(self, base_formula: str, dimension: str, count: int, forbidden: list[str]) -> list[str]:
@@ -208,6 +218,10 @@ class FormulaGenerator:
                             "selector_negative_disallowed_formulas",
                             0,
                         ),
+                        "selector_negative_blocked_family_pairs": llm_detail.get(
+                            "selector_negative_blocked_family_pairs",
+                            0,
+                        ),
                     }
                 )
                 if not allow_local_fallback:
@@ -237,6 +251,10 @@ class FormulaGenerator:
                     "selector_negative_families": llm_detail.get("selector_negative_families", 0),
                     "selector_negative_disallowed_formulas": llm_detail.get(
                         "selector_negative_disallowed_formulas",
+                        0,
+                    ),
+                    "selector_negative_blocked_family_pairs": llm_detail.get(
+                        "selector_negative_blocked_family_pairs",
                         0,
                     ),
                 }
@@ -496,10 +514,12 @@ class FormulaGenerator:
         negative_examples = negative_context.get("examples", [])
         negative_families = negative_context.get("families", [])
         negative_disallowed = _negative_disallowed_formulas(negative_context.get("disallowed_formulas", []))
+        blocked_family_pairs = _negative_blocked_family_pairs(negative_context.get("blocked_family_pairs", []))
         disallowed_formulas = set(disallowed_formulas or {formula})
         disallowed_formulas.update(negative_disallowed)
         disallowed_sent = sorted(disallowed_formulas)[:10]
         parent_selector_target = _matching_selector_target(formula, rewrite_targets)
+        parent_formula_family = _parent_formula_family(formula, failure_detail)
         max_pure_funding = _max_pure_funding_candidates(failure_detail, count)
         detail["failure_memory_examples"] = len(failure_examples)
         detail["failure_memory_clusters"] = len(failure_clusters)
@@ -510,6 +530,7 @@ class FormulaGenerator:
         detail["selector_negative_examples"] = len(negative_examples)
         detail["selector_negative_families"] = len(negative_families)
         detail["selector_negative_disallowed_formulas"] = len(negative_disallowed)
+        detail["selector_negative_blocked_family_pairs"] = len(blocked_family_pairs)
         pc = self.prompt_config
         desc_len = pc.description_min_length if pc else DESCRIPTION_MIN_LENGTH
         temp = pc.temperature if pc else 0.7
@@ -572,11 +593,13 @@ class FormulaGenerator:
                 "source": negative_context.get("source", ""),
                 "not_improved_examples": negative_examples,
                 "failed_candidate_families": negative_families,
+                "blocked_candidate_family_pairs": negative_context.get("blocked_family_pairs", []),
                 "disallowed_exact_formulas_from_negative_memory": sorted(negative_disallowed)[:20],
                 "instruction": (
                     "Treat these as negative selector rewrite memories from previous LLM-only audits. Do not repeat "
                     "candidate families that repeatedly lowered mean Sharpe for the same parent family unless the new "
                     "formula changes the economic mechanism and explains why the prior failure mode should not apply. "
+                    "Pairs listed in blocked_candidate_family_pairs are rejected mechanically by the parser. "
                     "Do not copy any exact formula listed in disallowed_exact_formulas_from_negative_memory."
                 ),
             },
@@ -669,6 +692,8 @@ class FormulaGenerator:
             forbidden,
             disallow=disallowed_formulas,
             max_pure_funding=max_pure_funding,
+            parent_formula_family=parent_formula_family,
+            blocked_family_pairs=blocked_family_pairs,
         )
         if rejected:
             self.events.append({"source": "rewrite_validator", "accepted": len(out), "rejected": rejected[:20]})
@@ -685,8 +710,11 @@ class FormulaGenerator:
         *,
         disallow: set[str] | None = None,
         max_pure_funding: int | None = None,
+        parent_formula_family: str = "",
+        blocked_family_pairs: set[tuple[str, str]] | None = None,
     ) -> tuple[list[str], list[dict[str, str]]]:
         disallow = disallow or set()
+        blocked_family_pairs = blocked_family_pairs or set()
         out: list[str] = []
         pure_funding_count = 0
         raw_candidates = data.get("candidates")
@@ -704,6 +732,18 @@ class FormulaGenerator:
                 continue
             if canonical in disallow:
                 rejected.append({"formula": canonical, "reason": "copies disallowed failed formula"})
+                continue
+            candidate_family = _formula_family(canonical)
+            if parent_formula_family and (parent_formula_family, candidate_family) in blocked_family_pairs:
+                rejected.append(
+                    {
+                        "formula": canonical,
+                        "reason": (
+                            "candidate family is blocked by negative selector memory "
+                            f"({parent_formula_family}->{candidate_family})"
+                        ),
+                    }
+                )
                 continue
             desc_text = str(description).strip()
             if len(desc_text) < DESCRIPTION_MIN_LENGTH:
@@ -970,6 +1010,24 @@ def _is_pure_funding_formula(formula: str) -> bool:
     return not any(field in formula for field in ("open", "high", "low", "close", "volume"))
 
 
+def _formula_family(formula: str) -> str:
+    text = str(formula)
+    has_funding = "funding_rate" in text
+    has_price = any(field in text for field in ("open", "high", "low", "close"))
+    has_volume = "volume" in text
+    if has_funding and not has_price and not has_volume:
+        return "pure_funding"
+    if has_funding:
+        return "funding_interaction"
+    if "std(" in text or "sub(high,low)" in text:
+        return "range_volatility"
+    if has_volume:
+        return "volume_liquidity"
+    if has_price:
+        return "price"
+    return "other"
+
+
 def _matching_selector_target(formula: str, rewrite_targets: list[Any]) -> dict[str, Any]:
     for target in rewrite_targets:
         if not isinstance(target, dict) or str(target.get("formula", "")) != formula:
@@ -1065,6 +1123,16 @@ def _max_pure_funding_candidates(failure_detail: dict[str, Any], count: int) -> 
         return 1 if count > 1 else None
 
 
+def _parent_formula_family(formula: str, failure_detail: dict[str, Any]) -> str:
+    if isinstance(failure_detail, dict):
+        objective = failure_detail.get("rewrite_objective")
+        if isinstance(objective, dict):
+            family = str(objective.get("parent_formula_family", "")).strip()
+            if family:
+                return family
+    return _formula_family(formula)
+
+
 def _negative_disallowed_formulas(examples: list[Any]) -> set[str]:
     out: set[str] = set()
     for item in examples:
@@ -1075,4 +1143,16 @@ def _negative_disallowed_formulas(examples: list[Any]) -> set[str]:
             out.add(validate_formula_shape(formula).canonical())
         except ValueError:
             out.add(formula)
+    return out
+
+
+def _negative_blocked_family_pairs(items: list[Any]) -> set[tuple[str, str]]:
+    out: set[tuple[str, str]] = set()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        parent_family = str(item.get("parent_formula_family", "")).strip()
+        candidate_family = str(item.get("candidate_formula_family", "")).strip()
+        if parent_family and candidate_family:
+            out.add((parent_family, candidate_family))
     return out
