@@ -1000,6 +1000,33 @@ Expected value:
   rewrite artifact, while attempt 32 adds two one-off true-improved candidates that still need repeat evidence. The
   mixed `qr_cd595899ee` row is a reminder that prior formula-level positives are not universally positive across
   parents; parent-specific review should remain part of the selector audit loop.
+- Ran attempt 33 as another conflict-aware-memory repeat:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence33_conflict_aware_memory_repeat`;
+  - the run passed the LLM true-improvement hard gate with `llm_rewrite_accepted=6`,
+    `fallback_rewrite_accepted=0`, and `llm_true_improved_count=2`;
+  - rewrite events recorded `selector_target_skip:4` and `llm_rewrite:3`, with no LLM candidate requiring validator
+    rejection;
+  - candidate highlight mix was `true_improved:2`;
+  - true-improved candidates:
+    `qr_f5f52b2594`, `zscore(sma(volume,36),144)`, pass-rate delta `+1.00`, mean-Sharpe delta `+1.24213645`,
+    failed assets `none`;
+    `qr_295d2e9ee2`, `zscore(ema(volume,24),120)`, pass-rate delta `+0.60`, mean-Sharpe delta `+0.65493676`;
+  - the four not-improved candidates added negative evidence for negative realized-volatility stress, volume
+    acceleration, negative slow volume crowding, and negative range stress.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 33:
+  - runs: `30`;
+  - LLM policy evidence runs: `27`;
+  - LLM true-improvement evidence runs: `10`;
+  - coverage-only trap runs: `2`;
+  - highlighted candidate rows: `27`;
+  - distinct highlighted candidates: `22`;
+  - negative candidate rows: `71`;
+  - negative candidate family rows: `19`.
+- Current interpretation: the positive selector rewrite evidence is concentrating around smoothed positive
+  volume-liquidity regimes. `zscore(sma(volume,36),144)` is now the strongest single highlighted candidate by
+  pass-rate delta, but it remains a one-run artifact. Negative variants from the same broad family show the effect is
+  sign and smoothing sensitive, so conflict-aware family memory should continue to keep exact negative formulas blocked
+  without mechanically banning the whole volume-liquidity family.
 
 ## Next Session Prompt
 

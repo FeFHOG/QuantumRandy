@@ -1860,3 +1860,66 @@ and volume-liquidity families. The Sharpe-only/no-pass-lift row for `qr_cd595899
 parent-specific review remains necessary: a formula that was true-improved for earlier parents can still fail the
 pass-rate lift requirement for a different parent. These artifacts remain research-only selector evidence and do not
 admit, publish, or update runtime strategies.
+
+Attempt 33 repeated the same hard-gated conflict-aware memory setup:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence33_conflict_aware_memory_repeat \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+Attempt 33 completed successfully and passed the LLM true-improvement hard gate:
+
+- `llm_rewrite_accepted`: `6`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- Candidate verdicts: `not_improved:4|improved:2`
+- Candidate highlights: `true_improved:2`
+- `llm_true_improved_count`: `2`
+- Rewrite events recorded `selector_target_skip:4` and `llm_rewrite:3`; no LLM candidate required validator rejection.
+
+The true-improved LLM candidates were:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_ccda5f2f68` | `qr_f5f52b2594` | `llm_rewrite` | 1.00 | 1.24213645 | none | `zscore(sma(volume,36),144)` |
+| `qr_4a7fa246c2` | `qr_295d2e9ee2` | `llm_rewrite` | 0.60 | 0.65493676 | BTCUSDT | `zscore(ema(volume,24),120)` |
+
+The four not-improved candidates added negative evidence for:
+
+- negative realized-volatility stress: `neg(zscore(std(close,36),120))`
+- volume acceleration: `zscore(delta(volume,48),144)`
+- negative slow volume crowding: `neg(zscore(ema(volume,48),120))`
+- negative range stress: `neg(zscore(sub(high,low),120))`
+
+The refreshed attempts 4-33 summary reported:
+
+- Runs: `30`
+- LLM policy evidence runs: `27`
+- LLM true-improvement evidence runs: `10`
+- Runs with coverage-only traps: `2`
+- Highlighted candidate rows: `27`
+- Distinct highlighted candidates: `22`
+- Negative candidate rows: `71`
+- Negative candidate family rows: `19`
+
+Interpretation: attempt 33 strengthens the volume-liquidity rewrite theme. The best candidate,
+`zscore(sma(volume,36),144)`, passed all five reviewed assets and is the strongest single selector rewrite highlight in
+this repeat sequence by pass-rate delta. At the same time, the negative volume variants show the edge is sign and
+smoothing sensitive: positive smoothed participation helped, while acceleration and negative crowding variants failed.
+This remains research-only evidence; the new candidate still needs repeat, walk-forward, admission, portfolio, and
+manual runtime-publishing review before any runtime consideration.
