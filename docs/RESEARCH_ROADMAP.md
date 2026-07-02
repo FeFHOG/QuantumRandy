@@ -1055,6 +1055,34 @@ Expected value:
   also reinforce that some range-volatility shapes can help funding-interaction parents, but volume acceleration
   remains repeatedly negative. Keep the selector memory conflict-aware rather than mechanically blocking whole
   volume-liquidity or range-volatility families.
+- Ran attempt 35 as another conflict-aware-memory repeat:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence35_conflict_aware_memory_repeat`;
+  - the run passed the LLM true-improvement hard gate with `llm_rewrite_accepted=5`,
+    `fallback_rewrite_accepted=0`, and `llm_true_improved_count=3`;
+  - rewrite events recorded `selector_target_skip:4`, `rewrite_validator:1`, and `llm_rewrite:3`;
+  - candidate highlight mix was `true_improved:3`;
+  - true-improved candidates:
+    `qr_3cdea28d1b`, `zscore(ema(volume,36),144)`, pass-rate delta `+1.00`, mean-Sharpe delta `+1.20305771`,
+    failed assets `none`;
+    `qr_a2cd9fd69f`, `zscore(ema(volume,48),120)`, pass-rate delta `+0.80`, mean-Sharpe delta `+0.44211152`;
+    `qr_295d2e9ee2`, `zscore(ema(volume,24),120)`, pass-rate delta `+0.60`, mean-Sharpe delta `+0.65493676`;
+  - the two not-improved candidates were range-volatility variants:
+    `zscore(std(close,12),120)` and `neg(zscore(std(close,24),120))`.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 35:
+  - runs: `32`;
+  - LLM policy evidence runs: `29`;
+  - LLM true-improvement evidence runs: `12`;
+  - coverage-only trap runs: `2`;
+  - highlighted candidate rows: `34`;
+  - distinct highlighted candidates: `26`;
+  - negative candidate rows: `75`;
+  - negative candidate family rows: `19`.
+- Current interpretation: smoothed positive volume participation is the strongest repeated selector rewrite theme.
+  `zscore(ema(volume,48),120)` now has four true-improved highlights against the price parent, and
+  `zscore(ema(volume,24),120)` has repeated twice for a funding-interaction parent. The 36/144 participation smoother
+  now has two all-asset positive variants across attempts 33 and 35: `zscore(sma(volume,36),144)` and
+  `zscore(ema(volume,36),144)`. Range-volatility remains mixed, so it should stay conflict-aware rather than
+  mechanically blocked or universally preferred.
 
 ## Next Session Prompt
 
