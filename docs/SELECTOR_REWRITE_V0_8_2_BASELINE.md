@@ -2108,3 +2108,65 @@ highlights, and no coverage-only or Sharpe-only queue was populated. The price-p
 now has five LLM true-improved highlights in the aggregate summary. The broader 36-bar smoothed participation family is
 also strengthening through `sma(volume,36)` and `ema(volume,36)` variants across both 120- and 144-bar normalization.
 These artifacts remain research-only selector evidence and do not admit, publish, or update runtime strategies.
+
+Attempt 37 repeated the same hard-gated conflict-aware memory setup:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence37_conflict_aware_memory_repeat \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+Attempt 37 completed successfully and passed the LLM true-improvement hard gate:
+
+- `llm_rewrite_accepted`: `3`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- Candidate verdicts: `not_improved:2|improved:1`
+- Candidate highlights: `true_improved:1`
+- `llm_true_improved_count`: `1`
+- Rewrite events recorded `selector_target_skip:4`, `rewrite_validator:3`, and `llm_rewrite:3`.
+
+The true-improved LLM candidate was:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_7a765d304b` | `qr_a2cd9fd69f` | `llm_rewrite` | 0.80 | 0.44211152 | BTCUSDT | `zscore(ema(volume,48),120)` |
+
+The two not-improved candidates were volume/range coupling variants:
+
+- `zscore(corr(volume,sub(high,low),72),96)`
+- `neg(corr(volume,sub(high,low),96))`
+
+The refreshed attempts 4-37 summary reported:
+
+- Runs: `34`
+- LLM policy evidence runs: `31`
+- LLM true-improvement evidence runs: `14`
+- Runs with coverage-only traps: `2`
+- Highlighted candidate rows: `39`
+- Distinct highlighted candidates: `28`
+- Negative candidate rows: `77`
+- Negative candidate family rows: `19`
+
+Interpretation: attempt 37 is a narrower positive repeat that further strengthens smoothed positive volume
+participation. The price-parent `zscore(ema(volume,48),120)` row now has six LLM true-improved highlights in the
+aggregate summary, and the same formula has eight true-improved highlights across the two reviewed parent contexts.
+The new negative volume/range coupling rows add caution around range-volatility rewrites, especially when volume and
+range co-move as stress rather than constructive participation. Keep conflict-aware family memory: exact failed
+formulas and pure-negative family pairs should remain blocked, while volume-liquidity and range-volatility families
+should not be mechanically banned. These artifacts remain research-only selector evidence and do not admit, publish,
+or update runtime strategies.

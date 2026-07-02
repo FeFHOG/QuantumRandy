@@ -1109,6 +1109,31 @@ Expected value:
   count. The broader 36-bar smoothed participation family is also strengthening through SMA/EMA and 120/144
   normalization variants. Range-volatility has positive evidence but remains more mixed than smoothed volume, so keep
   conflict-aware memory and exact-formula blocking rather than whole-family blocking.
+- Ran attempt 37 as another conflict-aware-memory repeat:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence37_conflict_aware_memory_repeat`;
+  - the run passed the LLM true-improvement hard gate with `llm_rewrite_accepted=3`,
+    `fallback_rewrite_accepted=0`, and `llm_true_improved_count=1`;
+  - rewrite events recorded `selector_target_skip:4`, `rewrite_validator:3`, and `llm_rewrite:3`;
+  - candidate verdict mix was `not_improved:2|improved:1`;
+  - candidate highlight mix was `true_improved:1`, with no coverage-only or Sharpe-only highlights;
+  - true-improved candidate:
+    `qr_a2cd9fd69f`, `zscore(ema(volume,48),120)`, pass-rate delta `+0.80`, mean-Sharpe delta `+0.44211152`;
+  - the two not-improved candidates were volume/range coupling variants:
+    `zscore(corr(volume,sub(high,low),72),96)` and `neg(corr(volume,sub(high,low),96))`.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 37:
+  - runs: `34`;
+  - LLM policy evidence runs: `31`;
+  - LLM true-improvement evidence runs: `14`;
+  - coverage-only trap runs: `2`;
+  - highlighted candidate rows: `39`;
+  - distinct highlighted candidates: `28`;
+  - negative candidate rows: `77`;
+  - negative candidate family rows: `19`.
+- Current interpretation: attempt 37 is a narrower positive repeat. The price-parent
+  `zscore(ema(volume,48),120)` row now has six true-improved highlights, and the same formula has eight
+  true-improved highlights across the two reviewed parent contexts. Smoothed positive volume participation remains the
+  strongest repeated selector rewrite theme. The new negative volume/range coupling rows reinforce that
+  range-volatility should remain conflict-aware rather than mechanically preferred or mechanically banned.
 
 ## Next Session Prompt
 
