@@ -120,14 +120,14 @@ Use `docs/SERVER_48H_TRIAL_RUNBOOK.md` as the operator-facing Ubuntu/tmux checkl
 
 ## Selector Rewrite Research State
 
-- Latest hard-gated LLM-only repeat: `reports/selector_rewrite_pipeline_llm_v082_evidence45_conflict_aware_memory_repeat`
+- Latest hard-gated LLM-only repeat: `reports/selector_rewrite_pipeline_llm_v082_evidence46_conflict_aware_memory_repeat`
 - Current aggregate summary: `reports/selector_pipeline_evidence_v082_summary`
-- Aggregate runs: `42`
-- LLM policy evidence runs: `39`
-- LLM true-improvement evidence runs: `22`
+- Aggregate runs: `43`
+- LLM policy evidence runs: `40`
+- LLM true-improvement evidence runs: `23`
 - Coverage-only trap runs: `3`
-- Highlighted candidate rows: `70`
-- Negative candidate rows: `87`
+- Highlighted candidate rows: `72`
+- Negative candidate rows: `88`
 - Negative candidate family rows: `19`
 - Strongest repeated theme: positive smoothed volume participation, led by `zscore(ema(volume,48),120)`.
 - Current memory posture: keep exact failed-formula blocking and sign-aware negative memory, but do not mechanically

@@ -2710,3 +2710,73 @@ funding-interaction parent, while `zscore(std(close,24),120)` adds another lower
 The Sharpe-only `corr(volume,ret(close,12),96)` row and the failed `neg(zscore(std(close,48),120))` row reinforce that
 price-volume correlation and negative volatility-regime signs should remain guarded unless they clear pass-rate lift.
 These artifacts remain research-only selector evidence and do not admit, publish, or update runtime strategies.
+
+Attempt 46 repeated the same hard-gated conflict-aware memory setup:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence46_conflict_aware_memory_repeat \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+Attempt 46 completed successfully and passed the LLM true-improvement hard gate:
+
+- `llm_rewrite_accepted`: `3`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- `llm_error_count`: `1`
+- Candidate verdicts: `improved:2|not_improved:1`
+- Candidate highlights: `true_improved:2`
+- `llm_true_improved_count`: `2`
+- Rewrite events recorded `selector_target_skip:4`, `rewrite_validator:2`, `llm_rewrite:2`, and
+  `rewrite_fallback:1`.
+
+The true-improved LLM candidates were:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_ccda5f2f68` | `qr_c3ccb8e228` | `llm_rewrite` | 0.80 | 1.28492586 | AVAXUSDT | `zscore(std(close,48),120)` |
+| `qr_ccda5f2f68` | `qr_a2cd9fd69f` | `llm_rewrite` | 0.80 | 1.20859083 | BTCUSDT | `zscore(ema(volume,48),120)` |
+
+The not-improved LLM candidate was:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_7a765d304b` | `qr_ebc90a536a` | `llm_rewrite` | 0.00 | -0.62920208 | BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,AVAXUSDT | `zscore(corr(sub(close,open),volume,72),96)` |
+
+The rewrite validator blocked one exact failed-formula repeat,
+`zscore(corr(sub(close,open),volume,48),72)`, plus two depth-5 negative correlation formulas:
+`neg(zscore(corr(ret(close,6),std(close,24),72),96))` and
+`neg(zscore(corr(ret(close,12),volume,72),120))`.
+
+The refreshed attempts 4-46 summary reported:
+
+- Runs: `43`
+- LLM policy evidence runs: `40`
+- LLM true-improvement evidence runs: `23`
+- Runs with coverage-only traps: `3`
+- Highlighted candidate rows: `72`
+- Distinct highlighted candidates: `43`
+- Negative candidate rows: `88`
+- Negative candidate family rows: `19`
+
+Interpretation: attempt 46 is smaller because one target produced only invalid depth-5 formulas, but the accepted LLM
+evidence still passed both hard gates. The funding-interaction parent added another true-improved repeat for
+`zscore(std(close,48),120)` and a new true-improved parent context for `zscore(ema(volume,48),120)`. The price-parent
+`zscore(corr(sub(close,open),volume,72),96)` miss extends the weak longer signed price-volume correlation pattern, and
+the rejected depth-5 negative correlation formulas reinforce keeping validator depth limits and sign-aware correlation
+memory strict. These artifacts remain research-only selector evidence and do not admit, publish, or update runtime
+strategies.
