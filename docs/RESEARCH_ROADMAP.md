@@ -1163,6 +1163,36 @@ Expected value:
   now has seven true-improved highlights, and the same formula has nine true-improved highlights across the two reviewed
   parent contexts. `zscore(ema(volume,36),144)` now has two repeats, `zscore(ema(volume,24),120)` has three, and
   range-volatility continues to show useful but mixed evidence. Volume acceleration remains negative.
+- Ran attempt 39 as another conflict-aware-memory repeat:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence39_conflict_aware_memory_repeat`;
+  - the run passed the LLM true-improvement hard gate with `llm_rewrite_accepted=5`,
+    `fallback_rewrite_accepted=0`, and `llm_true_improved_count=5`;
+  - rewrite events recorded `selector_target_skip:4`, `rewrite_validator:1`, and `llm_rewrite:3`;
+  - candidate verdict mix was `improved:5`;
+  - candidate highlight mix was `true_improved:5`, with no coverage-only, Sharpe-only, or not-improved queue rows;
+  - true-improved candidates:
+    `qr_aded180101`, `zscore(ema(volume,24),96)`, pass-rate delta `+0.80`, mean-Sharpe delta `+1.10799695`;
+    `qr_a2cd9fd69f`, `zscore(ema(volume,48),120)`, pass-rate delta `+0.80`, mean-Sharpe delta `+0.44211152`;
+    `qr_c3ccb8e228`, `zscore(std(close,48),120)`, pass-rate delta `+0.60`, mean-Sharpe delta `+0.84810419`;
+    `qr_1aa34f4735`, `corr(sub(close,open),volume,48)`, pass-rate delta `+0.20`, mean-Sharpe delta `+0.24589581`;
+    `qr_e2186d7430`, `zscore(sub(high,low),96)`, pass-rate delta `+0.20`, mean-Sharpe delta `+0.17836891`;
+  - the rewrite validator blocked one exact failed-formula repeat:
+    `zscore(corr(sub(close,open),volume,48),72)`.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 39:
+  - runs: `36`;
+  - LLM policy evidence runs: `33`;
+  - LLM true-improvement evidence runs: `16`;
+  - coverage-only trap runs: `2`;
+  - highlighted candidate rows: `49`;
+  - distinct highlighted candidates: `32`;
+  - negative candidate rows: `78`;
+  - negative candidate family rows: `19`.
+- Current interpretation: attempt 39 is another clean positive repeat. The price-parent
+  `zscore(ema(volume,48),120)` row now has eight true-improved highlights, and the same formula has ten true-improved
+  highlights across the two reviewed parent contexts. `zscore(std(close,48),120)` has three repeats for a
+  funding-interaction parent, while smoothed positive volume participation remains the strongest selector rewrite
+  theme. Range-volatility is increasingly useful in specific shapes but remains mixed enough to keep conflict-aware
+  memory rather than whole-family acceptance or rejection.
 
 ## Next Session Prompt
 

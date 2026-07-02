@@ -2235,3 +2235,66 @@ range-volatility candidates continue to produce true-improved evidence, but the 
 rows to stay conflict-aware rather than mechanically preferred. The fresh `zscore(delta(volume,24),168)` failure
 reinforces the existing negative pattern for volume acceleration. These artifacts remain research-only selector
 evidence and do not admit, publish, or update runtime strategies.
+
+Attempt 39 repeated the same hard-gated conflict-aware memory setup:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence39_conflict_aware_memory_repeat \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+Attempt 39 completed successfully and passed the LLM true-improvement hard gate:
+
+- `llm_rewrite_accepted`: `5`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- Candidate verdicts: `improved:5`
+- Candidate highlights: `true_improved:5`
+- `llm_true_improved_count`: `5`
+- Rewrite events recorded `selector_target_skip:4`, `rewrite_validator:1`, and `llm_rewrite:3`.
+
+The true-improved LLM candidates were:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_ccda5f2f68` | `qr_aded180101` | `llm_rewrite` | 0.80 | 1.10799695 | BTCUSDT | `zscore(ema(volume,24),96)` |
+| `qr_7a765d304b` | `qr_a2cd9fd69f` | `llm_rewrite` | 0.80 | 0.44211152 | BTCUSDT | `zscore(ema(volume,48),120)` |
+| `qr_4a7fa246c2` | `qr_c3ccb8e228` | `llm_rewrite` | 0.60 | 0.84810419 | AVAXUSDT | `zscore(std(close,48),120)` |
+| `qr_4a7fa246c2` | `qr_1aa34f4735` | `llm_rewrite` | 0.20 | 0.24589581 | BTCUSDT,BNBUSDT,AVAXUSDT | `corr(sub(close,open),volume,48)` |
+| `qr_ccda5f2f68` | `qr_e2186d7430` | `llm_rewrite` | 0.20 | 0.17836891 | BTCUSDT,ETHUSDT,BNBUSDT,AVAXUSDT | `zscore(sub(high,low),96)` |
+
+Attempt 39 added no coverage-only, Sharpe-only, or not-improved candidate queue rows. The rewrite validator blocked
+one exact failed-formula repeat, `zscore(corr(sub(close,open),volume,48),72)`.
+
+The refreshed attempts 4-39 summary reported:
+
+- Runs: `36`
+- LLM policy evidence runs: `33`
+- LLM true-improvement evidence runs: `16`
+- Runs with coverage-only traps: `2`
+- Highlighted candidate rows: `49`
+- Distinct highlighted candidates: `32`
+- Negative candidate rows: `78`
+- Negative candidate family rows: `19`
+
+Interpretation: attempt 39 is another clean positive repeat. The price-parent `zscore(ema(volume,48),120)` row now has
+eight LLM true-improved highlights in the aggregate summary, and the same formula has ten true-improved highlights
+across the two reviewed parent contexts. The repeat also strengthens the secondary clusters around
+`zscore(std(close,48),120)` and shorter smoothed-volume variants. Range-volatility still remains mixed overall, but
+conflict-aware memory is doing the right thing: it permits specific positive volatility/range candidates while exact
+failed formulas and pure-negative family pairs remain blocked. These artifacts remain research-only selector evidence
+and do not admit, publish, or update runtime strategies.
