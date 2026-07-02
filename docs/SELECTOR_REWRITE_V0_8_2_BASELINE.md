@@ -3485,3 +3485,74 @@ volatility-regime shape `zscore(std(close,48),144)` against the funding-interact
 price-volume candidate failed across all five reviewed assets. The depth rejections also show the validator is still
 enforcing the formula-shape boundary under LLM-only mode. These artifacts remain research-only selector evidence and do
 not admit, publish, or update runtime strategies.
+
+Attempt 58 repeated the same hard-gated conflict-aware memory setup:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence58_conflict_aware_memory_repeat \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+Attempt 58 completed successfully and passed the LLM true-improvement hard gate:
+
+- `llm_rewrite_accepted`: `6`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- `llm_error_count`: `0`
+- Candidate verdicts: `improved:4|not_improved:1|mixed:1`
+- Candidate highlights: `true_improved:4|sharpe_improved_no_pass_lift:1`
+- `llm_true_improved_count`: `4`
+- Rewrite events recorded `selector_target_skip:4` and `llm_rewrite:3`.
+
+The true-improved LLM candidates were:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_7a765d304b` | `qr_a2cd9fd69f` | `llm_rewrite` | 0.80 | 0.44211152 | BTCUSDT | `zscore(ema(volume,48),120)` |
+| `qr_ccda5f2f68` | `qr_41f6f43247` | `llm_rewrite` | 0.60 | 1.30535681 | SOLUSDT,AVAXUSDT | `zscore(std(close,36),144)` |
+| `qr_4a7fa246c2` | `qr_e23cfc8ae6` | `llm_rewrite` | 0.60 | 1.06153455 | AVAXUSDT | `zscore(std(close,48),144)` |
+| `qr_4a7fa246c2` | `qr_295d2e9ee2` | `llm_rewrite` | 0.60 | 0.65493676 | BTCUSDT | `zscore(ema(volume,24),120)` |
+
+The Sharpe-improved candidate without pass-rate lift was:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_ccda5f2f68` | `qr_7805bc0be0` | `llm_rewrite` | 0.00 | 0.04075386 | BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,AVAXUSDT | `zscore(corr(sub(close,open),volume,96),120)` |
+
+The not-improved LLM candidate was:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_7a765d304b` | `qr_ebc90a536a` | `llm_rewrite` | 0.00 | -0.62920208 | BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,AVAXUSDT | `zscore(corr(sub(close,open),volume,72),96)` |
+
+The refreshed attempts 4-58 summary reported:
+
+- Runs: `55`
+- LLM policy evidence runs: `51`
+- LLM true-improvement evidence runs: `33`
+- Runs with coverage-only traps: `4`
+- Highlighted candidate rows: `109`
+- Distinct highlighted candidates: `50`
+- Negative candidate rows: `104`
+- Negative candidate family rows: `19`
+
+Interpretation: attempt 58 is a broad positive repeat. It reinforces the dominant smoothed participation shape
+`zscore(ema(volume,48),120)` and adds another `zscore(ema(volume,24),120)` true-improved repeat, while the positive
+realized-volatility regime family continues to repeat through `zscore(std(close,36),144)` and
+`zscore(std(close,48),144)`. Normalized signed price-volume correlation remains conflicted: the 96/120 variant improved
+mean Sharpe without lifting pass-rate, while the 72/96 variant was not improved. These artifacts remain research-only
+selector evidence and do not admit, publish, or update runtime strategies.

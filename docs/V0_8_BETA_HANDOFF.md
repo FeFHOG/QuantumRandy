@@ -124,23 +124,23 @@ Use `docs/SERVER_48H_TRIAL_RUNBOOK.md` as the operator-facing Ubuntu/tmux checkl
 
 ## Selector Rewrite Research State
 
-- Latest hard-gated LLM-only successful repeat: `reports/selector_rewrite_pipeline_llm_v082_evidence57_conflict_aware_memory_repeat`
+- Latest hard-gated LLM-only successful repeat: `reports/selector_rewrite_pipeline_llm_v082_evidence58_conflict_aware_memory_repeat`
 - Latest LLM-policy repeat without true-improvement evidence:
   `reports/selector_rewrite_pipeline_llm_v082_evidence55_conflict_aware_memory_repeat`
 - Latest failed repeat artifact: `reports/selector_rewrite_pipeline_llm_v082_evidence47_conflict_aware_memory_repeat`
   failed the LLM policy-evidence gate due to repeated SSL EOF transport errors and produced no candidates.
 - Current aggregate summary: `reports/selector_pipeline_evidence_v082_summary`
-- Aggregate runs: `54`
-- LLM policy evidence runs: `50`
-- LLM true-improvement evidence runs: `32`
+- Aggregate runs: `55`
+- LLM policy evidence runs: `51`
+- LLM true-improvement evidence runs: `33`
 - Coverage-only trap runs: `4`
-- Highlighted candidate rows: `104`
-- Negative candidate rows: `102`
+- Highlighted candidate rows: `109`
+- Negative candidate rows: `104`
 - Negative candidate family rows: `19`
 - Strongest repeated theme: positive smoothed volume participation, led by `zscore(ema(volume,48),120)`.
-- Latest evidence57 note: narrow positive repeat; `zscore(std(close,48),144)` was true-improved against the
-  funding-interaction parent, while `zscore(corr(sub(close,open),volume,72),96)` was not improved and one target's LLM
-  outputs were rejected for formula depth.
+- Latest evidence58 note: broad positive repeat; `zscore(ema(volume,48),120)`, `zscore(ema(volume,24),120)`,
+  `zscore(std(close,36),144)`, and `zscore(std(close,48),144)` were true-improved, while normalized signed
+  price-volume correlation remained mixed or weak.
 - Latest evidence55 note: attribution-clean LLM policy evidence, but no true-improved highlights; all four accepted
   candidates were not improved, reinforcing negative memory for raw signed price-volume correlation, negative
   range-volume correlation, and negative volatility-regime signs.
