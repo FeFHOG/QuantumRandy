@@ -843,6 +843,44 @@ Expected value:
   - distinct highlighted candidates: `8`;
   - negative candidate rows: `53`;
   - negative candidate family rows: `15`.
+- Ran attempts 23 and 24 as mixed-negative-memory repeats:
+  - outputs: `reports/selector_rewrite_pipeline_llm_v082_evidence23_mixed_negative_memory_repeat` and
+    `reports/selector_rewrite_pipeline_llm_v082_evidence24_mixed_negative_memory_repeat`;
+  - both commands exited with code `2` because no LLM rewrite candidates were accepted;
+  - every proposed formula was rejected before review by exact negative formula copies, blocked selector-memory family
+    pairs, or formula-depth limits;
+  - universe, portfolio, portfolio-universe, and review stages were skipped because there were no candidate formulas.
+- Added a research-only mechanical rejection guard to the selector rewrite prompt:
+  - prompts now expose parent formula family, blocked/allowed candidate families, family-classification rules, and
+    depth-safe templates;
+  - this does not loosen validator, admission, publishing, or runtime behavior.
+- Ran attempt 25 with the prompt guard:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence25_mechanical_guard`;
+  - the command still exited with code `2` because current top targets had no allowed primary candidate families left
+    under selector negative memory.
+- Added exhausted-target skipping for LLM-only selector rewrites:
+  - if selector negative memory blocks every primary candidate family for a parent family, the loop records a
+    `selector_target_skip` audit row and continues to later selector targets;
+  - `max_targets` now counts non-exhausted targets attempted by the rewrite loop rather than blindly truncating the
+    selector file before skip checks.
+- Ran attempt 26 with exhausted-target skipping:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence26_exhausted_target_skip`;
+  - the run restored valid LLM policy evidence with `llm_rewrite_accepted=2` and `fallback_rewrite_accepted=0`;
+  - rewrite events recorded `selector_target_skip:7`, showing that saturated top targets were bypassed;
+  - the true-improvement hard gate correctly rejected the run because `llm_true_improved_count=0`;
+  - highlight mix was `sharpe_improved_no_pass_lift:1`;
+  - highlighted-but-not-true-improved candidate: `qr_d4f351fd82`, `corr(volume,ret(close,12),72)`, with pass-rate
+    delta `0.00` and mean-Sharpe delta `+0.25326526`.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 26, excluding the superseded
+  `evidence9_policy_guarded` failed directory and retaining `evidence9_policy_guarded_shape_fixed`:
+  - runs: `23`;
+  - LLM policy evidence runs: `20`;
+  - LLM true-improvement evidence runs: `5`;
+  - coverage-only trap runs: `2`;
+  - highlighted candidate rows: `12`;
+  - distinct highlighted candidates: `9`;
+  - negative candidate rows: `55`;
+  - negative candidate family rows: `17`.
 
 ## Next Session Prompt
 

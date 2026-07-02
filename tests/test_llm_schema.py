@@ -561,6 +561,18 @@ def test_llm_rewrite_prompt_includes_selector_negative_evidence(monkeypatch, tmp
     assert "blocked_candidate_family_pairs" in captured["prompt"]
     assert "range_volatility" in captured["prompt"]
     assert "neg(zscore(std(close,24),120))" in captured["prompt"]
+    prompt = json.loads(captured["prompt"])
+    guard = prompt["mechanical_rejection_guard"]
+    assert guard["parent_formula_family"] == "price"
+    assert "volume_liquidity" in guard["blocked_candidate_families_for_this_parent"]
+    assert "range_volatility" not in guard["blocked_candidate_families_for_this_parent"]
+    assert "volume_liquidity" not in guard["allowed_candidate_families_for_this_parent"]
+    assert "price" in guard["allowed_candidate_families_for_this_parent"]
+    assert "zscore(ret(close,24),96)" in guard["depth_safe_templates_by_family"]["price"]
+    assert "invalid_rewrite_patterns" in guard
+    for examples in guard["depth_safe_templates_by_family"].values():
+        for example in examples:
+            validate_formula_shape(example)
     validator_event = next(event for event in generator.events if event["source"] == "rewrite_validator")
     assert validator_event["rejected"][0]["reason"] == "copies disallowed failed formula"
     assert (

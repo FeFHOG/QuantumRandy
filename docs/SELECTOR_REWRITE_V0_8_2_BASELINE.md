@@ -1433,3 +1433,94 @@ Interpretation: attempt 22 adds another negative-memory confirmation rather than
 only one LLM candidate, rejected it on multi-asset review, and blocked additional exact/family repeats before review.
 The `volume_liquidity->price` family now has three negative observations, while the aggregate true-improvement count
 remains unchanged.
+
+## Exhausted Target Handling And Attempts 23-26
+
+Date: 2026-07-02
+
+Attempts 23 and 24 reused the same hard-gated LLM-only command with the refreshed attempts 4-22 selector evidence
+summary. Both commands exited with code `2` because they produced no accepted LLM rewrite candidates:
+
+- Attempt 23 output: `reports/selector_rewrite_pipeline_llm_v082_evidence23_mixed_negative_memory_repeat`
+- Attempt 24 output: `reports/selector_rewrite_pipeline_llm_v082_evidence24_mixed_negative_memory_repeat`
+- `llm_rewrite_accepted`: `0`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `false`
+- Universe, portfolio, portfolio-universe, and review stages were skipped because there were no candidate formulas.
+
+The rejection audit showed that LLM calls returned formulas, but every formula was mechanically rejected before review.
+The repeated reasons were exact negative formula copies, blocked negative-memory family pairs, and formula-depth
+violations such as nested `zscore(corr(sub(...),sub(...),window),window)` or `neg(zscore(skew(...),window),window)`.
+
+The rewrite prompt then gained a research-only `mechanical_rejection_guard` section. It exposes the current parent
+formula family, blocked candidate families for that parent, allowed candidate families, family-classification rules, and
+depth-safe templates. This does not loosen any validator, admission, publishing, or runtime rule.
+
+Attempt 25 used the prompt guard:
+
+- Output: `reports/selector_rewrite_pipeline_llm_v082_evidence25_mechanical_guard`
+- `llm_rewrite_accepted`: `0`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `false`
+
+Attempt 25 made the deeper failure mode explicit: for the top selector rewrite targets, negative-memory blocking had
+already exhausted all primary candidate families, so the model returned no candidate formulas rather than a reviewable
+candidate. The selector rewrite loop was then tightened so LLM-only mode skips targets whose parent family has no
+allowed candidate families left under selector negative memory. These skips are written to `selector_rewrite_events.csv`
+as `selector_target_skip` rows with `exhausted_candidate_families`.
+
+Attempt 26 used the exhausted-target skip:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence26_exhausted_target_skip \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+The command exited with code `3`, as intended, because there were no LLM true-improved candidates:
+
+- `llm_rewrite_accepted`: `2`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- `llm_error_count`: `1`
+- Candidate verdicts: `mixed:1|not_improved:1`
+- Candidate highlights: `sharpe_improved_no_pass_lift:1`
+- `llm_true_improved_count`: `0`
+- Coverage-only traps: `0`
+- Rewrite events recorded `selector_target_skip:7`, `llm_rewrite:1`, and `rewrite_fallback:1`.
+
+The highlighted-but-not-true-improved candidate was:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_4a7fa246c2` | `qr_d4f351fd82` | `llm_rewrite` | 0.00 | 0.25326526 | BTCUSDT,SOLUSDT,BNBUSDT,AVAXUSDT | `corr(volume,ret(close,12),72)` |
+
+The refreshed attempts 4-26 summary reported:
+
+- Runs: `23`
+- LLM policy evidence runs: `20`
+- LLM true-improvement evidence runs: `5`
+- Runs with coverage-only traps: `2`
+- Highlighted candidate rows: `12`
+- Distinct highlighted candidates: `9`
+- Negative candidate rows: `55`
+- Negative candidate family rows: `17`
+
+Interpretation: attempts 23-26 are process evidence for selector-memory saturation. The top rewrite targets are now
+recognized as exhausted under current negative memory, so the research loop can move to later selector targets instead
+of spending repeated LLM calls on mechanically impossible family transitions. Attempt 26 restored LLM policy evidence
+but still produced only a Sharpe-only/no-pass-lift candidate, which remains negative memory rather than admission or
+runtime publish evidence.

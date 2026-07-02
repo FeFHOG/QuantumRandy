@@ -51,7 +51,7 @@ def run_selector_rewrite_pipeline(
         candidates_per_target=candidates_per_target,
         allow_local_fallback=allow_local_fallback,
     )
-    targets = load_rewrite_targets(selector, max_targets=max_targets)
+    targets = load_rewrite_targets(selector)
     selector_forbidden = load_selector_forbidden_subtrees(
         selector,
         max_subtrees=policy.max_selector_forbidden_subtrees,
@@ -93,6 +93,7 @@ def run_selector_rewrite_pipeline(
             "out_dir": rewrite_out.as_posix(),
             "candidate_path": candidate_path.as_posix(),
             "target_count": rewrite_manifest.get("target_count", 0),
+            "skipped_target_count": rewrite_manifest.get("skipped_target_count", 0),
             "candidate_count": rewrite_manifest.get("candidate_count", 0),
             "selector_forbidden_subtree_count": rewrite_manifest.get("selector_forbidden_subtree_count", 0),
             "use_llm_requested": bool(use_llm),
@@ -267,6 +268,8 @@ def render_pipeline_report(manifest: dict[str, Any]) -> str:
         "",
         f"- Selector: `{manifest['selector_path']}`",
         f"- Window: `{manifest['window']}`",
+        f"- Rewrite targets: `{manifest['rewrite'].get('target_count', 0)}`",
+        f"- Skipped exhausted targets: `{manifest['rewrite'].get('skipped_target_count', 0)}`",
         f"- Rewrite candidates: `{manifest['rewrite']['candidate_count']}`",
         f"- Selector forbidden subtrees: `{manifest['rewrite']['selector_forbidden_subtree_count']}`",
         f"- LLM requested: `{manifest['rewrite'].get('use_llm_requested', False)}`",

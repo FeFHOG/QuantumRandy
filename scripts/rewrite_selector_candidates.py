@@ -66,7 +66,7 @@ def main() -> None:
         settings=LLMSettings(timeout_seconds=args.timeout_seconds),
         prompt_config=prompt,
     )
-    targets = load_rewrite_targets(args.selector, max_targets=args.max_targets)
+    targets = load_rewrite_targets(args.selector)
     selector_forbidden = (
         load_selector_forbidden_subtrees(args.selector, max_subtrees=args.max_selector_forbidden_subtrees)
         if policy.avoid_selector_failed_subtrees

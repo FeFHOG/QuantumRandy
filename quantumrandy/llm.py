@@ -264,6 +264,14 @@ class FormulaGenerator:
             return []
         return self._fill_rewrite_candidates([], formula, failed_gates, count, forbidden, disallowed)
 
+    def selector_rewrite_family_guard(self, formula: str, failure_detail: dict[str, Any]) -> dict[str, Any]:
+        negative_context = self.selector_negative_context
+        blocked_family_pairs = _negative_blocked_family_pairs(negative_context.get("blocked_family_pairs", []))
+        parent_formula_family = _parent_formula_family(formula, failure_detail)
+        guard = _mechanical_rejection_guard(parent_formula_family, blocked_family_pairs)
+        guard["blocked_candidate_family_pair_count"] = len(blocked_family_pairs)
+        return guard
+
     def _fill_rewrite_candidates(
         self,
         formulas: list[str],
@@ -519,7 +527,10 @@ class FormulaGenerator:
         disallowed_formulas.update(negative_disallowed)
         disallowed_sent = sorted(disallowed_formulas)[:10]
         parent_selector_target = _matching_selector_target(formula, rewrite_targets)
-        parent_formula_family = _parent_formula_family(formula, failure_detail)
+        family_guard = self.selector_rewrite_family_guard(formula, failure_detail)
+        parent_formula_family = str(family_guard.get("parent_formula_family", ""))
+        if parent_formula_family == "unknown":
+            parent_formula_family = _parent_formula_family(formula, failure_detail)
         max_pure_funding = _max_pure_funding_candidates(failure_detail, count)
         detail["failure_memory_examples"] = len(failure_examples)
         detail["failure_memory_clusters"] = len(failure_clusters)
@@ -603,6 +614,7 @@ class FormulaGenerator:
                     "Do not copy any exact formula listed in disallowed_exact_formulas_from_negative_memory."
                 ),
             },
+            "mechanical_rejection_guard": family_guard,
             "candidate_diversity": {
                 "instruction": (
                     "Do not return a batch where every candidate is funding_rate-only. Obey max_pure_funding_candidates "
@@ -649,6 +661,11 @@ class FormulaGenerator:
                     "violate them are rejected before backtesting."
                 ),
                 "Prefer 1-3 operator formulas. Before returning JSON, self-check every formula against max_depth and max_operators.",
+                (
+                    "Before returning JSON, compare every candidate against mechanical_rejection_guard. Do not return "
+                    "a formula whose candidate family is blocked for this parent, and do not return formulas matching "
+                    "invalid_rewrite_patterns."
+                ),
                 f"Pure funding-rate-only candidate limit for this parent: {max_pure_funding}.",
                 "Diversify across funding interactions, volatility/range, volume/liquidity, or price-regime families.",
                 (
@@ -996,12 +1013,93 @@ def _shape_constraints(max_depth: int, max_operators: int) -> dict[str, Any]:
             "zscore(div(sub(high,low),close),96)",
             "neg(zscore(div(sma(funding_rate,96),std(funding_rate,192)),192))",
             "neg(zscore(sma(div(sub(high,low),close),96),192))",
+            "neg(zscore(skew(ret(close,6),72),120))",
+            "zscore(corr(sub(close,open),sub(high,low),48),72)",
         ],
         "self_check": (
             "Count nested DSL function calls before returning. If a formula resembles an invalid example or exceeds "
             "max_depth/max_operators, simplify it instead of returning it."
         ),
     }
+
+
+_CANDIDATE_FAMILIES = [
+    "price",
+    "range_volatility",
+    "volume_liquidity",
+    "funding_interaction",
+    "pure_funding",
+]
+
+
+def _mechanical_rejection_guard(
+    parent_formula_family: str,
+    blocked_family_pairs: set[tuple[str, str]],
+) -> dict[str, Any]:
+    blocked_for_parent = sorted(
+        candidate_family
+        for parent_family, candidate_family in blocked_family_pairs
+        if parent_family == parent_formula_family
+    )
+    allowed_families = [family for family in _CANDIDATE_FAMILIES if family not in set(blocked_for_parent)]
+    return {
+        "parent_formula_family": parent_formula_family or "unknown",
+        "allowed_candidate_families_for_this_parent": allowed_families,
+        "blocked_candidate_families_for_this_parent": blocked_for_parent,
+        "blocked_candidate_family_pairs_for_this_parent": [
+            f"{parent_formula_family}->{candidate_family}" for candidate_family in blocked_for_parent
+        ],
+        "formula_family_classifier": {
+            "pure_funding": "uses funding_rate and no price or volume fields",
+            "funding_interaction": "uses funding_rate together with price or volume fields",
+            "range_volatility": "uses std(...) or sub(high,low)",
+            "volume_liquidity": "uses volume without funding_rate",
+            "price": "uses open/high/low/close without volume, funding_rate, std(...), or sub(high,low)",
+        },
+        "depth_safe_templates_by_family": _depth_safe_templates_by_family(allowed_families),
+        "invalid_rewrite_patterns": [
+            "Do not wrap zscore around corr(sub(...),sub(...),window); it tends to exceed max_depth.",
+            (
+                "Do not stack neg(zscore(skew(...),window)) or neg(zscore(kurtosis(...),window)); "
+                "it tends to exceed max_depth."
+            ),
+            "Do not return any formula whose family is in blocked_candidate_families_for_this_parent.",
+            "Do not copy exact formulas from selector negative memory or disallowed_exact_formulas.",
+        ],
+        "instruction": (
+            "These are mechanical parser rules, not soft preferences. A candidate that violates this guard is rejected "
+            "before universe review, so choose only allowed families and shallow templates."
+        ),
+    }
+
+
+def _depth_safe_templates_by_family(allowed_families: list[str]) -> dict[str, list[str]]:
+    templates = {
+        "price": [
+            "zscore(ret(close,24),96)",
+            "neg(zscore(ret(close,48),120))",
+            "zscore(sub(close,open),96)",
+        ],
+        "range_volatility": [
+            "zscore(sub(high,low),96)",
+            "neg(zscore(std(close,24),120))",
+        ],
+        "volume_liquidity": [
+            "zscore(volume,96)",
+            "zscore(ema(volume,48),120)",
+            "neg(zscore(delta(volume,24),120))",
+        ],
+        "funding_interaction": [
+            "corr(funding_rate,ret(close,24),96)",
+            "neg(corr(funding_rate,volume,96))",
+        ],
+        "pure_funding": [
+            "neg(zscore(funding_rate,168))",
+            "neg(zscore(sma(funding_rate,72),168))",
+        ],
+    }
+    allowed = set(allowed_families)
+    return {family: values for family, values in templates.items() if family in allowed}
 
 
 def _is_pure_funding_formula(formula: str) -> bool:

@@ -71,8 +71,12 @@ def build_selector_rewrite_candidates(
     event_rows: list[dict[str, Any]] = []
     seen_formulas: set[str] = set()
     known_selector_formulas = _known_selector_formulas(rewrite_targets)
+    attempted_targets = 0
+    skipped_targets = 0
 
-    for target_index, target in enumerate(rewrite_targets[: policy.max_targets], start=1):
+    for source_target_index, target in enumerate(rewrite_targets, start=1):
+        if attempted_targets >= policy.max_targets:
+            break
         formula = str(target.get("formula", ""))
         if not formula:
             continue
@@ -83,6 +87,21 @@ def build_selector_rewrite_candidates(
                 policy.disallow_pure_funding_rewrite_for_non_funding_parent
             ),
         )
+        family_guard = _selector_rewrite_family_guard(generator, formula, detail)
+        if _target_exhausted_by_selector_memory(policy, generator, family_guard):
+            skipped_targets += 1
+            event_rows.append(
+                _selector_target_skip_event(
+                    source_target_index,
+                    target,
+                    formula,
+                    family_guard,
+                    known_selector_formulas,
+                )
+            )
+            continue
+        attempted_targets += 1
+        target_index = attempted_targets
         target_failed_subtrees = _split_subtrees(target.get("matched_failed_subtrees", ""))
         effective_forbidden = _dedupe_subtrees(
             [
@@ -188,7 +207,8 @@ def build_selector_rewrite_candidates(
             "does_not_auto_admit_factors": True,
         },
         "policy": asdict(policy),
-        "target_count": min(len(rewrite_targets), policy.max_targets),
+        "target_count": attempted_targets,
+        "skipped_target_count": skipped_targets,
         "candidate_count": len(candidates),
         "event_count": len(events),
         "event_source_counts": _event_source_counts(events),
@@ -253,6 +273,7 @@ def render_selector_rewrite_report(manifest: dict[str, Any], candidates: pd.Data
         "## Summary",
         "",
         f"- Rewrite targets: `{manifest['target_count']}`",
+        f"- Skipped exhausted targets: `{manifest.get('skipped_target_count', 0)}`",
         f"- Candidate formulas: `{manifest['candidate_count']}`",
         f"- Known selector formulas disallowed: `{manifest.get('known_selector_formula_count', 0)}`",
         f"- Selector forbidden subtrees: `{manifest.get('selector_forbidden_subtree_count', 0)}`",
@@ -383,6 +404,66 @@ def _failed_gates_for_focus(rewrite_focus: str) -> list[str]:
     if rewrite_focus == "abandon_or_change_economic_family":
         return ["cross_asset_robustness", "predictive_power", "lifetime"]
     return ["predictive_power"]
+
+
+def _selector_rewrite_family_guard(
+    generator: FormulaGenerator,
+    formula: str,
+    failure_detail: dict[str, Any],
+) -> dict[str, Any]:
+    guard_fn = getattr(generator, "selector_rewrite_family_guard", None)
+    if not callable(guard_fn):
+        return {}
+    guard = guard_fn(formula, failure_detail)
+    return guard if isinstance(guard, dict) else {}
+
+
+def _target_exhausted_by_selector_memory(
+    policy: CandidateRewritePolicy,
+    generator: FormulaGenerator,
+    family_guard: dict[str, Any],
+) -> bool:
+    if policy.allow_local_fallback or not getattr(generator, "use_llm", False):
+        return False
+    blocked = family_guard.get("blocked_candidate_families_for_this_parent") or []
+    allowed = family_guard.get("allowed_candidate_families_for_this_parent")
+    return bool(blocked) and isinstance(allowed, list) and not allowed
+
+
+def _selector_target_skip_event(
+    target_index: int,
+    target: dict[str, Any],
+    formula: str,
+    family_guard: dict[str, Any],
+    known_selector_formulas: list[str],
+) -> dict[str, Any]:
+    blocked = family_guard.get("blocked_candidate_families_for_this_parent") or []
+    return {
+        "target_index": target_index,
+        "parent_factor_id": target.get("factor_id", ""),
+        "parent_formula": formula,
+        "source": "selector_target_skip",
+        "requested": 0,
+        "accepted": 0,
+        "error": "all candidate families are blocked by negative selector memory",
+        "rejected_count": 0,
+        "rejected_reason_mix": "",
+        "rejected_formula_examples": "",
+        "candidate_selector_rewrite_targets": "",
+        "candidate_selector_evidence_gaps": "",
+        "candidate_selector_clusters": "",
+        "selector_negative_examples": "",
+        "selector_negative_families": "",
+        "selector_negative_disallowed_formulas": "",
+        "selector_negative_blocked_family_pairs": family_guard.get("blocked_candidate_family_pair_count", ""),
+        "selector_forbidden_subtree_count": "",
+        "selector_forbidden_subtrees": "",
+        "known_selector_formula_count": len(known_selector_formulas),
+        "disallowed_formula_count": len(known_selector_formulas),
+        "parent_formula_family": family_guard.get("parent_formula_family", ""),
+        "max_pure_funding_candidates": "",
+        "exhausted_candidate_families": "|".join(str(item) for item in blocked),
+    }
 
 
 def _target_failure_detail(

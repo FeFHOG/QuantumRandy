@@ -233,6 +233,54 @@ class _RejectedThenAcceptedRewriteGenerator(FormulaGenerator):
         return [proposal]
 
 
+class _SkipFirstTargetRewriteGenerator(FormulaGenerator):
+    def __init__(self) -> None:
+        super().__init__(use_llm=True)
+
+    def selector_rewrite_family_guard(self, formula, failure_detail):
+        if "volume" in formula:
+            return {
+                "parent_formula_family": "volume_liquidity",
+                "allowed_candidate_families_for_this_parent": [],
+                "blocked_candidate_families_for_this_parent": [
+                    "price",
+                    "range_volatility",
+                    "volume_liquidity",
+                    "funding_interaction",
+                    "pure_funding",
+                ],
+                "blocked_candidate_family_pair_count": 15,
+            }
+        return {
+            "parent_formula_family": "price",
+            "allowed_candidate_families_for_this_parent": ["price"],
+            "blocked_candidate_families_for_this_parent": [],
+            "blocked_candidate_family_pair_count": 15,
+        }
+
+    def rewrite(
+        self,
+        formula,
+        failed_gates,
+        failure_detail,
+        count,
+        forbidden,
+        disallowed_formulas=None,
+        allow_local_fallback=True,
+    ):
+        proposal = "zscore(ret(close,24),96)"
+        self.descriptions[proposal] = "Slower price pressure rewrite with cross-asset momentum rationale."
+        self.proposal_metadata[proposal] = {
+            "generation_source": "llm_rewrite",
+            "hypothesis": "Slower price pressure can transfer across liquid crypto perpetuals.",
+            "expected_edge": "Less reactive price pressure can reduce noise across assets.",
+            "expected_failure_mode": "It can fail in mean-reverting chop.",
+            "rewrite_plan_if_killed": "Try a sign flip or abandon price-only momentum.",
+        }
+        self.events.append({"source": "llm_rewrite", "requested": count, "accepted": 1, "error": ""})
+        return [proposal]
+
+
 def test_selector_rewrite_merges_selector_forbidden_subtrees_into_generation(tmp_path) -> None:
     targets = [
         {
@@ -316,6 +364,38 @@ def test_selector_rewrite_events_summarize_rejected_candidates(tmp_path) -> None
     assert "zscore(volume,96): candidate family is blocked" in validator["rejected_formula_examples"]
     assert len(candidates) == 1
     assert manifest["llm_rewrite_accepted"] == 1
+
+
+def test_selector_rewrite_skips_exhausted_llm_only_targets() -> None:
+    targets = [
+        {
+            "factor_id": "exhausted_volume",
+            "formula": "zscore(volume,96)",
+            "selector_verdict": "rewrite",
+            "rewrite_focus": "improve_cross_asset_robustness",
+        },
+        {
+            "factor_id": "eligible_price",
+            "formula": "zscore(ret(close,6),48)",
+            "selector_verdict": "rewrite",
+            "rewrite_focus": "improve_cross_asset_robustness",
+        },
+    ]
+    candidates, events, manifest = build_selector_rewrite_candidates(
+        targets,
+        _SkipFirstTargetRewriteGenerator(),
+        policy=CandidateRewritePolicy(max_targets=1, allow_local_fallback=False),
+    )
+
+    assert manifest["target_count"] == 1
+    assert manifest["skipped_target_count"] == 1
+    assert manifest["candidate_count"] == 1
+    assert candidates.iloc[0]["parent_factor_id"] == "eligible_price"
+    assert candidates.iloc[0]["rewrite_generation_source"] == "llm_rewrite"
+    skip = events[events["source"] == "selector_target_skip"].iloc[0]
+    assert skip["parent_factor_id"] == "exhausted_volume"
+    assert skip["error"] == "all candidate families are blocked by negative selector memory"
+    assert "volume_liquidity" in skip["exhausted_candidate_families"]
 
 
 def test_selector_rewrite_allows_one_pure_funding_rewrite_for_funding_parent(tmp_path) -> None:
