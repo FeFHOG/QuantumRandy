@@ -124,23 +124,22 @@ Use `docs/SERVER_48H_TRIAL_RUNBOOK.md` as the operator-facing Ubuntu/tmux checkl
 
 ## Selector Rewrite Research State
 
-- Latest hard-gated LLM-only successful repeat: `reports/selector_rewrite_pipeline_llm_v082_evidence59_conflict_aware_memory_repeat`
+- Latest hard-gated LLM-only successful repeat: `reports/selector_rewrite_pipeline_llm_v082_evidence60_conflict_aware_memory_repeat`
 - Latest LLM-policy repeat without true-improvement evidence:
   `reports/selector_rewrite_pipeline_llm_v082_evidence55_conflict_aware_memory_repeat`
 - Latest failed repeat artifact: `reports/selector_rewrite_pipeline_llm_v082_evidence47_conflict_aware_memory_repeat`
   failed the LLM policy-evidence gate due to repeated SSL EOF transport errors and produced no candidates.
 - Current aggregate summary: `reports/selector_pipeline_evidence_v082_summary`
-- Aggregate runs: `56`
-- LLM policy evidence runs: `52`
-- LLM true-improvement evidence runs: `34`
+- Aggregate runs: `57`
+- LLM policy evidence runs: `53`
+- LLM true-improvement evidence runs: `35`
 - Coverage-only trap runs: `4`
-- Highlighted candidate rows: `111`
-- Negative candidate rows: `107`
+- Highlighted candidate rows: `115`
+- Negative candidate rows: `109`
 - Negative candidate family rows: `19`
 - Strongest repeated theme: positive smoothed volume participation, led by `zscore(ema(volume,48),120)`.
-- Latest evidence59 note: mixed but true-improved repeat; `zscore(std(close,48),120)` and
-  `zscore(ema(volume,48),120)` were true-improved against the funding-interaction parent, while normalized signed
-  price-volume correlation and negative-sign volatility/range variants remained weak.
+- Latest evidence60 note: `zscore(ema(volume,48),120)`, `zscore(std(close,24),144)`, and
+  `zscore(std(close,12),120)` were true-improved; raw signed price-volume correlation remained weak.
 - Latest evidence55 note: attribution-clean LLM policy evidence, but no true-improved highlights; all four accepted
   candidates were not improved, reinforcing negative memory for raw signed price-volume correlation, negative
   range-volume correlation, and negative volatility-regime signs.
