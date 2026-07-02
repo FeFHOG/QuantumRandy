@@ -115,6 +115,7 @@ def load_selector_negative_prompt_context(
             "parent_formula_family": str(row.get("parent_formula_family", "")),
             "candidate_formula_family": str(row.get("candidate_formula_family", "")),
             "negative_count": str(row.get("negative_count", "")),
+            "true_improved_count": str(row.get("true_improved_count", "")),
             "avg_mean_sharpe_delta": str(row.get("avg_mean_sharpe_delta", "")),
             "worst_mean_sharpe_delta": str(row.get("worst_mean_sharpe_delta", "")),
         }
@@ -212,9 +213,9 @@ def render_selector_pipeline_evidence_summary(
         lines.append("No negative selector candidate families were summarized.")
     else:
         lines.append(
-            "| Parent Family | Candidate Family | Negatives | Sharpe Only | Avg Pass Delta | Avg Sharpe Delta | Worst Sharpe Delta | Example |"
+            "| Parent Family | Candidate Family | Negatives | Sharpe Only | True Improved | Avg Pass Delta | Avg Sharpe Delta | Worst Sharpe Delta | Example |"
         )
-        lines.append("|---|---|---:|---:|---:|---:|---:|---|")
+        lines.append("|---|---|---:|---:|---:|---:|---:|---:|---|")
         for row in negative_summary.head(12).to_dict(orient="records"):
             lines.append(
                 "| "
@@ -222,6 +223,7 @@ def render_selector_pipeline_evidence_summary(
                 f"`{row.get('candidate_formula_family', '')}` | "
                 f"{int(row.get('negative_count', 0) or 0)} | "
                 f"{int(row.get('sharpe_only_count', 0) or 0)} | "
+                f"{int(row.get('true_improved_count', 0) or 0)} | "
                 f"{_num(row.get('avg_pass_rate_delta', 0.0)):.2f} | "
                 f"{_num(row.get('avg_mean_sharpe_delta', 0.0)):.2f} | "
                 f"{_num(row.get('worst_mean_sharpe_delta', 0.0)):.2f} | "
@@ -357,6 +359,7 @@ def _summarize_highlight_candidates(run_paths: list[Path]) -> pd.DataFrame:
 
 def _summarize_negative_candidates(run_paths: list[Path]) -> pd.DataFrame:
     rows: list[dict[str, Any]] = []
+    positive_rows: list[dict[str, Any]] = []
     for path in run_paths:
         review = _read_csv(path / "review" / "selector_pipeline_candidate_review.csv")
         if review.empty:
@@ -365,16 +368,28 @@ def _summarize_negative_candidates(run_paths: list[Path]) -> pd.DataFrame:
             if str(row.get("rewrite_generation_source", "")) != "llm_rewrite":
                 continue
             verdict = str(row.get("candidate_review_verdict", ""))
+            formula = str(row.get("formula", ""))
+            parent_family = str(row.get("parent_formula_family", "")) or _formula_family(str(row.get("parent_formula", "")))
+            candidate_family = _formula_family(formula)
+            if verdict == "improved":
+                positive_rows.append(
+                    {
+                        "run_id": path.name,
+                        "parent_formula_family": parent_family,
+                        "candidate_formula_family": candidate_family,
+                        "pass_rate_delta": _num(row.get("pass_rate_delta", "")),
+                        "mean_sharpe_delta": _num(row.get("mean_sharpe_delta", "")),
+                    }
+                )
+                continue
             if verdict not in {"not_improved", "coverage_only", "mixed"}:
                 continue
-            formula = str(row.get("formula", ""))
             rows.append(
                 {
                     "run_id": path.name,
                     "parent_factor_id": row.get("parent_factor_id", ""),
-                    "parent_formula_family": str(row.get("parent_formula_family", ""))
-                    or _formula_family(str(row.get("parent_formula", ""))),
-                    "candidate_formula_family": _formula_family(formula),
+                    "parent_formula_family": parent_family,
+                    "candidate_formula_family": candidate_family,
                     "factor_id": row.get("factor_id", ""),
                     "formula": formula,
                     "candidate_review_verdict": verdict,
@@ -387,12 +402,14 @@ def _summarize_negative_candidates(run_paths: list[Path]) -> pd.DataFrame:
     if not rows:
         return pd.DataFrame()
     frame = pd.DataFrame(rows)
+    positive_by_family = _positive_family_evidence(positive_rows)
     grouped_rows: list[dict[str, Any]] = []
     group_columns = ["parent_formula_family", "candidate_formula_family"]
     for group_key, group in frame.groupby(group_columns, dropna=False):
         parent_family, candidate_family = group_key
         run_ids = sorted(str(value) for value in group["run_id"].fillna("").unique() if str(value))
         worst = group.sort_values(["mean_sharpe_delta", "pass_rate_delta"], ascending=[True, True]).iloc[0]
+        positive = positive_by_family.get((str(parent_family), str(candidate_family)), {})
         grouped_rows.append(
             {
                 "parent_formula_family": parent_family,
@@ -403,6 +420,10 @@ def _summarize_negative_candidates(run_paths: list[Path]) -> pd.DataFrame:
                 "sharpe_only_count": int((group["candidate_review_verdict"] == "mixed").sum()),
                 "run_count": len(run_ids),
                 "run_ids": "|".join(run_ids),
+                "true_improved_count": int(positive.get("true_improved_count", 0)),
+                "true_improved_run_ids": positive.get("true_improved_run_ids", ""),
+                "best_true_improved_pass_rate_delta": positive.get("best_true_improved_pass_rate_delta", 0.0),
+                "best_true_improved_mean_sharpe_delta": positive.get("best_true_improved_mean_sharpe_delta", 0.0),
                 "avg_pass_rate_delta": round(float(group["pass_rate_delta"].mean()), 8),
                 "avg_mean_sharpe_delta": round(float(group["mean_sharpe_delta"].mean()), 8),
                 "worst_mean_sharpe_delta": round(float(group["mean_sharpe_delta"].min()), 8),
@@ -418,6 +439,23 @@ def _summarize_negative_candidates(run_paths: list[Path]) -> pd.DataFrame:
         ["negative_count", "avg_mean_sharpe_delta", "worst_mean_sharpe_delta"],
         ascending=[False, True, True],
     ).reset_index(drop=True)
+
+
+def _positive_family_evidence(rows: list[dict[str, Any]]) -> dict[tuple[str, str], dict[str, Any]]:
+    if not rows:
+        return {}
+    frame = pd.DataFrame(rows)
+    out: dict[tuple[str, str], dict[str, Any]] = {}
+    for group_key, group in frame.groupby(["parent_formula_family", "candidate_formula_family"], dropna=False):
+        parent_family, candidate_family = group_key
+        run_ids = sorted(str(value) for value in group["run_id"].fillna("").unique() if str(value))
+        out[(str(parent_family), str(candidate_family))] = {
+            "true_improved_count": int(len(group)),
+            "true_improved_run_ids": "|".join(run_ids),
+            "best_true_improved_pass_rate_delta": round(float(group["pass_rate_delta"].max()), 8),
+            "best_true_improved_mean_sharpe_delta": round(float(group["mean_sharpe_delta"].max()), 8),
+        }
+    return out
 
 
 def _negative_disallowed_formula_rows(rows: list[dict[str, Any]], *, max_items: int) -> list[str]:
@@ -452,7 +490,8 @@ def _negative_blocked_family_pair_rows(
             continue
         negative_count = _num(row.get("negative_count", 0))
         avg_mean_sharpe_delta = _num(row.get("avg_mean_sharpe_delta", 0))
-        if negative_count < min_count or avg_mean_sharpe_delta >= 0:
+        true_improved_count = _num(row.get("true_improved_count", 0))
+        if negative_count < min_count or avg_mean_sharpe_delta >= 0 or true_improved_count > 0:
             continue
         out.append(
             {

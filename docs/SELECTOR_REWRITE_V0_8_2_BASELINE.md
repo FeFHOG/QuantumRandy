@@ -1630,3 +1630,112 @@ Interpretation: exhausted-target skipping is now doing useful work. It bypasses 
 auditability, and attempt 28 found two LLM-sourced true-improved candidates on later selector targets. These are still
 research-only selector rewrite evidence: neither candidate is admitted, published, or runtime-ready without separate
 admission, walk-forward, portfolio, and manual review.
+
+## Conflict-Aware Negative Memory And Attempts 29-30
+
+Date: 2026-07-02
+
+Attempt 29 reused the same hard-gated LLM-only command with the refreshed attempts 4-28 selector evidence summary:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence29_exhausted_target_skip_repeat \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+The command exited with code `3`, as intended, because there were no LLM true-improved candidates:
+
+- `llm_rewrite_accepted`: `3`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- `llm_error_count`: `0`
+- Candidate verdicts: `not_improved:3`
+- Candidate highlights: `0`
+- `llm_true_improved_count`: `0`
+- Rewrite events recorded `selector_target_skip:7`, `llm_rewrite:2`, and `rewrite_validator:1`.
+
+Attempt 29 added negative rows for funding-interaction parents drifting into price and volume/liquidity candidates. The
+refreshed attempts 4-29 summary reported:
+
+- Runs: `26`
+- LLM policy evidence runs: `23`
+- LLM true-improvement evidence runs: `6`
+- Negative candidate rows: `63`
+- Negative candidate family rows: `19`
+
+This exposed a selector-memory nuance: some family pairs now have both negative evidence and LLM true-improved evidence.
+For example, `funding_interaction->volume_liquidity` contains repeated Sharpe-only/no-pass-lift failures, but also the
+true-improved `zscore(ema(volume,48),120)` result from attempt 28. The evidence summary now records family-level
+`true_improved_count`, true-improved run IDs, and best true-improved deltas in
+`selector_pipeline_negative_candidate_summary.csv`. Family-pair blocking no longer blocks a whole family pair when that
+pair has LLM true-improved evidence; exact failed formulas still remain disallowed.
+
+Attempt 30 then ran with this conflict-aware selector memory:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence30_conflict_aware_memory \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+Attempt 30 completed successfully and passed the LLM true-improvement hard gate:
+
+- `llm_rewrite_accepted`: `4`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- `llm_error_count`: `0`
+- Candidate verdicts: `improved:4`
+- Candidate highlights: `true_improved:4`
+- `llm_true_improved_count`: `4`
+- Rewrite events recorded `selector_target_skip:4`, `llm_rewrite:3`, and `rewrite_validator:2`.
+
+The true-improved LLM candidates were:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_7a765d304b` | `qr_a2cd9fd69f` | `llm_rewrite` | 0.80 | 0.44211152 | BTCUSDT | `zscore(ema(volume,48),120)` |
+| `qr_4a7fa246c2` | `qr_e23cfc8ae6` | `llm_rewrite` | 0.60 | 1.06153455 | AVAXUSDT | `zscore(std(close,48),144)` |
+| `qr_4a7fa246c2` | `qr_f61439dfd5` | `llm_rewrite` | 0.40 | 0.73177118 | BTCUSDT,ETHUSDT | `zscore(ema(volume,24),144)` |
+| `qr_ccda5f2f68` | `qr_1aa34f4735` | `llm_rewrite` | 0.40 | 0.68271748 | BTCUSDT,BNBUSDT,AVAXUSDT | `corr(sub(close,open),volume,48)` |
+
+The refreshed attempts 4-30 summary reported:
+
+- Runs: `27`
+- LLM policy evidence runs: `24`
+- LLM true-improvement evidence runs: `7`
+- Runs with coverage-only traps: `2`
+- Highlighted candidate rows: `20`
+- Distinct highlighted candidates: `17`
+- Negative candidate rows: `63`
+- Negative candidate family rows: `19`
+
+Interpretation: conflict-aware negative memory prevents over-blocking family pairs that have produced true-improved
+evidence while preserving exact failed-formula disallow and pure-negative family-pair blocking. Attempt 30 is positive
+process evidence for this selector-memory refinement, but the highlighted formulas remain research-only until separate
+walk-forward, admission, portfolio, and manual runtime-publishing review.

@@ -914,6 +914,42 @@ Expected value:
   - distinct highlighted candidates: `13`;
   - negative candidate rows: `60`;
   - negative candidate family rows: `18`.
+- Ran attempt 29 as another exhausted-target-skip repeat:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence29_exhausted_target_skip_repeat`;
+  - the run remained valid LLM policy evidence with `llm_rewrite_accepted=3` and `fallback_rewrite_accepted=0`;
+  - rewrite events recorded `selector_target_skip:7`;
+  - the true-improvement hard gate correctly rejected the run because all reviewed candidates were `not_improved`.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 29:
+  - runs: `26`;
+  - LLM policy evidence runs: `23`;
+  - LLM true-improvement evidence runs: `6`;
+  - negative candidate rows: `63`;
+  - negative candidate family rows: `19`.
+- Added conflict-aware selector negative memory:
+  - `selector_pipeline_negative_candidate_summary.csv` now records family-level true-improved evidence alongside
+    negative counts;
+  - family-pair blocking no longer blocks an entire parent/candidate family pair when that pair has LLM true-improved
+    evidence;
+  - exact failed formulas remain disallowed, and pure-negative family-pair blocking remains active.
+- Ran attempt 30 with conflict-aware memory:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence30_conflict_aware_memory`;
+  - the run passed the LLM true-improvement hard gate with `llm_rewrite_accepted=4`,
+    `fallback_rewrite_accepted=0`, and `llm_true_improved_count=4`;
+  - skipped exhausted targets dropped from `7` to `4`, allowing the price parent `qr_7a765d304b` to be tried again;
+  - true-improved candidates:
+    `qr_a2cd9fd69f`, `zscore(ema(volume,48),120)`, pass-rate delta `+0.80`, mean-Sharpe delta `+0.44211152`;
+    `qr_e23cfc8ae6`, `zscore(std(close,48),144)`, pass-rate delta `+0.60`, mean-Sharpe delta `+1.06153455`;
+    `qr_f61439dfd5`, `zscore(ema(volume,24),144)`, pass-rate delta `+0.40`, mean-Sharpe delta `+0.73177118`;
+    `qr_1aa34f4735`, `corr(sub(close,open),volume,48)`, pass-rate delta `+0.40`, mean-Sharpe delta `+0.68271748`.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 30:
+  - runs: `27`;
+  - LLM policy evidence runs: `24`;
+  - LLM true-improvement evidence runs: `7`;
+  - coverage-only trap runs: `2`;
+  - highlighted candidate rows: `20`;
+  - distinct highlighted candidates: `17`;
+  - negative candidate rows: `63`;
+  - negative candidate family rows: `19`.
 
 ## Next Session Prompt
 
