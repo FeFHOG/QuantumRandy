@@ -2935,3 +2935,66 @@ reviewed parent contexts. The funding-interaction parent strengthened both short
 The raw `zscore(volume,120)` miss reinforces that the repeated edge is in smoothed/normalized participation variants,
 not plain volume level. These artifacts remain research-only selector evidence and do not admit, publish, or update
 runtime strategies.
+
+Attempt 50 repeated the same hard-gated conflict-aware memory setup:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence50_conflict_aware_memory_repeat \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+Attempt 50 completed successfully and passed the LLM true-improvement hard gate:
+
+- `llm_rewrite_accepted`: `5`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- Candidate verdicts: `improved:5`
+- Candidate highlights: `true_improved:5`
+- `llm_true_improved_count`: `5`
+- Rewrite events recorded `selector_target_skip:4`, `llm_rewrite:3`, and `rewrite_validator:1`.
+
+The true-improved LLM candidates were:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_ccda5f2f68` | `qr_3cdea28d1b` | `llm_rewrite` | 1.00 | 1.20305771 | none | `zscore(ema(volume,36),144)` |
+| `qr_7a765d304b` | `qr_a2cd9fd69f` | `llm_rewrite` | 0.80 | 0.44211152 | BTCUSDT | `zscore(ema(volume,48),120)` |
+| `qr_ccda5f2f68` | `qr_41f6f43247` | `llm_rewrite` | 0.60 | 1.30535681 | SOLUSDT,AVAXUSDT | `zscore(std(close,36),144)` |
+| `qr_4a7fa246c2` | `qr_c3ccb8e228` | `llm_rewrite` | 0.60 | 0.84810419 | AVAXUSDT | `zscore(std(close,48),120)` |
+| `qr_4a7fa246c2` | `qr_295d2e9ee2` | `llm_rewrite` | 0.60 | 0.65493676 | BTCUSDT | `zscore(ema(volume,24),120)` |
+
+The rewrite validator blocked one exact failed-formula repeat:
+`zscore(corr(sub(close,open),volume,48),72)`.
+
+The refreshed attempts 4-50 summary reported:
+
+- Runs: `47`
+- LLM policy evidence runs: `43`
+- LLM true-improvement evidence runs: `26`
+- Runs with coverage-only traps: `3`
+- Highlighted candidate rows: `84`
+- Distinct highlighted candidates: `45`
+- Negative candidate rows: `91`
+- Negative candidate family rows: `19`
+
+Interpretation: attempt 50 is a clean all-improved repeat and the strongest recent confirmation of the conflict-aware
+memory posture. The price-parent `zscore(ema(volume,48),120)` row now has fifteen LLM true-improved highlights in the
+aggregate summary and eighteen true-improved highlights across the two reviewed parent contexts. The funding-interaction
+parent also reinforced `zscore(ema(volume,36),144)`, `zscore(ema(volume,24),120)`, and medium-horizon realized-volatility
+shapes including `zscore(std(close,36),144)` and `zscore(std(close,48),120)`. No new negative candidates were added in
+this run; exact failed-formula blocking still caught the recurring price-volume correlation repeat. These artifacts
+remain research-only selector evidence and do not admit, publish, or update runtime strategies.
