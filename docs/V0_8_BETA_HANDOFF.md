@@ -145,12 +145,17 @@ Use `docs/SERVER_48H_TRIAL_RUNBOOK.md` as the operator-facing Ubuntu/tmux checkl
   range-volume correlation, and negative volatility-regime signs.
 - Current memory posture: keep exact failed-formula blocking and sign-aware negative memory, but do not mechanically
   block entire volume-liquidity or range-volatility families.
+- Milestone review: `docs/SELECTOR_REWRITE_V0_8_2_MILESTONE_REVIEW.md`.
+- Selector repeat stop: do not run evidence61 unless explicitly requested. Marginal evidence is saturated enough to
+  move to research-only candidate export and strict RandysLab judging.
 - Boundary: these are research-only selector evidence artifacts, not runtime publish payloads or admission decisions.
 
 ## Next Best Steps
 
-- If continuing the selector evidence campaign, run another hard-gated LLM-only conflict-aware repeat with the current
-  selector evidence summary, then refresh the aggregate report and document only evidence/docs changes.
+- Build a research-only selector v0.8.2 factor-candidate export from the milestone winners and send it to strict
+  RandysLab judging.
+- Add public crypto-native feature candidates only after data readiness checks for open interest, basis, liquidation
+  prints, and taker imbalance.
 - Run one real Binance feeder one-shot against a local runtime and inspect the monitor report with baseline comparison.
 - If that is clean, run the server 48h paper trial without strategy churn.
 - Keep aligning portfolio reports and runtime monitor reports around comparable metrics.

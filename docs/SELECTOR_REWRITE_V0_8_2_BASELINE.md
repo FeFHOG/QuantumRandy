@@ -3695,3 +3695,12 @@ funding-interaction parent and adds narrower realized-volatility support through
 `zscore(std(close,12),120)`. The raw signed price-volume correlation variant still failed against the price parent,
 while raw volume-return correlation improved mean Sharpe without raising pass-rate. These artifacts remain
 research-only selector evidence and do not admit, publish, or update runtime strategies.
+
+## Milestone Review After Evidence60
+
+The hard-gated selector repeat campaign is stopped at evidence60. Do not run evidence61 unless explicitly requested.
+
+The milestone review is recorded in `docs/SELECTOR_REWRITE_V0_8_2_MILESTONE_REVIEW.md`. It concludes that marginal
+repeat evidence has saturated enough to move from repetition to research-only factor-candidate export and strict
+RandysLab judging. The review also recommends adding public crypto-native feature families such as open interest,
+basis, liquidation prints, and taker imbalance only after data readiness and T+1/next-bar alignment checks.

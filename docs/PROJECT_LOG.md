@@ -1,5 +1,21 @@
 # QuantumRandy Project Log
 
+## 2026-07-02 Selector Evidence60 Milestone Review
+
+- Stopped the hard-gated selector repeat campaign at evidence60. Evidence61 should not be run unless explicitly
+  requested.
+- Added `docs/SELECTOR_REWRITE_V0_8_2_MILESTONE_REVIEW.md`, covering attempts 4-60.
+- Milestone conclusion: marginal repeat evidence has saturated. Attempts 50-60 produced `33` true-improved rows, but
+  only `2` true-improved formulas first appeared in that interval; attempts 55-60 produced `14` true-improved rows and
+  only `1` first-seen formula.
+- Top repeated winners remain positive smoothed volume participation and positive realized-volatility regime shapes,
+  led by `zscore(ema(volume,48),120)`.
+- The review recommends a research-only factor-candidate export schema for the next phase and recommends adding
+  public crypto-native features such as open interest, basis, liquidation prints, and taker imbalance only after data
+  readiness and strict RandysLab alignment checks.
+- This remains research-only documentation. It does not admit factors, publish runtime strategies, or alter active
+  runtime behavior.
+
 ## 2026-07-02 Selector Evidence60 Research Repeat
 
 - Ran hard-gated LLM-only selector rewrite attempt 60:
