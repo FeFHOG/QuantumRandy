@@ -973,6 +973,33 @@ Expected value:
   over-blocking family pairs with prior true-improved evidence while exact failed formulas and pure-negative family
   blocking continue to suppress repeated failures. The repeated positive remains research-only and requires separate
   walk-forward, admission, portfolio, and manual runtime-publishing review before any runtime consideration.
+- Ran attempt 32 as another conflict-aware-memory repeat:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence32_conflict_aware_memory_repeat`;
+  - the run passed the LLM true-improvement hard gate with `llm_rewrite_accepted=4`,
+    `fallback_rewrite_accepted=0`, and `llm_true_improved_count=3`;
+  - rewrite events recorded `selector_target_skip:4`, `llm_rewrite:3`, and `rewrite_validator:2`;
+  - candidate highlight mix was `true_improved:3|sharpe_improved_no_pass_lift:1`;
+  - true-improved candidates:
+    `qr_a2cd9fd69f`, `zscore(ema(volume,48),120)`, pass-rate delta `+0.80`, mean-Sharpe delta `+0.44211152`;
+    `qr_edd31d7e32`, `zscore(std(ret(close,4),24),120)`, pass-rate delta `+0.60`, mean-Sharpe delta `+0.97526250`;
+    `qr_33f1508627`, `zscore(sma(volume,24),96)`, pass-rate delta `+0.60`, mean-Sharpe delta `+0.80809019`;
+  - the Sharpe-only/no-pass-lift candidate was `qr_cd595899ee`,
+    `zscore(corr(sub(close,open),volume,36),96)`, pass-rate delta `0.00`, mean-Sharpe delta `+0.37866408`;
+  - the rewrite validator rejected `neg(zscore(std(ret(close,1),36),144))`, preserving the existing DSL window guard.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 32:
+  - runs: `29`;
+  - LLM policy evidence runs: `26`;
+  - LLM true-improvement evidence runs: `9`;
+  - coverage-only trap runs: `2`;
+  - highlighted candidate rows: `25`;
+  - distinct highlighted candidates: `20`;
+  - negative candidate rows: `67`;
+  - negative candidate family rows: `19`.
+- Current interpretation: conflict-aware selector memory has now produced two consecutive hard-gate passes after
+  attempt 30. The repeated `zscore(ema(volume,48),120)` candidate is becoming the most stable positive selector
+  rewrite artifact, while attempt 32 adds two one-off true-improved candidates that still need repeat evidence. The
+  mixed `qr_cd595899ee` row is a reminder that prior formula-level positives are not universally positive across
+  parents; parent-specific review should remain part of the selector audit loop.
 
 ## Next Session Prompt
 

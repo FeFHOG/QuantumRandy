@@ -1794,3 +1794,69 @@ conflict guard can keep useful volume-liquidity candidates reachable even when t
 negative evidence. The repeat also added three new LLM-sourced negative candidates to memory, including weak price,
 raw volume fade, and negative realized-volatility shapes. The positive formula remains a research-only selector
 candidate and is not admission, publishing, or runtime evidence.
+
+Attempt 32 repeated the same hard-gated conflict-aware memory setup:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence32_conflict_aware_memory_repeat \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+Attempt 32 completed successfully and passed the LLM true-improvement hard gate:
+
+- `llm_rewrite_accepted`: `4`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- Candidate verdicts: `improved:3|mixed:1`
+- Candidate highlights: `true_improved:3|sharpe_improved_no_pass_lift:1`
+- `llm_true_improved_count`: `3`
+- Rewrite events recorded `selector_target_skip:4`, `llm_rewrite:3`, and `rewrite_validator:2`.
+
+The true-improved LLM candidates were:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_7a765d304b` | `qr_a2cd9fd69f` | `llm_rewrite` | 0.80 | 0.44211152 | BTCUSDT | `zscore(ema(volume,48),120)` |
+| `qr_ccda5f2f68` | `qr_edd31d7e32` | `llm_rewrite` | 0.60 | 0.97526250 | BTCUSDT,SOLUSDT | `zscore(std(ret(close,4),24),120)` |
+| `qr_ccda5f2f68` | `qr_33f1508627` | `llm_rewrite` | 0.60 | 0.80809019 | BTCUSDT,SOLUSDT | `zscore(sma(volume,24),96)` |
+
+The non-true-improved highlight was:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_4a7fa246c2` | `qr_cd595899ee` | `llm_rewrite` | 0.00 | 0.37866408 | BTCUSDT,ETHUSDT,BNBUSDT,AVAXUSDT | `zscore(corr(sub(close,open),volume,36),96)` |
+
+The rewrite validator also rejected `neg(zscore(std(ret(close,1),36),144))` because `ret` requires an integer window
+of at least `2`, confirming the existing parser guard still catches invalid LLM shapes before review.
+
+The refreshed attempts 4-32 summary reported:
+
+- Runs: `29`
+- LLM policy evidence runs: `26`
+- LLM true-improvement evidence runs: `9`
+- Runs with coverage-only traps: `2`
+- Highlighted candidate rows: `25`
+- Distinct highlighted candidates: `20`
+- Negative candidate rows: `67`
+- Negative candidate family rows: `19`
+
+Interpretation: attempt 32 is another positive process result for conflict-aware selector memory. It repeated the
+strong `zscore(ema(volume,48),120)` candidate and added two new LLM-sourced true-improved candidates in range-volatility
+and volume-liquidity families. The Sharpe-only/no-pass-lift row for `qr_cd595899ee` shows why candidate-level
+parent-specific review remains necessary: a formula that was true-improved for earlier parents can still fail the
+pass-rate lift requirement for a different parent. These artifacts remain research-only selector evidence and do not
+admit, publish, or update runtime strategies.
