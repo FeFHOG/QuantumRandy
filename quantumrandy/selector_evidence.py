@@ -212,15 +212,16 @@ def render_selector_pipeline_evidence_summary(
         lines.append("No negative selector candidate families were summarized.")
     else:
         lines.append(
-            "| Parent Family | Candidate Family | Negatives | Avg Pass Delta | Avg Sharpe Delta | Worst Sharpe Delta | Example |"
+            "| Parent Family | Candidate Family | Negatives | Sharpe Only | Avg Pass Delta | Avg Sharpe Delta | Worst Sharpe Delta | Example |"
         )
-        lines.append("|---|---|---:|---:|---:|---:|---|")
+        lines.append("|---|---|---:|---:|---:|---:|---:|---|")
         for row in negative_summary.head(12).to_dict(orient="records"):
             lines.append(
                 "| "
                 f"`{row.get('parent_formula_family', '')}` | "
                 f"`{row.get('candidate_formula_family', '')}` | "
                 f"{int(row.get('negative_count', 0) or 0)} | "
+                f"{int(row.get('sharpe_only_count', 0) or 0)} | "
                 f"{_num(row.get('avg_pass_rate_delta', 0.0)):.2f} | "
                 f"{_num(row.get('avg_mean_sharpe_delta', 0.0)):.2f} | "
                 f"{_num(row.get('worst_mean_sharpe_delta', 0.0)):.2f} | "
@@ -363,7 +364,8 @@ def _summarize_negative_candidates(run_paths: list[Path]) -> pd.DataFrame:
         for row in review.to_dict(orient="records"):
             if str(row.get("rewrite_generation_source", "")) != "llm_rewrite":
                 continue
-            if str(row.get("candidate_review_verdict", "")) not in {"not_improved", "coverage_only"}:
+            verdict = str(row.get("candidate_review_verdict", ""))
+            if verdict not in {"not_improved", "coverage_only", "mixed"}:
                 continue
             formula = str(row.get("formula", ""))
             rows.append(
@@ -375,7 +377,7 @@ def _summarize_negative_candidates(run_paths: list[Path]) -> pd.DataFrame:
                     "candidate_formula_family": _formula_family(formula),
                     "factor_id": row.get("factor_id", ""),
                     "formula": formula,
-                    "candidate_review_verdict": row.get("candidate_review_verdict", ""),
+                    "candidate_review_verdict": verdict,
                     "pass_rate_delta": _num(row.get("pass_rate_delta", "")),
                     "mean_sharpe_delta": _num(row.get("mean_sharpe_delta", "")),
                     "candidate_mean_sharpe": _num(row.get("candidate_mean_sharpe", "")),
@@ -398,6 +400,7 @@ def _summarize_negative_candidates(run_paths: list[Path]) -> pd.DataFrame:
                 "negative_count": int(len(group)),
                 "not_improved_count": int((group["candidate_review_verdict"] == "not_improved").sum()),
                 "coverage_only_count": int((group["candidate_review_verdict"] == "coverage_only").sum()),
+                "sharpe_only_count": int((group["candidate_review_verdict"] == "mixed").sum()),
                 "run_count": len(run_ids),
                 "run_ids": "|".join(run_ids),
                 "avg_pass_rate_delta": round(float(group["pass_rate_delta"].mean()), 8),

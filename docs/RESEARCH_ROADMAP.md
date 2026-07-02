@@ -611,8 +611,8 @@ Expected value:
 - Added selector negative evidence memory:
   - `scripts/summarize_selector_evidence.py` now also writes
     `selector_pipeline_negative_candidate_summary.csv`;
-  - negative rows aggregate LLM-sourced `not_improved` and `coverage_only` candidates by parent formula family and
-    candidate formula family;
+  - negative rows aggregate LLM-sourced `not_improved`, `coverage_only`, and hard-gate-rejected `mixed`
+    candidates by parent formula family and candidate formula family;
   - `--selector-evidence-path` can pass this summary into selector rewrite LLM prompts;
   - exact negative example formulas are added to rewrite `disallowed_formulas`, so prior failed candidates cannot be
     accepted again by the LLM parser.
@@ -798,6 +798,30 @@ Expected value:
   - highlighted candidate rows: `11`;
   - distinct highlighted candidates: `8`;
   - negative candidate rows: `47`;
+  - negative candidate family rows: `15`.
+- Added mixed-verdict selector negative memory:
+  - LLM-sourced `mixed` candidates, surfaced as `sharpe_improved_no_pass_lift` highlights, now enter the negative
+    candidate family summary alongside `not_improved` and `coverage_only`;
+  - the negative family summary now records `sharpe_only_count`;
+  - refreshing attempts 4 through 20 raised negative candidate rows from `47` to `50` and made Sharpe-only failures
+    available to exact negative disallow and family-pair blocking.
+- Ran attempt 21 with mixed negative memory active:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence21_mixed_negative_memory`;
+  - the run remained valid LLM policy evidence with `llm_rewrite_accepted=2` and `fallback_rewrite_accepted=0`;
+  - the true-improvement hard gate correctly rejected the run because both reviewed candidates were `not_improved`;
+  - no candidate highlight rows or coverage-only traps were produced;
+  - rewrite events recorded `selector_negative_blocked_family_pairs=13` and
+    `selector_negative_disallowed_formulas=15`;
+  - rejection-audit rows captured family-pair blocks for `volume_liquidity->range_volatility` and
+    `pure_funding->range_volatility`, plus exact disallowed formula repeats.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 21:
+  - runs: `18`;
+  - LLM policy evidence runs: `18`;
+  - LLM true-improvement evidence runs: `5`;
+  - coverage-only trap runs: `2`;
+  - highlighted candidate rows: `11`;
+  - distinct highlighted candidates: `8`;
+  - negative candidate rows: `52`;
   - negative candidate family rows: `15`.
 
 ## Next Session Prompt

@@ -1291,3 +1291,76 @@ The refreshed attempts 4-20 summary reported:
 Interpretation: attempt 20 adds another negative selector-memory row, this time for a pure-funding parent drifting into
 a price-only medium-horizon momentum candidate. The hard gate correctly rejects a candidate that slightly improves mean
 Sharpe but reduces pass-rate coverage and still fails every evaluated asset.
+
+## Mixed Negative Memory And Attempt 21
+
+Date: 2026-07-02
+
+Attempts 14, 17, and 20 showed that `sharpe_improved_no_pass_lift` candidates can repeat even though the
+true-improvement hard gate correctly rejects them. The selector evidence summary therefore now treats LLM-sourced
+`mixed` review verdicts as negative selector memory alongside `not_improved` and `coverage_only` rows. The negative
+family summary also records `sharpe_only_count`, so prompt memory can distinguish true losses, coverage-only traps, and
+Sharpe-only/no-pass-lift failures.
+
+After refreshing the attempts 4-20 summary with this change:
+
+- Negative candidate rows rose from `47` to `50`.
+- The negative family table added a `Sharpe Only` column.
+- Sharpe-only rows now feed exact negative disallow and family-pair blocking.
+
+Attempt 21 then ran the same hard-gated command:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence21_mixed_negative_memory \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+The command exited with code `3`, as intended, because there were no LLM true-improved candidates:
+
+- `llm_rewrite_accepted`: `2`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- `llm_error_count`: `1`
+- Candidate verdicts: `not_improved:2`
+- Candidate highlights: `0`
+- `llm_true_improved_count`: `0`
+- Coverage-only traps: `0`
+- Rewrite events recorded `selector_negative_blocked_family_pairs=13` and
+  `selector_negative_disallowed_formulas=15`.
+
+The rejection-audit columns captured family-pair blocking and exact disallow before review:
+
+| Parent | Rejected Reason Mix | Example |
+|---|---|---|
+| `qr_cb62796f3b` | `candidate family is blocked by negative selector memory (volume_liquidity->range_volatility):1` | `zscore(div(sub(close,low),sub(high,low)),96)` |
+| `qr_1c002c4c13` | `candidate family is blocked by negative selector memory (pure_funding->range_volatility):1|copies disallowed failed formula:1` | `neg(corr(ret(close,12),sub(high,low),72))` |
+| `qr_7a765d304b` | `copies disallowed failed formula:1` | `zscore(corr(sub(close,open),volume,48),72)` |
+
+The refreshed attempts 4-21 summary reported:
+
+- Runs: `18`
+- LLM policy evidence runs: `18`
+- LLM true-improvement evidence runs: `5`
+- Runs with coverage-only traps: `2`
+- Highlighted candidate rows: `11`
+- Distinct highlighted candidates: `8`
+- Negative candidate rows: `52`
+- Negative candidate family rows: `15`
+
+Interpretation: attempt 21 is process-positive even though it is not alpha-positive. The mixed-negative memory change
+converted repeated Sharpe-only failures into negative prompt/validator memory, and the next repeat produced no highlight
+rows while visibly blocking bad family transitions before review.
