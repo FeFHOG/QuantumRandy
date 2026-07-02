@@ -2298,3 +2298,69 @@ across the two reviewed parent contexts. The repeat also strengthens the seconda
 conflict-aware memory is doing the right thing: it permits specific positive volatility/range candidates while exact
 failed formulas and pure-negative family pairs remain blocked. These artifacts remain research-only selector evidence
 and do not admit, publish, or update runtime strategies.
+
+Attempt 40 repeated the same hard-gated conflict-aware memory setup:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence40_conflict_aware_memory_repeat \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+Attempt 40 completed successfully and passed the LLM true-improvement hard gate:
+
+- `llm_rewrite_accepted`: `5`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- Candidate verdicts: `improved:4|coverage_only:1`
+- Candidate highlights: `true_improved:4|coverage_only_trap:1`
+- `llm_true_improved_count`: `4`
+- Rewrite events recorded `selector_target_skip:4` and `llm_rewrite:3`.
+
+The true-improved LLM candidates were:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_ccda5f2f68` | `qr_36c5a0e5ea` | `llm_rewrite` | 0.60 | 1.48584351 | SOLUSDT,AVAXUSDT | `zscore(std(close,36),168)` |
+| `qr_4a7fa246c2` | `qr_a2cd9fd69f` | `llm_rewrite` | 0.60 | 0.77176916 | BTCUSDT | `zscore(ema(volume,48),120)` |
+| `qr_4a7fa246c2` | `qr_9f0abad4e7` | `llm_rewrite` | 0.40 | 1.17130170 | BTCUSDT,AVAXUSDT | `zscore(std(close,48),168)` |
+| `qr_ccda5f2f68` | `qr_ca1279db8a` | `llm_rewrite` | 0.40 | 0.67025639 | BTCUSDT,SOLUSDT,BNBUSDT | `zscore(sma(volume,24),120)` |
+
+The coverage-only trap was:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_7a765d304b` | `qr_1aa34f4735` | `llm_rewrite` | 0.40 | -0.08376183 | BTCUSDT,BNBUSDT,AVAXUSDT | `corr(sub(close,open),volume,48)` |
+
+The refreshed attempts 4-40 summary reported:
+
+- Runs: `37`
+- LLM policy evidence runs: `34`
+- LLM true-improvement evidence runs: `17`
+- Runs with coverage-only traps: `3`
+- Highlighted candidate rows: `54`
+- Distinct highlighted candidates: `36`
+- Negative candidate rows: `79`
+- Negative candidate family rows: `19`
+
+Interpretation: attempt 40 still passed the hard gate, but it is a useful reminder that parent-specific review matters.
+`corr(sub(close,open),volume,48)` has true-improved evidence for a funding-interaction parent, but became a
+coverage-only trap against the price parent in this run. The strongest repeated artifact remains
+`zscore(ema(volume,48),120)`, which now has eleven true-improved highlights across the two reviewed parent contexts.
+Range/volatility candidates continue to add positive evidence in specific shapes such as `zscore(std(close,36),168)`
+and `zscore(std(close,48),168)`, while the family-level memory should remain conflict-aware rather than whole-family
+acceptance. These artifacts remain research-only selector evidence and do not admit, publish, or update runtime
+strategies.

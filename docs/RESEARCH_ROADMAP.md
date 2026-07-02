@@ -1193,6 +1193,34 @@ Expected value:
   funding-interaction parent, while smoothed positive volume participation remains the strongest selector rewrite
   theme. Range-volatility is increasingly useful in specific shapes but remains mixed enough to keep conflict-aware
   memory rather than whole-family acceptance or rejection.
+- Ran attempt 40 as another conflict-aware-memory repeat:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence40_conflict_aware_memory_repeat`;
+  - the run passed the LLM true-improvement hard gate with `llm_rewrite_accepted=5`,
+    `fallback_rewrite_accepted=0`, and `llm_true_improved_count=4`;
+  - rewrite events recorded `selector_target_skip:4` and `llm_rewrite:3`;
+  - candidate verdict mix was `improved:4|coverage_only:1`;
+  - candidate highlight mix was `true_improved:4|coverage_only_trap:1`;
+  - true-improved candidates:
+    `qr_36c5a0e5ea`, `zscore(std(close,36),168)`, pass-rate delta `+0.60`, mean-Sharpe delta `+1.48584351`;
+    `qr_a2cd9fd69f`, `zscore(ema(volume,48),120)`, pass-rate delta `+0.60`, mean-Sharpe delta `+0.77176916`;
+    `qr_9f0abad4e7`, `zscore(std(close,48),168)`, pass-rate delta `+0.40`, mean-Sharpe delta `+1.17130170`;
+    `qr_ca1279db8a`, `zscore(sma(volume,24),120)`, pass-rate delta `+0.40`, mean-Sharpe delta `+0.67025639`;
+  - coverage-only trap:
+    `qr_1aa34f4735`, `corr(sub(close,open),volume,48)`, pass-rate delta `+0.40`, mean-Sharpe delta `-0.08376183`.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 40:
+  - runs: `37`;
+  - LLM policy evidence runs: `34`;
+  - LLM true-improvement evidence runs: `17`;
+  - coverage-only trap runs: `3`;
+  - highlighted candidate rows: `54`;
+  - distinct highlighted candidates: `36`;
+  - negative candidate rows: `79`;
+  - negative candidate family rows: `19`.
+- Current interpretation: attempt 40 passed the hard gate but added an important parent-specific warning.
+  `corr(sub(close,open),volume,48)` can be true-improved for a funding-interaction parent while becoming a
+  coverage-only trap for the price parent. The strongest repeated artifact remains `zscore(ema(volume,48),120)`, now
+  with eleven true-improved highlights across the two reviewed parent contexts. Specific range/volatility shapes are
+  increasingly useful, but family-level memory should remain conflict-aware rather than whole-family acceptance.
 
 ## Next Session Prompt
 
