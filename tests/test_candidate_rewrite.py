@@ -185,6 +185,54 @@ class _FailingThenLocalRewriteGenerator(FormulaGenerator):
         return [proposal]
 
 
+class _RejectedThenAcceptedRewriteGenerator(FormulaGenerator):
+    def __init__(self) -> None:
+        super().__init__(use_llm=False)
+
+    def rewrite(
+        self,
+        formula,
+        failed_gates,
+        failure_detail,
+        count,
+        forbidden,
+        disallowed_formulas=None,
+        allow_local_fallback=True,
+    ):
+        proposal = "zscore(ret(close,24),96)"
+        self.descriptions[proposal] = "Slower price pressure rewrite with cross-asset momentum rationale."
+        self.proposal_metadata[proposal] = {
+            "hypothesis": "Smoother price pressure can transfer better across liquid crypto perpetuals.",
+            "expected_edge": "A slower return horizon can reduce noisy short-term reversals.",
+            "expected_failure_mode": "It may fail in mean-reverting chop.",
+            "rewrite_plan_if_killed": "Test a sign flip or abandon price-only momentum.",
+        }
+        self.events.extend(
+            [
+                {
+                    "source": "rewrite_validator",
+                    "accepted": 1,
+                    "rejected": [
+                        {
+                            "formula": "zscore(volume,96)",
+                            "reason": "candidate family is blocked by negative selector memory (price->volume_liquidity)",
+                        },
+                        {
+                            "formula": "zscore(volume,120)",
+                            "reason": "candidate family is blocked by negative selector memory (price->volume_liquidity)",
+                        },
+                        {
+                            "formula": "neg(zscore(std(close,24),120))",
+                            "reason": "copies disallowed failed formula",
+                        },
+                    ],
+                },
+                {"source": "llm_rewrite", "requested": count, "accepted": 1, "error": ""},
+            ]
+        )
+        return [proposal]
+
+
 def test_selector_rewrite_merges_selector_forbidden_subtrees_into_generation(tmp_path) -> None:
     targets = [
         {
@@ -237,6 +285,37 @@ def test_selector_rewrite_merges_selector_forbidden_subtrees_into_generation(tmp
     assert candidates.iloc[0]["max_pure_funding_candidates"] == 0
     assert events.iloc[0]["parent_formula_family"] == "price"
     assert events.iloc[0]["max_pure_funding_candidates"] == 0
+
+
+def test_selector_rewrite_events_summarize_rejected_candidates(tmp_path) -> None:
+    targets = [
+        {
+            "factor_id": "weak_price",
+            "formula": "zscore(ret(close,6),48)",
+            "selector_verdict": "rewrite",
+            "rewrite_focus": "improve_cross_asset_robustness",
+            "universe_pass_rate": 0.2,
+            "universe_mean_sharpe": 0.3,
+        }
+    ]
+    generator = _RejectedThenAcceptedRewriteGenerator()
+
+    candidates, events, manifest = build_selector_rewrite_candidates(
+        targets,
+        generator,
+        policy=CandidateRewritePolicy(max_targets=1, candidates_per_target=1, allow_local_fallback=False),
+    )
+
+    validator = events[events["source"] == "rewrite_validator"].iloc[0]
+    assert validator["rejected_count"] == 3
+    assert (
+        "candidate family is blocked by negative selector memory (price->volume_liquidity):2"
+        in validator["rejected_reason_mix"]
+    )
+    assert "copies disallowed failed formula:1" in validator["rejected_reason_mix"]
+    assert "zscore(volume,96): candidate family is blocked" in validator["rejected_formula_examples"]
+    assert len(candidates) == 1
+    assert manifest["llm_rewrite_accepted"] == 1
 
 
 def test_selector_rewrite_allows_one_pure_funding_rewrite_for_funding_parent(tmp_path) -> None:

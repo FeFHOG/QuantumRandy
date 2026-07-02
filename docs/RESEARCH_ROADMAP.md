@@ -737,6 +737,30 @@ Expected value:
   - distinct highlighted candidates: `6`;
   - negative candidate rows: `37`;
   - negative candidate family rows: `13`.
+- Added selector rewrite rejection-audit columns:
+  - `selector_rewrite_events.csv` now records `rejected_count`, `rejected_reason_mix`, and
+    `rejected_formula_examples`;
+  - these fields make validator behavior visible without opening in-memory LLM events, including exact disallow,
+    formula-depth, DSL signature, and future family-pair block rejections.
+- Ran attempt 18 with rejection-audit fields active:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence18_rejection_audit`;
+  - the run remained valid LLM policy evidence with `llm_rewrite_accepted=3` and `fallback_rewrite_accepted=0`;
+  - the true-improvement hard gate correctly rejected the run because all three reviewed candidates were
+    `not_improved`;
+  - no candidate highlight rows or coverage-only traps were produced;
+  - rewrite events recorded `selector_negative_blocked_family_pairs=7` and
+    `selector_negative_disallowed_formulas=13`;
+  - new rejection-audit rows captured one invalid `ret(close,1)` signature, one depth violation, and one exact
+    disallowed formula repeat.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 18:
+  - runs: `15`;
+  - LLM policy evidence runs: `15`;
+  - LLM true-improvement evidence runs: `5`;
+  - coverage-only trap runs: `1`;
+  - highlighted candidate rows: `9`;
+  - distinct highlighted candidates: `6`;
+  - negative candidate rows: `40`;
+  - negative candidate family rows: `14`.
 
 ## Next Session Prompt
 

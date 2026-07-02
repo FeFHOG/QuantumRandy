@@ -1091,3 +1091,73 @@ Interpretation: family-pair blocking is now active and audit-visible, but attemp
 removed neither the need for the true-improvement hard gate nor the need for broader validation of price-volume
 variants. The useful outcome is process-level: repeated bad family transitions can now be converted from prompt hints
 into deterministic research-only parser rejections while exact formula blocking remains separate.
+
+## Rejection-Audit Fields And Attempt 18
+
+Date: 2026-07-02
+
+After attempt 17, selector rewrite event rows were still too compact to audit validator behavior. They showed that
+negative family-pair blocking was loaded, but not which candidate formulas were rejected or why. The rewrite event CSV
+therefore now records:
+
+- `rejected_count`
+- `rejected_reason_mix`
+- `rejected_formula_examples`
+
+These are audit-only fields. They do not affect generation, evaluation, admission, publishing, or runtime behavior.
+
+Attempt 18 then ran the same hard-gated command:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence18_rejection_audit \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+The command exited with code `3`, as intended, because there were no LLM true-improved candidates:
+
+- `llm_rewrite_accepted`: `3`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- Candidate verdicts: `not_improved:3`
+- Candidate highlights: `0`
+- `llm_true_improved_count`: `0`
+- Coverage-only traps: `0`
+- Rewrite events recorded `selector_negative_blocked_family_pairs=7` and
+  `selector_negative_disallowed_formulas=13`.
+
+The new rejection-audit columns captured three validator rejections before review:
+
+| Parent | Rejected Reason Mix | Example |
+|---|---|---|
+| `qr_cb62796f3b` | `Operator ret requires an integer window >= 2:1` | `neg(corr(abs(ret(close,1)),volume,72))` |
+| `qr_1c002c4c13` | `Formula depth 5 exceeds max_depth=4: neg(zscore(corr(sub(close,open),volume,48),72)):1` | `neg(zscore(corr(sub(close,open),volume,48),72))` |
+| `qr_7a765d304b` | `copies disallowed failed formula:1` | `zscore(corr(sub(close,open),volume,48),72)` |
+
+The refreshed attempts 4-18 summary reported:
+
+- Runs: `15`
+- LLM policy evidence runs: `15`
+- LLM true-improvement evidence runs: `5`
+- Runs with coverage-only traps: `1`
+- Highlighted candidate rows: `9`
+- Distinct highlighted candidates: `6`
+- Negative candidate rows: `40`
+- Negative candidate family rows: `14`
+
+Interpretation: attempt 18 is another negative-control run, but the important improvement is observability. The selector
+rewrite audit trail can now distinguish DSL signature errors, formula-depth errors, exact negative-memory repeats, and
+future family-pair blocks directly from `selector_rewrite_events.csv`.

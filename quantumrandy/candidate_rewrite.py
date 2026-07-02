@@ -102,6 +102,7 @@ def build_selector_rewrite_candidates(
             allow_local_fallback=policy.allow_local_fallback,
         )
         for event in generator.events[before_events:]:
+            rejection_summary = _event_rejection_summary(event)
             event_rows.append(
                 {
                     "target_index": target_index,
@@ -111,6 +112,9 @@ def build_selector_rewrite_candidates(
                     "requested": event.get("requested", ""),
                     "accepted": event.get("accepted", ""),
                     "error": event.get("error", ""),
+                    "rejected_count": rejection_summary["rejected_count"],
+                    "rejected_reason_mix": rejection_summary["rejected_reason_mix"],
+                    "rejected_formula_examples": rejection_summary["rejected_formula_examples"],
                     "candidate_selector_rewrite_targets": event.get("candidate_selector_rewrite_targets", ""),
                     "candidate_selector_evidence_gaps": event.get("candidate_selector_evidence_gaps", ""),
                     "candidate_selector_clusters": event.get("candidate_selector_clusters", ""),
@@ -484,6 +488,35 @@ def _matched_failed_subtrees(path: Path) -> list[str]:
 
 def _split_subtrees(value: Any) -> list[str]:
     return [item.strip() for item in str(value or "").split("|") if item and item.strip()]
+
+
+def _event_rejection_summary(event: dict[str, Any]) -> dict[str, Any]:
+    rejected = event.get("rejected", [])
+    if not isinstance(rejected, list) or not rejected:
+        return {
+            "rejected_count": 0,
+            "rejected_reason_mix": "",
+            "rejected_formula_examples": "",
+        }
+    reason_counts: dict[str, int] = {}
+    examples: list[str] = []
+    for item in rejected:
+        if not isinstance(item, dict):
+            continue
+        reason = str(item.get("reason", "")).strip() or "unknown"
+        formula = str(item.get("formula", "")).strip()
+        reason_counts[reason] = reason_counts.get(reason, 0) + 1
+        if formula and len(examples) < 5:
+            examples.append(f"{formula}: {reason}")
+    reason_mix = "|".join(
+        f"{reason}:{count}"
+        for reason, count in sorted(reason_counts.items(), key=lambda item: (-item[1], item[0]))
+    )
+    return {
+        "rejected_count": len(rejected),
+        "rejected_reason_mix": reason_mix,
+        "rejected_formula_examples": "; ".join(examples),
+    }
 
 
 def _dedupe_subtrees(values: list[str]) -> list[str]:
