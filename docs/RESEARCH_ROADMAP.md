@@ -652,6 +652,26 @@ Expected value:
   - highlighted candidate rows: `6`;
   - distinct highlighted candidates: `4`;
   - negative candidate family rows: `12`.
+- Ran negative-memory attempt 14 as another hard-gated repeat:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence14_negative_memory_repeat`;
+  - the run remained valid LLM policy evidence with `llm_rewrite_accepted=2` and `fallback_rewrite_accepted=0`;
+  - the true-improvement hard gate correctly rejected the run because `llm_true_improved_count=0`;
+  - highlight mix was `sharpe_improved_no_pass_lift:1|coverage_only_trap:1`;
+  - repeated price-volume candidate `qr_cd595899ee`, `zscore(corr(sub(close,open),volume,36),96)`, improved mean
+    Sharpe by `+0.12454568` in this run but had no pass-rate lift;
+  - new coverage-only trap `qr_9a30f357c2`, `zscore(corr(sub(high,low),volume,48),96)`, raised pass rate by `+0.20`
+    but reduced mean Sharpe by `-0.30235366`;
+  - rewrite events recorded `selector_negative_disallowed_formulas=12`, and rejected two over-depth LLM formulas before
+    candidate review.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 14:
+  - runs: `11`;
+  - LLM policy evidence runs: `11`;
+  - LLM true-improvement evidence runs: `5`;
+  - coverage-only trap runs: `1`;
+  - highlighted candidate rows: `8`;
+  - distinct highlighted candidates: `6`;
+  - negative candidate rows: `29`;
+  - negative candidate family rows: `12`.
 
 ## Next Session Prompt
 

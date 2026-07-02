@@ -828,3 +828,65 @@ price-volume family, and attempt 13 improved both pass-rate and mean-Sharpe delt
 still research-only selector evidence, not admission or runtime publish evidence. The next useful step is to evaluate
 whether the stable price-volume variants remain useful under broader selector targets, additional hard-gated repeats, or
 a stricter parent selection set; no automatic promotion should be made from these artifacts.
+
+## Negative-Memory Repeat 14
+
+Date: 2026-07-02
+
+Attempt 14 repeated the hard-gated negative-memory command after the wider exact-negative disallow change:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence14_negative_memory_repeat \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+The command exited with code `3`, as intended, because the run did not produce LLM true-improvement evidence:
+
+- `llm_rewrite_accepted`: `2`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- Candidate verdicts: `mixed:1|coverage_only:1`
+- Candidate highlights: `sharpe_improved_no_pass_lift:1|coverage_only_trap:1`
+- Candidate highlight source counts: `llm_rewrite:2`
+- `llm_true_improved_count`: `0`
+- Coverage-only traps: `1`
+- Rewrite events recorded `selector_negative_disallowed_formulas=12` in this run.
+
+The highlight queues were:
+
+| Highlight Type | Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---|---:|---:|---|---|
+| `sharpe_improved_no_pass_lift` | `qr_1c002c4c13` | `qr_cd595899ee` | `llm_rewrite` | 0.00 | 0.12454568 | BTCUSDT,ETHUSDT,BNBUSDT,AVAXUSDT | `zscore(corr(sub(close,open),volume,36),96)` |
+| `coverage_only_trap` | `qr_7a765d304b` | `qr_9a30f357c2` | `llm_rewrite` | 0.20 | -0.30235366 | BTCUSDT,ETHUSDT,SOLUSDT,AVAXUSDT | `zscore(corr(sub(high,low),volume,48),96)` |
+
+The refreshed attempts 4-14 summary reported:
+
+- Runs: `11`
+- LLM policy evidence runs: `11`
+- LLM true-improvement evidence runs: `5`
+- Runs with coverage-only traps: `1`
+- Highlighted candidate rows: `8`
+- Distinct highlighted candidates: `6`
+- Negative candidate rows: `29`
+- Negative candidate family rows: `12`
+
+Interpretation: attempt 14 is useful negative evidence, not a new positive result. It confirms that the hard gate
+distinguishes repeat Sharpe-only improvements and coverage-only traps from true improvements. The exact negative
+disallow also remained active; the accepted candidates were not repeats of the mechanically disallowed negative
+formulas, while two rejected LLM formulas failed the formula-depth guard. The next selector-layer step should mine this
+new negative evidence into prompt memory and keep pressure on price-volume variants that improve both pass-rate and
+mean Sharpe, without relaxing the true-improvement gate.
