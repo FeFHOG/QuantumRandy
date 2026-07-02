@@ -1,6 +1,6 @@
 # QuantumRandy Research Roadmap
 
-Last updated: 2026-06-29
+Last updated: 2026-07-02
 
 This note is a handoff document for future Codex sessions. It records the research ideas, literature map, and current progress for improving `QuantumRandy` without requiring the next session to rediscover the same context.
 
@@ -822,6 +822,26 @@ Expected value:
   - highlighted candidate rows: `11`;
   - distinct highlighted candidates: `8`;
   - negative candidate rows: `52`;
+  - negative candidate family rows: `15`.
+- Ran attempt 22 as a mixed-negative-memory repeat:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence22_mixed_negative_memory_repeat`;
+  - the run remained valid LLM policy evidence with `llm_rewrite_accepted=1` and `fallback_rewrite_accepted=0`;
+  - the true-improvement hard gate correctly rejected the run because the only reviewed candidate was `not_improved`;
+  - no candidate highlight rows or coverage-only traps were produced;
+  - the reviewed candidate was `qr_a885e72b5e`, `neg(zscore(rsi(close,48),144))`, with pass-rate delta `-0.20` and
+    mean-Sharpe delta `-0.99873822`;
+  - rewrite events recorded `selector_negative_blocked_family_pairs=14` and
+    `selector_negative_disallowed_formulas=15`;
+  - rejection-audit rows captured family-pair blocks for `volume_liquidity->range_volatility`,
+    `pure_funding->range_volatility`, and `price->volume_liquidity`, plus exact disallowed formula repeats.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 22:
+  - runs: `19`;
+  - LLM policy evidence runs: `19`;
+  - LLM true-improvement evidence runs: `5`;
+  - coverage-only trap runs: `2`;
+  - highlighted candidate rows: `11`;
+  - distinct highlighted candidates: `8`;
+  - negative candidate rows: `53`;
   - negative candidate family rows: `15`.
 
 ## Next Session Prompt

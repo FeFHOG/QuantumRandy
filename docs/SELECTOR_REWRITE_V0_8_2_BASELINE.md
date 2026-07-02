@@ -1364,3 +1364,72 @@ The refreshed attempts 4-21 summary reported:
 Interpretation: attempt 21 is process-positive even though it is not alpha-positive. The mixed-negative memory change
 converted repeated Sharpe-only failures into negative prompt/validator memory, and the next repeat produced no highlight
 rows while visibly blocking bad family transitions before review.
+
+## Mixed Negative Memory Repeat Attempt 22
+
+Date: 2026-07-02
+
+Attempt 22 reused the same hard-gated, LLM-only research command with the refreshed attempts 4-21 selector evidence
+summary:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence22_mixed_negative_memory_repeat \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+The command exited with code `3`, as intended, because there were no LLM true-improved candidates:
+
+- `llm_rewrite_accepted`: `1`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- `llm_error_count`: `2`
+- Candidate verdicts: `not_improved:1`
+- Candidate highlights: `0`
+- `llm_true_improved_count`: `0`
+- Coverage-only traps: `0`
+- Rewrite events recorded `selector_negative_blocked_family_pairs=14` and
+  `selector_negative_disallowed_formulas=15`.
+
+The accepted LLM candidate was reviewed and rejected:
+
+| Parent | Candidate | Verdict | Pass Rate Delta | Mean Sharpe Delta | Formula |
+|---|---|---|---:|---:|---|
+| `qr_cb62796f3b` | `qr_a885e72b5e` | `not_improved` | -0.20 | -0.99873822 | `neg(zscore(rsi(close,48),144))` |
+
+The rejection-audit columns again showed negative-memory filtering before review:
+
+| Rejected Reason Mix | Example |
+|---|---|
+| `candidate family is blocked by negative selector memory (volume_liquidity->range_volatility):1` | `zscore(div(sub(close,low),sub(high,low)),120)` |
+| `candidate family is blocked by negative selector memory (pure_funding->range_volatility):1|copies disallowed failed formula:1` | `zscore(corr(sub(close,open),sub(high,low),48),72)` |
+| `candidate family is blocked by negative selector memory (price->volume_liquidity):1|copies disallowed failed formula:1` | `zscore(corr(sub(close,open),volume,72),120)` |
+
+The refreshed attempts 4-22 summary reported:
+
+- Runs: `19`
+- LLM policy evidence runs: `19`
+- LLM true-improvement evidence runs: `5`
+- Runs with coverage-only traps: `2`
+- Highlighted candidate rows: `11`
+- Distinct highlighted candidates: `8`
+- Negative candidate rows: `53`
+- Negative candidate family rows: `15`
+
+Interpretation: attempt 22 adds another negative-memory confirmation rather than a new alpha improvement. It accepted
+only one LLM candidate, rejected it on multi-asset review, and blocked additional exact/family repeats before review.
+The `volume_liquidity->price` family now has three negative observations, while the aggregate true-improvement count
+remains unchanged.
