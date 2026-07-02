@@ -3210,3 +3210,72 @@ reviewed parent contexts. Funding-interaction parent evidence strengthened `zsco
 shape-specific rather than family-wide. The miss on `corr(sub(close,open),volume,72)` reinforces that normalization and
 sign handling matter for price-volume ideas. These artifacts remain research-only selector evidence and do not admit,
 publish, or update runtime strategies.
+
+Attempt 54 repeated the same hard-gated conflict-aware memory setup:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence54_conflict_aware_memory_repeat \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+Attempt 54 completed successfully and passed the LLM true-improvement hard gate:
+
+- `llm_rewrite_accepted`: `5`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- Candidate verdicts: `improved:4|not_improved:1`
+- Candidate highlights: `true_improved:4`
+- `llm_true_improved_count`: `4`
+- Rewrite events recorded `selector_target_skip:4`, `llm_rewrite:3`, and `rewrite_validator:1`.
+
+The true-improved LLM candidates were:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_ccda5f2f68` | `qr_c3ccb8e228` | `llm_rewrite` | 0.80 | 1.28492586 | AVAXUSDT | `zscore(std(close,48),120)` |
+| `qr_ccda5f2f68` | `qr_aded180101` | `llm_rewrite` | 0.80 | 1.10799695 | BTCUSDT | `zscore(ema(volume,24),96)` |
+| `qr_4a7fa246c2` | `qr_e23cfc8ae6` | `llm_rewrite` | 0.60 | 1.06153455 | AVAXUSDT | `zscore(std(close,48),144)` |
+| `qr_4a7fa246c2` | `qr_a2cd9fd69f` | `llm_rewrite` | 0.60 | 0.77176916 | BTCUSDT | `zscore(ema(volume,48),120)` |
+
+The not-improved LLM candidate was:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_7a765d304b` | `qr_ce09cd5388` | `llm_rewrite` | 0.00 | -0.61776219 | BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,AVAXUSDT | `zscore(corr(sub(close,open),volume,72),120)` |
+
+The rewrite validator blocked one exact failed-formula repeat:
+`zscore(corr(sub(close,open),volume,48),72)`.
+
+The refreshed attempts 4-54 summary reported:
+
+- Runs: `51`
+- LLM policy evidence runs: `47`
+- LLM true-improvement evidence runs: `30`
+- Runs with coverage-only traps: `3`
+- Highlighted candidate rows: `98`
+- Distinct highlighted candidates: `47`
+- Negative candidate rows: `96`
+- Negative candidate family rows: `19`
+
+Interpretation: attempt 54 continues the same conflict-aware pattern. Positive smoothed volume remains the strongest
+theme, and `zscore(ema(volume,48),120)` now has twenty-three true-improved highlights across all reviewed parent
+contexts. The funding-interaction parent evidence for `zscore(ema(volume,24),96)` reached four true-improved highlights,
+while `zscore(std(close,48),120)` and `zscore(std(close,48),144)` continue to repeat as useful but shape-specific
+volatility-regime rewrites. The normalized signed price-volume candidate `zscore(corr(sub(close,open),volume,72),120)`
+missed across all five assets, reinforcing that signed price-volume correlation variants remain weaker than smoothed
+volume participation. These artifacts remain research-only selector evidence and do not admit, publish, or update
+runtime strategies.
