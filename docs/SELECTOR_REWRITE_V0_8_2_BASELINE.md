@@ -1739,3 +1739,58 @@ Interpretation: conflict-aware negative memory prevents over-blocking family pai
 evidence while preserving exact failed-formula disallow and pure-negative family-pair blocking. Attempt 30 is positive
 process evidence for this selector-memory refinement, but the highlighted formulas remain research-only until separate
 walk-forward, admission, portfolio, and manual runtime-publishing review.
+
+Attempt 31 repeated the same conflict-aware selector memory setup:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence31_conflict_aware_memory_repeat \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+Attempt 31 completed successfully and passed the LLM true-improvement hard gate:
+
+- `llm_rewrite_accepted`: `4`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- `llm_error_count`: `0`
+- Candidate verdicts: `not_improved:3|improved:1`
+- Candidate highlights: `true_improved:1`
+- `llm_true_improved_count`: `1`
+- Rewrite events recorded `selector_target_skip:4`, `llm_rewrite:3`, and `rewrite_validator:2`.
+
+The true-improved LLM candidate was:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_4a7fa246c2` | `qr_a2cd9fd69f` | `llm_rewrite` | 0.60 | 0.77176916 | BTCUSDT | `zscore(ema(volume,48),120)` |
+
+The refreshed attempts 4-31 summary reported:
+
+- Runs: `28`
+- LLM policy evidence runs: `25`
+- LLM true-improvement evidence runs: `8`
+- Runs with coverage-only traps: `2`
+- Highlighted candidate rows: `21`
+- Distinct highlighted candidates: `17`
+- Negative candidate rows: `66`
+- Negative candidate family rows: `19`
+
+Interpretation: attempt 31 is a narrower repeat of the conflict-aware memory result. It reinforces that the family-level
+conflict guard can keep useful volume-liquidity candidates reachable even when the same family pairs also contain
+negative evidence. The repeat also added three new LLM-sourced negative candidates to memory, including weak price,
+raw volume fade, and negative realized-volatility shapes. The positive formula remains a research-only selector
+candidate and is not admission, publishing, or runtime evidence.

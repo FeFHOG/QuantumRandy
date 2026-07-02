@@ -950,6 +950,29 @@ Expected value:
   - distinct highlighted candidates: `17`;
   - negative candidate rows: `63`;
   - negative candidate family rows: `19`.
+- Ran attempt 31 as a conflict-aware-memory repeat:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence31_conflict_aware_memory_repeat`;
+  - the run passed the LLM true-improvement hard gate with `llm_rewrite_accepted=4`,
+    `fallback_rewrite_accepted=0`, and `llm_true_improved_count=1`;
+  - rewrite events recorded `selector_target_skip:4`, `llm_rewrite:3`, and `rewrite_validator:2`;
+  - true-improved candidate:
+    `qr_a2cd9fd69f`, `zscore(ema(volume,48),120)`, pass-rate delta `+0.60`, mean-Sharpe delta `+0.77176916`,
+    failed asset `BTCUSDT`;
+  - the three non-improved LLM candidates added negative evidence for weak short-horizon price reversal, raw volume
+    fade, and negative realized-volatility shapes.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 31:
+  - runs: `28`;
+  - LLM policy evidence runs: `25`;
+  - LLM true-improvement evidence runs: `8`;
+  - coverage-only trap runs: `2`;
+  - highlighted candidate rows: `21`;
+  - distinct highlighted candidates: `17`;
+  - negative candidate rows: `66`;
+  - negative candidate family rows: `19`.
+- Current interpretation: conflict-aware selector negative memory is still useful after a repeat. It avoids
+  over-blocking family pairs with prior true-improved evidence while exact failed formulas and pure-negative family
+  blocking continue to suppress repeated failures. The repeated positive remains research-only and requires separate
+  walk-forward, admission, portfolio, and manual runtime-publishing review before any runtime consideration.
 
 ## Next Session Prompt
 
