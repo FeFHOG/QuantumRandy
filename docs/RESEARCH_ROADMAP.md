@@ -1249,6 +1249,34 @@ Expected value:
   negative. Medium-horizon realized-volatility regimes also continue to add true-improved evidence in specific shapes.
   Keep exact failed-formula blocking and negative-sign volume memory, but keep conflict-aware family memory so positive
   smoothed-volume and selected volatility-regime candidates remain reachable.
+- Ran attempt 42 as another conflict-aware-memory repeat:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence42_conflict_aware_memory_repeat`;
+  - the run passed the LLM true-improvement hard gate with `llm_rewrite_accepted=5`,
+    `fallback_rewrite_accepted=0`, and `llm_true_improved_count=3`;
+  - rewrite events recorded `selector_target_skip:4`, `rewrite_validator:1`, and `llm_rewrite:3`;
+  - candidate verdict mix was `improved:3|not_improved:2`;
+  - candidate highlight mix was `true_improved:3`;
+  - true-improved candidates:
+    `qr_d96fec850d`, `zscore(ema(volume,36),120)`, pass-rate delta `+0.80`, mean-Sharpe delta `+1.10976543`;
+    `qr_a2cd9fd69f`, `zscore(ema(volume,48),120)`, pass-rate delta `+0.80`, mean-Sharpe delta `+0.44211152`;
+    `qr_fcc0b75150`, `zscore(std(close,36),120)`, pass-rate delta `+0.60`, mean-Sharpe delta `+1.09772214`;
+  - not-improved candidates:
+    `qr_a853a7393b`, `corr(sub(close,open),volume,96)`, pass-rate delta `-0.20`, mean-Sharpe delta `-0.23751623`;
+    `qr_903b1672ff`, `neg(zscore(std(close,48),144))`, pass-rate delta `-0.20`, mean-Sharpe delta `-1.24060683`;
+  - the rewrite validator blocked one exact failed-formula repeat.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 42:
+  - runs: `39`;
+  - LLM policy evidence runs: `36`;
+  - LLM true-improvement evidence runs: `19`;
+  - coverage-only trap runs: `3`;
+  - highlighted candidate rows: `60`;
+  - distinct highlighted candidates: `39`;
+  - negative candidate rows: `82`;
+  - negative candidate family rows: `19`.
+- Current interpretation: attempt 42 keeps the same direction: positive smoothed volume remains the strongest repeated
+  theme, with `zscore(ema(volume,48),120)` now at nine true-improved highlights against the price parent and twelve
+  across the two reviewed parent contexts. `zscore(ema(volume,36),120)` is now a repeat, while long signed
+  price-volume correlation and negative volatility-regime signs remain weak.
 
 ## Next Session Prompt
 
