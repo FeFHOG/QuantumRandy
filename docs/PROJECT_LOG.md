@@ -1,5 +1,25 @@
 # QuantumRandy Project Log
 
+## 2026-07-02 Selector Evidence57 Research Repeat
+
+- Ran hard-gated LLM-only selector rewrite attempt 57:
+  `reports/selector_rewrite_pipeline_llm_v082_evidence57_conflict_aware_memory_repeat`.
+- The run produced LLM policy evidence and passed the LLM true-improvement gate with `2` accepted LLM rewrites,
+  `0` fallback rewrites, and `1` true-improved highlight.
+- True-improved repeat:
+  - `zscore(std(close,48),144)` against parent `qr_ccda5f2f68`.
+- Not-improved LLM candidate:
+  - `zscore(corr(sub(close,open),volume,72),96)` against parent `qr_7a765d304b`.
+- One target produced no accepted candidate because both LLM formulas were rejected for exceeding `max_depth=4`:
+  - `neg(zscore(std(ret(close,6),36),120))`.
+  - `neg(zscore(corr(volume,sub(high,low),72),120))`.
+- The validator again blocked exact failed-formula repeats of `zscore(corr(sub(close,open),volume,48),72)`.
+- Refreshed `reports/selector_pipeline_evidence_v082_summary` across attempts 4-57:
+  `54` runs, `50` LLM policy evidence runs, `32` LLM true-improvement evidence runs, `104` highlighted candidate rows,
+  and `102` negative candidate rows.
+- This remains research-only selector evidence. It does not admit factors, publish runtime strategies, or alter active
+  runtime behavior.
+
 ## 2026-07-02 Selector Evidence56 Research Repeat
 
 - Retried pushing local commit `0c06646` to `origin/main`, but GitHub transport failed again:
