@@ -120,14 +120,16 @@ Use `docs/SERVER_48H_TRIAL_RUNBOOK.md` as the operator-facing Ubuntu/tmux checkl
 
 ## Selector Rewrite Research State
 
-- Latest hard-gated LLM-only repeat: `reports/selector_rewrite_pipeline_llm_v082_evidence46_conflict_aware_memory_repeat`
+- Latest hard-gated LLM-only successful repeat: `reports/selector_rewrite_pipeline_llm_v082_evidence48_conflict_aware_memory_repeat`
+- Latest failed repeat artifact: `reports/selector_rewrite_pipeline_llm_v082_evidence47_conflict_aware_memory_repeat`
+  failed the LLM policy-evidence gate due to repeated SSL EOF transport errors and produced no candidates.
 - Current aggregate summary: `reports/selector_pipeline_evidence_v082_summary`
-- Aggregate runs: `43`
-- LLM policy evidence runs: `40`
-- LLM true-improvement evidence runs: `23`
+- Aggregate runs: `45`
+- LLM policy evidence runs: `41`
+- LLM true-improvement evidence runs: `24`
 - Coverage-only trap runs: `3`
-- Highlighted candidate rows: `72`
-- Negative candidate rows: `88`
+- Highlighted candidate rows: `75`
+- Negative candidate rows: `90`
 - Negative candidate family rows: `19`
 - Strongest repeated theme: positive smoothed volume participation, led by `zscore(ema(volume,48),120)`.
 - Current memory posture: keep exact failed-formula blocking and sign-aware negative memory, but do not mechanically

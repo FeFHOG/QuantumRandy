@@ -1,5 +1,24 @@
 # QuantumRandy 项目日志
 
+## 2026-07-02 Selector Evidence47/48 Research Repeats
+
+- Attempt 47 (`reports/selector_rewrite_pipeline_llm_v082_evidence47_conflict_aware_memory_repeat`) failed the LLM
+  policy-evidence gate: all three LLM requests hit SSL EOF transport errors, no candidates were accepted, and
+  review/evaluation stages were skipped.
+- Attempt 48 (`reports/selector_rewrite_pipeline_llm_v082_evidence48_conflict_aware_memory_repeat`) reran the same
+  hard-gated LLM-only setup successfully with `5` accepted LLM rewrites, `0` fallback rewrites, and `3` true-improved
+  highlights.
+- Attempt 48 true-improved repeats:
+  - `zscore(ema(volume,48),120)` against parent `qr_7a765d304b`.
+  - `zscore(std(close,48),144)` against parent `qr_4a7fa246c2`.
+  - `zscore(sma(volume,24),120)` against parent `qr_4a7fa246c2`.
+- Attempt 48 not-improved candidates were `zscore(delta(volume,36),120)` and `neg(zscore(std(close,36),144))`.
+- Refreshed `reports/selector_pipeline_evidence_v082_summary` across attempts 4-48:
+  `45` runs, `41` LLM policy evidence runs, `24` LLM true-improvement evidence runs, `75` highlighted candidate rows,
+  and `90` negative candidate rows.
+- This remains research-only selector evidence. It does not admit factors, publish runtime strategies, or alter active
+  runtime behavior.
+
 ## 2026-07-02 Selector Evidence46 Research Repeat
 
 - Ran hard-gated LLM-only selector rewrite attempt 46:

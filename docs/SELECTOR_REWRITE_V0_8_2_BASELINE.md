@@ -2780,3 +2780,89 @@ evidence still passed both hard gates. The funding-interaction parent added anot
 the rejected depth-5 negative correlation formulas reinforce keeping validator depth limits and sign-aware correlation
 memory strict. These artifacts remain research-only selector evidence and do not admit, publish, or update runtime
 strategies.
+
+Attempt 47 repeated the same hard-gated conflict-aware memory setup, but failed the LLM policy-evidence gate because
+all three LLM requests hit the same transport error:
+
+- Output: `reports/selector_rewrite_pipeline_llm_v082_evidence47_conflict_aware_memory_repeat`
+- `llm_rewrite_accepted`: `0`
+- `fallback_rewrite_accepted`: `0`
+- `allow_local_fallback`: `false`
+- `is_llm_policy_evidence`: `false`
+- `llm_error_count`: `3`
+- Universe, portfolio, portfolio-universe, and review stages were skipped because no candidate formulas were produced.
+- Error class: `ConnectionError` from `HTTPSConnectionPool(host='www.kuaiaiapi.com', port=443)` with SSL EOF during
+  `/v1/chat/completions`.
+
+Interpretation: attempt 47 is a transport-failure artifact, not selector policy evidence. It is included in the
+multi-run audit as a failed LLM-evidence run, but it contributes no candidate review, highlight, or negative-formula
+signal. These artifacts remain research-only selector evidence and do not admit, publish, or update runtime strategies.
+
+Attempt 48 repeated the same hard-gated conflict-aware memory setup after the attempt 47 transport failure:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence48_conflict_aware_memory_repeat \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+Attempt 48 completed successfully and passed the LLM true-improvement hard gate:
+
+- `llm_rewrite_accepted`: `5`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- Candidate verdicts: `improved:3|not_improved:2`
+- Candidate highlights: `true_improved:3`
+- `llm_true_improved_count`: `3`
+- Rewrite events recorded `selector_target_skip:4`, `llm_rewrite:3`, and `rewrite_validator:1`.
+
+The true-improved LLM candidates were:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_7a765d304b` | `qr_a2cd9fd69f` | `llm_rewrite` | 0.80 | 0.44211152 | BTCUSDT | `zscore(ema(volume,48),120)` |
+| `qr_4a7fa246c2` | `qr_e23cfc8ae6` | `llm_rewrite` | 0.60 | 1.06153455 | AVAXUSDT | `zscore(std(close,48),144)` |
+| `qr_4a7fa246c2` | `qr_ca1279db8a` | `llm_rewrite` | 0.20 | 0.23343472 | BTCUSDT,SOLUSDT,BNBUSDT | `zscore(sma(volume,24),120)` |
+
+The not-improved LLM candidates were:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_7a765d304b` | `qr_d3a7976c67` | `llm_rewrite` | 0.00 | -0.68440468 | BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,AVAXUSDT | `zscore(delta(volume,36),120)` |
+| `qr_ccda5f2f68` | `qr_88f46eeebc` | `llm_rewrite` | 0.00 | -0.64941947 | BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,AVAXUSDT | `neg(zscore(std(close,36),144))` |
+
+The rewrite validator blocked one exact failed-formula repeat:
+`zscore(corr(sub(close,open),volume,48),72)`.
+
+The refreshed attempts 4-48 summary reported:
+
+- Runs: `45`
+- LLM policy evidence runs: `41`
+- LLM true-improvement evidence runs: `24`
+- Runs with coverage-only traps: `3`
+- Highlighted candidate rows: `75`
+- Distinct highlighted candidates: `44`
+- Negative candidate rows: `90`
+- Negative candidate family rows: `19`
+
+Interpretation: attempt 48 recovered from the attempt 47 transport failure and again strengthened the dominant
+positive smoothed-volume signal. The price-parent `zscore(ema(volume,48),120)` row now has thirteen LLM true-improved
+highlights in the aggregate summary and sixteen true-improved highlights across the two reviewed parent contexts.
+Medium-horizon realized volatility repeated through `zscore(std(close,48),144)` for the funding-interaction parent,
+while `zscore(sma(volume,24),120)` added a smaller positive smoothed-volume row. The misses reinforce existing
+memory: volume acceleration and negative volatility-regime signs remain weak enough for exact and sign-aware guards,
+without blocking the broader positive volume-liquidity or range-volatility families. These artifacts remain
+research-only selector evidence and do not admit, publish, or update runtime strategies.
