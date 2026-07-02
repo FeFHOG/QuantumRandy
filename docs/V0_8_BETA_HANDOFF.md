@@ -118,8 +118,26 @@ Use `docs/SERVER_48H_TRIAL_RUNBOOK.md` as the operator-facing Ubuntu/tmux checkl
 6. Submit only after manual approval with `--submit`.
 7. Record runtime generation, selected portfolio ID, component weights, and promotion rationale.
 
+## Selector Rewrite Research State
+
+- Latest hard-gated LLM-only repeat: `reports/selector_rewrite_pipeline_llm_v082_evidence43_conflict_aware_memory_repeat`
+- Current aggregate summary: `reports/selector_pipeline_evidence_v082_summary`
+- Aggregate runs: `40`
+- LLM policy evidence runs: `37`
+- LLM true-improvement evidence runs: `20`
+- Coverage-only trap runs: `3`
+- Highlighted candidate rows: `63`
+- Negative candidate rows: `83`
+- Negative candidate family rows: `19`
+- Strongest repeated theme: positive smoothed volume participation, led by `zscore(ema(volume,48),120)`.
+- Current memory posture: keep exact failed-formula blocking and sign-aware negative memory, but do not mechanically
+  block entire volume-liquidity or range-volatility families.
+- Boundary: these are research-only selector evidence artifacts, not runtime publish payloads or admission decisions.
+
 ## Next Best Steps
 
+- If continuing the selector evidence campaign, run another hard-gated LLM-only conflict-aware repeat with the current
+  selector evidence summary, then refresh the aggregate report and document only evidence/docs changes.
 - Run one real Binance feeder one-shot against a local runtime and inspect the monitor report with baseline comparison.
 - If that is clean, run the server 48h paper trial without strategy churn.
 - Keep aligning portfolio reports and runtime monitor reports around comparable metrics.
