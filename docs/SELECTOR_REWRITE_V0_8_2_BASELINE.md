@@ -2048,3 +2048,63 @@ Interpretation: attempt 35 further concentrates positive evidence around smoothe
 the 36/144 smoothed participation shape is worth repeat testing. Range-volatility remains mixed rather than uniformly
 positive, so exact negative memory should continue without whole-family blocking. These artifacts remain research-only
 selector evidence and do not admit, publish, or update runtime strategies.
+
+Attempt 36 repeated the same hard-gated conflict-aware memory setup:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence36_conflict_aware_memory_repeat \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+Attempt 36 completed successfully and passed the LLM true-improvement hard gate:
+
+- `llm_rewrite_accepted`: `4`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- Candidate verdicts: `improved:4`
+- Candidate highlights: `true_improved:4`
+- `llm_true_improved_count`: `4`
+- Rewrite events recorded `selector_target_skip:4`, `rewrite_validator:2`, and `llm_rewrite:3`.
+
+The true-improved LLM candidates were:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_ccda5f2f68` | `qr_7a81ad156d` | `llm_rewrite` | 0.80 | 1.15668668 | SOLUSDT | `zscore(sma(volume,36),120)` |
+| `qr_7a765d304b` | `qr_a2cd9fd69f` | `llm_rewrite` | 0.80 | 0.44211152 | BTCUSDT | `zscore(ema(volume,48),120)` |
+| `qr_4a7fa246c2` | `qr_aded180101` | `llm_rewrite` | 0.60 | 0.67117528 | BTCUSDT | `zscore(ema(volume,24),96)` |
+| `qr_ccda5f2f68` | `qr_b49066f917` | `llm_rewrite` | 0.40 | 0.79389268 | ETHUSDT,SOLUSDT,AVAXUSDT | `zscore(std(close,24),120)` |
+
+The rewrite validator rejected `neg(zscore(std(ret(close,4),60),144))` because formula depth `5` exceeded
+`max_depth=4`, confirming that the depth guard still catches invalid LLM shapes before review.
+
+The refreshed attempts 4-36 summary reported:
+
+- Runs: `33`
+- LLM policy evidence runs: `30`
+- LLM true-improvement evidence runs: `13`
+- Runs with coverage-only traps: `2`
+- Highlighted candidate rows: `38`
+- Distinct highlighted candidates: `28`
+- Negative candidate rows: `75`
+- Negative candidate family rows: `19`
+
+Interpretation: attempt 36 is a clean positive repeat: all reviewed candidates were LLM-sourced true-improved
+highlights, and no coverage-only or Sharpe-only queue was populated. The price-parent `zscore(ema(volume,48),120)` row
+now has five LLM true-improved highlights in the aggregate summary. The broader 36-bar smoothed participation family is
+also strengthening through `sma(volume,36)` and `ema(volume,36)` variants across both 120- and 144-bar normalization.
+These artifacts remain research-only selector evidence and do not admit, publish, or update runtime strategies.

@@ -1083,6 +1083,32 @@ Expected value:
   now has two all-asset positive variants across attempts 33 and 35: `zscore(sma(volume,36),144)` and
   `zscore(ema(volume,36),144)`. Range-volatility remains mixed, so it should stay conflict-aware rather than
   mechanically blocked or universally preferred.
+- Ran attempt 36 as another conflict-aware-memory repeat:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence36_conflict_aware_memory_repeat`;
+  - the run passed the LLM true-improvement hard gate with `llm_rewrite_accepted=4`,
+    `fallback_rewrite_accepted=0`, and `llm_true_improved_count=4`;
+  - rewrite events recorded `selector_target_skip:4`, `rewrite_validator:2`, and `llm_rewrite:3`;
+  - candidate highlight mix was `true_improved:4`, with no coverage-only or Sharpe-only highlights;
+  - true-improved candidates:
+    `qr_7a81ad156d`, `zscore(sma(volume,36),120)`, pass-rate delta `+0.80`, mean-Sharpe delta `+1.15668668`;
+    `qr_a2cd9fd69f`, `zscore(ema(volume,48),120)`, pass-rate delta `+0.80`, mean-Sharpe delta `+0.44211152`;
+    `qr_aded180101`, `zscore(ema(volume,24),96)`, pass-rate delta `+0.60`, mean-Sharpe delta `+0.67117528`;
+    `qr_b49066f917`, `zscore(std(close,24),120)`, pass-rate delta `+0.40`, mean-Sharpe delta `+0.79389268`;
+  - the rewrite validator rejected `neg(zscore(std(ret(close,4),60),144))` for exceeding the depth limit.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 36:
+  - runs: `33`;
+  - LLM policy evidence runs: `30`;
+  - LLM true-improvement evidence runs: `13`;
+  - coverage-only trap runs: `2`;
+  - highlighted candidate rows: `38`;
+  - distinct highlighted candidates: `28`;
+  - negative candidate rows: `75`;
+  - negative candidate family rows: `19`.
+- Current interpretation: attempt 36 is a clean positive repeat. `zscore(ema(volume,48),120)` now has five
+  true-improved highlights against the price parent, making it the strongest repeated selector rewrite artifact by
+  count. The broader 36-bar smoothed participation family is also strengthening through SMA/EMA and 120/144
+  normalization variants. Range-volatility has positive evidence but remains more mixed than smoothed volume, so keep
+  conflict-aware memory and exact-formula blocking rather than whole-family blocking.
 
 ## Next Session Prompt
 
