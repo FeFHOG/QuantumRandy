@@ -3279,3 +3279,71 @@ volatility-regime rewrites. The normalized signed price-volume candidate `zscore
 missed across all five assets, reinforcing that signed price-volume correlation variants remain weaker than smoothed
 volume participation. These artifacts remain research-only selector evidence and do not admit, publish, or update
 runtime strategies.
+
+Attempt 55 repeated the same hard-gated conflict-aware memory setup:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence55_conflict_aware_memory_repeat \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+Attempt 55 completed the pipeline and produced LLM policy evidence, but failed the stricter LLM true-improvement hard
+gate:
+
+- `llm_rewrite_accepted`: `4`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- Candidate verdicts: `not_improved:4`
+- Candidate highlights: none
+- `llm_true_improved_count`: `0`
+- `is_llm_true_improvement_evidence`: `false`
+- Rewrite events recorded `selector_target_skip:4`, `llm_rewrite:3`, and `rewrite_validator:2`.
+
+The not-improved LLM candidates were:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_4a7fa246c2` | `qr_5c6b3a39e9` | `llm_rewrite` | -0.20 | -0.19415539 | BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,AVAXUSDT | `corr(sub(close,open),volume,72)` |
+| `qr_7a765d304b` | `qr_a853a7393b` | `llm_rewrite` | 0.00 | -0.56717387 | BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,AVAXUSDT | `corr(sub(close,open),volume,96)` |
+| `qr_ccda5f2f68` | `qr_c5c1799453` | `llm_rewrite` | 0.00 | -0.12355124 | BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,AVAXUSDT | `neg(corr(volume,sub(high,low),96))` |
+| `qr_ccda5f2f68` | `qr_be6ad71442` | `llm_rewrite` | 0.00 | -0.91184341 | BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,AVAXUSDT | `neg(zscore(std(close,48),168))` |
+
+The rewrite validator blocked one exact failed-formula repeat:
+`zscore(corr(sub(close,open),volume,48),72)`.
+
+It also rejected one over-depth negative range-volume correlation formula:
+`neg(zscore(corr(volume,sub(high,low),72),120))`.
+
+The refreshed attempts 4-55 summary reported:
+
+- Runs: `52`
+- LLM policy evidence runs: `48`
+- LLM true-improvement evidence runs: `30`
+- Runs with coverage-only traps: `3`
+- Highlighted candidate rows: `98`
+- Distinct highlighted candidates: `47`
+- Negative candidate rows: `100`
+- Negative candidate family rows: `19`
+
+Interpretation: attempt 55 is a useful clean negative repeat. It was not a transport failure and it did not use fallback;
+it shows the LLM still reaches weak families when true-improvement pressure is not enough to pull it back toward the
+repeated positive shapes. Raw signed price-volume correlations failed again across all five reviewed assets, and the
+negative range-volume and negative volatility-regime candidates also failed across the full asset set. This strengthens
+sign-aware negative memory while preserving the conflict-aware posture: positive smoothed volume and selected positive
+normalized volatility-regime shapes remain reachable, but raw correlation and negative-sign variants should stay
+deprioritized. These artifacts remain research-only selector evidence and do not admit, publish, or update runtime
+strategies.
