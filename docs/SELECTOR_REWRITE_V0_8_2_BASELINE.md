@@ -3556,3 +3556,70 @@ realized-volatility regime family continues to repeat through `zscore(std(close,
 `zscore(std(close,48),144)`. Normalized signed price-volume correlation remains conflicted: the 96/120 variant improved
 mean Sharpe without lifting pass-rate, while the 72/96 variant was not improved. These artifacts remain research-only
 selector evidence and do not admit, publish, or update runtime strategies.
+
+Attempt 59 repeated the same hard-gated conflict-aware memory setup:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence59_conflict_aware_memory_repeat \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+Attempt 59 completed successfully and passed the LLM true-improvement hard gate:
+
+- `llm_rewrite_accepted`: `5`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- `llm_error_count`: `0`
+- Candidate verdicts: `improved:2|not_improved:3`
+- Candidate highlights: `true_improved:2`
+- `llm_true_improved_count`: `2`
+- Rewrite events recorded `selector_target_skip:4`, `llm_rewrite:3`, and `rewrite_validator:1`.
+
+The true-improved LLM candidates were:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_ccda5f2f68` | `qr_c3ccb8e228` | `llm_rewrite` | 0.80 | 1.28492586 | AVAXUSDT | `zscore(std(close,48),120)` |
+| `qr_ccda5f2f68` | `qr_a2cd9fd69f` | `llm_rewrite` | 0.80 | 1.20859083 | BTCUSDT | `zscore(ema(volume,48),120)` |
+
+The not-improved LLM candidates were:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_7a765d304b` | `qr_7805bc0be0` | `llm_rewrite` | 0.00 | -0.72572545 | BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,AVAXUSDT | `zscore(corr(sub(close,open),volume,96),120)` |
+| `qr_4a7fa246c2` | `qr_be6ad71442` | `llm_rewrite` | -0.20 | -1.34866508 | BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,AVAXUSDT | `neg(zscore(std(close,48),168))` |
+| `qr_4a7fa246c2` | `qr_3c6d6c804a` | `llm_rewrite` | -0.20 | -0.58244917 | BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,AVAXUSDT | `neg(corr(volume,sub(high,low),72))` |
+
+The rewrite validator again blocked one exact failed-formula repeat:
+`zscore(corr(sub(close,open),volume,48),72)`.
+
+The refreshed attempts 4-59 summary reported:
+
+- Runs: `56`
+- LLM policy evidence runs: `52`
+- LLM true-improvement evidence runs: `34`
+- Runs with coverage-only traps: `4`
+- Highlighted candidate rows: `111`
+- Distinct highlighted candidates: `50`
+- Negative candidate rows: `107`
+- Negative candidate family rows: `19`
+
+Interpretation: attempt 59 is mixed but useful. It reinforces the funding-interaction parent path toward positive
+smoothed participation and positive realized-volatility regime rewrites, especially `zscore(ema(volume,48),120)` and
+`zscore(std(close,48),120)`. At the same time, normalized signed price-volume correlation failed again when proposed
+against the price parent, and the negative volatility/range-sign variants failed across all five reviewed assets. These
+artifacts remain research-only selector evidence and do not admit, publish, or update runtime strategies.
