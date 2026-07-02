@@ -780,6 +780,25 @@ Expected value:
   - distinct highlighted candidates: `7`;
   - negative candidate rows: `44`;
   - negative candidate family rows: `14`.
+- Ran attempt 20 as another rejection-audit repeat:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence20_rejection_audit_repeat`;
+  - the run remained valid LLM policy evidence with `llm_rewrite_accepted=4` and `fallback_rewrite_accepted=0`;
+  - the true-improvement hard gate correctly rejected the run because `llm_true_improved_count=0`;
+  - highlight mix was `sharpe_improved_no_pass_lift:1`;
+  - new highlighted-but-not-true-improved candidate: `qr_8096823a14`, `zscore(ret(close,48),120)`, with pass-rate
+    delta `-0.20` and mean-Sharpe delta `+0.03912457`;
+  - rewrite events recorded `selector_negative_blocked_family_pairs=11` and
+    `selector_negative_disallowed_formulas=14`;
+  - rejection-audit rows captured one formula-depth violation and one exact disallowed formula repeat.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 20:
+  - runs: `17`;
+  - LLM policy evidence runs: `17`;
+  - LLM true-improvement evidence runs: `5`;
+  - coverage-only trap runs: `2`;
+  - highlighted candidate rows: `11`;
+  - distinct highlighted candidates: `8`;
+  - negative candidate rows: `47`;
+  - negative candidate family rows: `15`.
 
 ## Next Session Prompt
 

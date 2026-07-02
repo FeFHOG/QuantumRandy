@@ -1226,3 +1226,68 @@ The refreshed attempts 4-19 summary reported:
 Interpretation: attempt 19 confirms the rejection-audit fields are useful across repeats and adds a new coverage-only
 trap to negative memory. The new trap belongs to a price-family time-since-extreme/reversal shape, and should not be
 treated as improvement because pass-rate rose while mean Sharpe fell. The true-improvement hard gate remains essential.
+
+## Rejection-Audit Repeat 20
+
+Date: 2026-07-02
+
+Attempt 20 repeated the same hard-gated command after refreshing selector memory with attempt 19:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence20_rejection_audit_repeat \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+The command exited with code `3`, as intended, because there were no LLM true-improved candidates:
+
+- `llm_rewrite_accepted`: `4`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- Candidate verdicts: `not_improved:3|mixed:1`
+- Candidate highlights: `sharpe_improved_no_pass_lift:1`
+- `llm_true_improved_count`: `0`
+- Coverage-only traps: `0`
+- Rewrite events recorded `selector_negative_blocked_family_pairs=11` and
+  `selector_negative_disallowed_formulas=14`.
+
+The highlight was Sharpe-improved only and lost pass-rate coverage:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_1c002c4c13` | `qr_8096823a14` | `llm_rewrite` | -0.20 | 0.03912457 | BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,AVAXUSDT | `zscore(ret(close,48),120)` |
+
+The rejection-audit columns captured two validator rejections before review:
+
+| Parent | Rejected Reason Mix | Example |
+|---|---|---|
+| `qr_cb62796f3b` | `Formula depth 5 exceeds max_depth=4: neg(zscore(skew(ret(close,6),48),120)):1` | `neg(zscore(skew(ret(close,6),48),120))` |
+| `qr_7a765d304b` | `copies disallowed failed formula:1` | `zscore(corr(sub(close,open),volume,48),72)` |
+
+The refreshed attempts 4-20 summary reported:
+
+- Runs: `17`
+- LLM policy evidence runs: `17`
+- LLM true-improvement evidence runs: `5`
+- Runs with coverage-only traps: `2`
+- Highlighted candidate rows: `11`
+- Distinct highlighted candidates: `8`
+- Negative candidate rows: `47`
+- Negative candidate family rows: `15`
+
+Interpretation: attempt 20 adds another negative selector-memory row, this time for a pure-funding parent drifting into
+a price-only medium-horizon momentum candidate. The hard gate correctly rejects a candidate that slightly improves mean
+Sharpe but reduces pass-rate coverage and still fails every evaluated asset.
