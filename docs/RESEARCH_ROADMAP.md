@@ -1134,6 +1134,35 @@ Expected value:
   true-improved highlights across the two reviewed parent contexts. Smoothed positive volume participation remains the
   strongest repeated selector rewrite theme. The new negative volume/range coupling rows reinforce that
   range-volatility should remain conflict-aware rather than mechanically preferred or mechanically banned.
+- Ran attempt 38 as another conflict-aware-memory repeat:
+  - output: `reports/selector_rewrite_pipeline_llm_v082_evidence38_conflict_aware_memory_repeat`;
+  - the run passed the LLM true-improvement hard gate with `llm_rewrite_accepted=6`,
+    `fallback_rewrite_accepted=0`, and `llm_true_improved_count=5`;
+  - rewrite events recorded `selector_target_skip:4` and `llm_rewrite:3`;
+  - candidate verdict mix was `improved:5|not_improved:1`;
+  - candidate highlight mix was `true_improved:5`, with no coverage-only or Sharpe-only highlights;
+  - true-improved candidates:
+    `qr_3cdea28d1b`, `zscore(ema(volume,36),144)`, pass-rate delta `+1.00`, mean-Sharpe delta `+1.20305771`,
+    failed assets `none`;
+    `qr_a2cd9fd69f`, `zscore(ema(volume,48),120)`, pass-rate delta `+0.80`, mean-Sharpe delta `+0.44211152`;
+    `qr_c3ccb8e228`, `zscore(std(close,48),120)`, pass-rate delta `+0.60`, mean-Sharpe delta `+0.84810419`;
+    `qr_295d2e9ee2`, `zscore(ema(volume,24),120)`, pass-rate delta `+0.60`, mean-Sharpe delta `+0.65493676`;
+    `qr_337094fb55`, `zscore(std(close,24),144)`, pass-rate delta `+0.40`, mean-Sharpe delta `+0.85028641`;
+  - the not-improved candidate was another volume-acceleration variant:
+    `zscore(delta(volume,24),168)`.
+- Refreshed the multi-run selector evidence summary across attempts 4 through 38:
+  - runs: `35`;
+  - LLM policy evidence runs: `32`;
+  - LLM true-improvement evidence runs: `15`;
+  - coverage-only trap runs: `2`;
+  - highlighted candidate rows: `44`;
+  - distinct highlighted candidates: `29`;
+  - negative candidate rows: `78`;
+  - negative candidate family rows: `19`.
+- Current interpretation: attempt 38 is a strong positive repeat. The price-parent `zscore(ema(volume,48),120)` row
+  now has seven true-improved highlights, and the same formula has nine true-improved highlights across the two reviewed
+  parent contexts. `zscore(ema(volume,36),144)` now has two repeats, `zscore(ema(volume,24),120)` has three, and
+  range-volatility continues to show useful but mixed evidence. Volume acceleration remains negative.
 
 ## Next Session Prompt
 
