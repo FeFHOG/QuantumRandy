@@ -1161,3 +1161,68 @@ The refreshed attempts 4-18 summary reported:
 Interpretation: attempt 18 is another negative-control run, but the important improvement is observability. The selector
 rewrite audit trail can now distinguish DSL signature errors, formula-depth errors, exact negative-memory repeats, and
 future family-pair blocks directly from `selector_rewrite_events.csv`.
+
+## Rejection-Audit Repeat 19
+
+Date: 2026-07-02
+
+Attempt 19 repeated the hard-gated command after refreshing selector memory with attempt 18:
+
+```bash
+.venv/bin/python scripts/run_selector_rewrite_pipeline.py \
+  --selector reports/candidate_selector_archive_eval \
+  --out reports/selector_rewrite_pipeline_llm_v082_evidence19_rejection_audit_repeat \
+  --config configs/btcusdt.yaml \
+  --config configs/ethusdt.yaml \
+  --config configs/solusdt.yaml \
+  --config configs/bnbusdt.yaml \
+  --config configs/avaxusdt.yaml \
+  --use-llm \
+  --llm-only \
+  --require-llm-evidence \
+  --require-llm-true-improvement \
+  --max-targets 3 \
+  --candidates-per-target 2 \
+  --failure-memory-path reports/failure_memory_smoke \
+  --selector-evidence-path reports/selector_pipeline_evidence_v082_summary
+```
+
+The command exited with code `3`, as intended, because there were no LLM true-improved candidates:
+
+- `llm_rewrite_accepted`: `4`
+- `fallback_rewrite_accepted`: `0`
+- `is_llm_policy_evidence`: `true`
+- Candidate verdicts: `not_improved:3|coverage_only:1`
+- Candidate highlights: `coverage_only_trap:1`
+- `llm_true_improved_count`: `0`
+- Coverage-only traps: `1`
+- Rewrite events recorded `selector_negative_blocked_family_pairs=9` and
+  `selector_negative_disallowed_formulas=14`.
+
+The coverage-only trap was:
+
+| Parent | Candidate | Source | Pass Rate Delta | Mean Sharpe Delta | Failed Assets | Formula |
+|---|---|---|---:|---:|---|---|
+| `qr_7a765d304b` | `qr_5d66b52699` | `llm_rewrite` | 0.20 | -0.30446903 | BTCUSDT,ETHUSDT,BNBUSDT,AVAXUSDT | `neg(zscore(ts_argmax(close,72),120))` |
+
+The rejection-audit columns captured two validator rejections before review:
+
+| Parent | Rejected Reason Mix | Example |
+|---|---|---|
+| `qr_cb62796f3b` | `Formula depth 5 exceeds max_depth=4: zscore(corr(sign(sub(close,open)),volume,72),120):1` | `zscore(corr(sign(sub(close,open)),volume,72),120)` |
+| `qr_7a765d304b` | `copies disallowed failed formula:1` | `zscore(corr(sub(close,open),volume,48),72)` |
+
+The refreshed attempts 4-19 summary reported:
+
+- Runs: `16`
+- LLM policy evidence runs: `16`
+- LLM true-improvement evidence runs: `5`
+- Runs with coverage-only traps: `2`
+- Highlighted candidate rows: `10`
+- Distinct highlighted candidates: `7`
+- Negative candidate rows: `44`
+- Negative candidate family rows: `14`
+
+Interpretation: attempt 19 confirms the rejection-audit fields are useful across repeats and adds a new coverage-only
+trap to negative memory. The new trap belongs to a price-family time-since-extreme/reversal shape, and should not be
+treated as improvement because pass-rate rose while mean Sharpe fell. The true-improvement hard gate remains essential.
