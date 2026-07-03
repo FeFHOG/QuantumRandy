@@ -18,15 +18,19 @@ materials are archived under `docs/archive/legacy_runtime_beta/`.
 - `RESEARCH_V0_9D_STRICT_CANDIDATE_DISCOVERY_REPORT.md`: BTCUSDT 4h strict candidate-family discovery, ETH diagnostic
   review, correlation/redundancy review, failure memory, and Research 1.0 readiness decision.
 - `RESEARCH_1_0_PREREQUISITE_VERIFICATION_REPORT.md`: post-v0.9 prerequisite closure, logic-error audit,
-  crypto-native feature-readiness verdict, and Research 1.0 blocker status.
+  crypto-native feature-readiness verdict, and Research 1.0 prerequisite status.
 - `RESEARCH_1_0_CANDIDATE_REPLICATION_REPORT.md`: first Research 1.0 candidate replication gauntlet for v0.9d
   pending candidates, robustness failure memory, and readiness verdict.
+- `RESEARCH_1_0_CHECKPOINT_REPORT.md`: final Research 1.0 research-only checkpoint declaration and exit-checklist
+  audit.
 
 ## Stack Boundary
 
 - `RANDY_STACK_TARGET_ARCHITECTURE.md`: QuantumRandy, RandysLab, future RandyPortfolio boundaries, and artifact contracts.
 - `V0_8_BETA_HANDOFF.md`: broad project handoff and current next steps.
 - `V1_0_RESEARCH_READINESS_PLAN.md`: Research 1.0 definition, gates, blockers, and readiness criteria.
+- `superpowers/plans/2026-07-03-research-v1-1-independent-scoped-family-replication.md`: next-step Research v1.1
+  plan for finding a second independent scoped family.
 - `PROJECT_LOG.md`: chronological project log.
 
 ## Archive

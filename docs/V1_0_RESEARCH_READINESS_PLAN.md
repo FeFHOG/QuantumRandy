@@ -9,12 +9,29 @@ Research 1.0 means the research system can repeatedly produce, judge, reject, pr
 under strict evidence rules. It does not mean live execution is approved, and it does not require one universal factor
 to work all-weather across every asset.
 
+## Completion Update
+
+Research 1.0 is now declared as a research-only checkpoint.
+
+- Final checkpoint report: `docs/RESEARCH_1_0_CHECKPOINT_REPORT.md`.
+- Checkpoint verdict: `research_1_0_checkpoint_declared_research_only`.
+- Declared scoped candidate:
+  `qr_v09d_funding_return_long_001::thr_0p0_long_short_cap_0p5_none`.
+- Declared scope: `BTCUSDT_4h`.
+- Scope-hard robustness survival: `15/15`.
+- Boundary remains unchanged: no RandyPortfolio, no live trading, no exchange private keys, no runtime factor
+  publishing, no automatic factor admission, no new formula base fields, no production regime labels, and no selector
+  evidence61.
+
+The original plan below is preserved as the definition and historical path that led to the checkpoint.
+
 ## Current Position
 
-The stack is past a simple prototype. QuantumRandy can mine and export factor candidates, while RandysLab can strictly
-judge them with next-bar execution, fees, slippage, funding, ledgers, robustness scenarios, and failure labels.
+At the time this plan was written, the stack was past a simple prototype. QuantumRandy could mine and export factor
+candidates, while RandysLab could strictly judge them with next-bar execution, fees, slippage, funding, ledgers,
+robustness scenarios, and failure labels.
 
-The current maturity is best described as:
+The then-current maturity was best described as:
 
 ```text
 v0.8 beta: strict research infrastructure exists, but robust factor evidence is not yet sufficient for Research 1.0.
@@ -29,7 +46,7 @@ Useful current assets:
 - Paper runtime infrastructure for observation, separated from research.
 - Clear stack boundary: QuantumRandy is the factor factory; RandysLab is the strict judge; RandyPortfolio is future work.
 
-Main gap:
+Main gap at the time:
 
 - The latest selector v0.8.2 participation-plus-realized-volatility family is blocked pending new hypotheses.
 - The current next step is multi-factor, asset-scoped research with explicit applicability boundaries, not another
@@ -385,6 +402,8 @@ Research 1.0 can be declared only when:
 - runtime/paper boundaries remain intact;
 - no live execution code or private-key path is introduced;
 - next-step docs explain whether to pursue Research 1.1, RandyPortfolio planning, or paper observation.
+
+Exit-checklist result: complete in `docs/RESEARCH_1_0_CHECKPOINT_REPORT.md`.
 
 ## Current Recommendation
 

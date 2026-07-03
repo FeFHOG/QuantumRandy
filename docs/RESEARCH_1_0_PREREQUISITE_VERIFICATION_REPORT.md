@@ -2,12 +2,15 @@
 
 Date: 2026-07-03
 
-Status: prerequisite closure complete; one Research 1.0 scoped candidate is replicated pending manual review.
+Status: prerequisite closure complete; final Research 1.0 checkpoint declared separately.
+
+Final checkpoint declaration: see `docs/RESEARCH_1_0_CHECKPOINT_REPORT.md`. This report remains the prerequisite and
+logic-audit evidence for that declaration.
 
 This report is research-only. It is not factor admission, runtime publishing, RandyPortfolio, live trading, or
 production regime classification.
 
-## Verdict
+## Historical Prerequisite Verdict
 
 ```text
 research_1_0_candidate_replicated_pending_manual_review
@@ -16,6 +19,9 @@ research_1_0_candidate_replicated_pending_manual_review
 Research 1.0 prerequisite engineering and data-readiness work is closed. The v0.9d scope-aware replication pass now has
 one BTCUSDT declared-scope candidate/variant that survived all current scope-hard robustness stresses. This is still
 research-only evidence, not factor admission, runtime publishing, or portfolio approval.
+
+This prerequisite-stage verdict is superseded by the final checkpoint declaration in
+`docs/RESEARCH_1_0_CHECKPOINT_REPORT.md`.
 
 ## v0.9 Completion
 
@@ -188,8 +194,8 @@ change runtime behavior.
 | Failure-memory loop | Closed | v0.9b/v0.9c/v0.9d plus Research 1.0 replication failure memory. |
 | Repository test hygiene | Closed | Latest verification is recorded in `docs/RESEARCH_1_0_CANDIDATE_REPLICATION_REPORT.md`. |
 | Public crypto-native feature readiness | Closed as audit, not admitted | Feature audit shows all six groups `missing_source`. |
-| Strict-surviving robust factor family | Candidate pending manual review | v0.9d replication found 1 BTCUSDT scoped candidate surviving `15/15` hard stresses. |
-| Research 1.0 readiness | Candidate pending manual review | `research_1_0_candidate_replicated_pending_manual_review`; not admission or runtime publishing. |
+| Strict-surviving robust factor family | Closed by final checkpoint review | v0.9d replication found 1 BTCUSDT scoped candidate surviving `15/15` hard stresses; final declaration is in `docs/RESEARCH_1_0_CHECKPOINT_REPORT.md`. |
+| Research 1.0 readiness | Closed by final checkpoint review | Prerequisite verdict was `research_1_0_candidate_replicated_pending_manual_review`; final verdict is `research_1_0_checkpoint_declared_research_only`. |
 
 ## Boundary Confirmation
 

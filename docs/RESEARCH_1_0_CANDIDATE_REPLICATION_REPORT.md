@@ -4,6 +4,9 @@ Date: 2026-07-03
 
 Status: complete for the first scope-aware Research 1.0 candidate replication pass.
 
+Final checkpoint declaration: see `docs/RESEARCH_1_0_CHECKPOINT_REPORT.md`. This report remains the replication
+evidence for that declaration.
+
 This report is research-only. It is not factor admission, runtime publishing, portfolio construction, RandyPortfolio,
 or live execution.
 
@@ -71,13 +74,14 @@ execution approval.
 - The one passed ranking is intentionally absent from `failure_memory.csv`; its diagnostic labels remain in the
   RandysLab robustness ranking.
 
-## Research 1.0 Readiness
+## Historical Replication Verdict
 
 `research_1_0_candidate_replicated_pending_manual_review`
 
 v0.9d now has one BTCUSDT declared-scope candidate/variant that survived all current scope-hard replication stresses.
-The remaining work is manual research review and any separately approved Research 1.0 decision process. This report does
-not admit a production factor and does not publish a runtime payload.
+At the time this replication report was written, the remaining work was manual research review and any separately
+approved Research 1.0 decision process. That review is now closed in `docs/RESEARCH_1_0_CHECKPOINT_REPORT.md`.
+This report does not admit a production factor and does not publish a runtime payload.
 
 ## Verification
 

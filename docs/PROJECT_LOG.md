@@ -1,5 +1,23 @@
 # QuantumRandy Project Log
 
+## 2026-07-03 Research 1.0 Checkpoint Declaration
+
+Declared Research 1.0 as a research-only checkpoint after manual review of the v0.9d scope-aware replication evidence.
+
+- Report: `docs/RESEARCH_1_0_CHECKPOINT_REPORT.md`.
+- Declared scoped research candidate:
+  `qr_v09d_funding_return_long_001::thr_0p0_long_short_cap_0p5_none`.
+- Declared scope: `BTCUSDT_4h`.
+- Scope-hard robustness survival: `15/15`.
+- Replication failure memory remains `59` failed rows out of `60` input rankings across `33` clusters.
+- Research 1.0 checkpoint verdict: `research_1_0_checkpoint_declared_research_only`.
+- Next recommended work: `Research v1.1: Independent Scoped Family Replication`, already planned in
+  `docs/superpowers/plans/2026-07-03-research-v1-1-independent-scoped-family-replication.md`.
+
+Boundary preserved: no RandyPortfolio implementation, no live trading, no exchange private keys, no runtime factor
+publishing, no automatic factor admission, no new formula base fields, no production regime labels, and no selector
+evidence61.
+
 ## 2026-07-03 Research 1.0 Candidate Replication
 
 Completed the first scope-aware Research 1.0 replication gauntlet for v0.9d pending candidates.
@@ -12,7 +30,8 @@ Completed the first scope-aware Research 1.0 replication gauntlet for v0.9d pend
 - One candidate/variant survived all scope-hard stresses:
   `qr_v09d_funding_return_long_001::thr_0p0_long_short_cap_0p5_none`.
 - QuantumRandy replication failure memory records `59` failed rows across `33` clusters.
-- Research 1.0 readiness verdict: `research_1_0_candidate_replicated_pending_manual_review`.
+- Historical replication-stage verdict: `research_1_0_candidate_replicated_pending_manual_review`; final checkpoint
+  verdict is recorded above.
 
 Boundary preserved: no RandyPortfolio implementation, no live trading, no exchange private keys, no runtime factor
 publishing, no automatic factor admission, no new base formula fields, no production regime labels, and no selector
