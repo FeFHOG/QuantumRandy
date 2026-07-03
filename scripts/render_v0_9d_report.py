@@ -188,11 +188,12 @@ def _render(
             f"of `{len(btc_review)}`.",
             f"- ETH review rows with `too_few_completed_rows`: `{_failure_reason_count(eth_review, 'too_few_completed_rows')}` "
             f"of `{len(eth_review)}`.",
-            "- RandysLab review groups by candidate, formula, and registered variant columns. In a single declared asset "
-            "grid, each variant has one row per review window, so the default `min_completed_rows=15` can mechanically "
-            "block variant-level rows.",
-            "- v0.9d records this as research hygiene evidence and does not change the registered review thresholds "
-            "after seeing results.",
+            f"- BTC effective completed-row floor values: `{_fmt_values(btc_review, 'effective_min_completed_rows')}`.",
+            f"- ETH effective completed-row floor values: `{_fmt_values(eth_review, 'effective_min_completed_rows')}`.",
+            "- RandysLab now records an effective completed-row floor for declared variant-level reviews, capped at the "
+            "registered group size so a single-asset declared profile is not mechanically blocked by the multi-asset "
+            "`min_completed_rows=15` default.",
+            "- Sharpe, validation, blind-window, positive-row, and drawdown gates remain unchanged.",
         ]
     )
 
@@ -237,8 +238,8 @@ def _render(
             "",
             "- Focused QuantumRandy v0.9d tests on 2026-07-03: `3 passed`.",
             "- QuantumRandy full suite on 2026-07-03: `128 passed`.",
-            "- Focused RandysLab formula-candidate and correlation tests on 2026-07-03: `13 passed`.",
-            "- RandysLab full suite on 2026-07-03: `29 passed`.",
+            "- Focused RandysLab formula-candidate and correlation tests on 2026-07-03: `14 passed`.",
+            "- RandysLab full suite on 2026-07-03: `30 passed`.",
             "- Artifact audit confirms candidate counts, declared scope, BTC/ETH review artifacts, redundancy artifacts, "
             "and failure memory.",
             "",
@@ -263,16 +264,20 @@ def _readiness_verdict(btc_review: pd.DataFrame, eth_review: pd.DataFrame, redun
     if btc_review.empty:
         return "not_ready_for_research_1_0"
     redundant = _redundant_candidate_ids(redundancy)
-    diagnostic_weak = _diagnostic_weak_candidate_ids(eth_review)
+    diagnostic_weak = _diagnostic_weak_candidate_variants(eth_review)
+    saw_diagnostic_weak_watchlist = False
     for row in btc_review.to_dict(orient="records"):
         candidate_id = str(row.get("candidate_id", ""))
         if str(row.get("review_verdict", "")) != "research_watchlist":
             continue
         if candidate_id in redundant:
             continue
-        if candidate_id in diagnostic_weak:
-            return "scoped_watchlist_needs_replication"
+        if _candidate_variant_key(row) in diagnostic_weak:
+            saw_diagnostic_weak_watchlist = True
+            continue
         return "research_1_0_candidate_pending_replication"
+    if saw_diagnostic_weak_watchlist:
+        return "scoped_watchlist_needs_replication"
     return "not_ready_for_research_1_0"
 
 
@@ -283,23 +288,28 @@ def _redundant_candidate_ids(redundancy: pd.DataFrame) -> set[str]:
     return {str(row.get("bundle_candidate_id") or row.get("candidate_id") or "") for row in rows.to_dict(orient="records")}
 
 
-def _diagnostic_weak_candidate_ids(review: pd.DataFrame) -> set[str]:
+def _diagnostic_weak_candidate_variants(review: pd.DataFrame) -> set[tuple[str, str]]:
     if review.empty:
         return set()
-    weak: set[str] = set()
+    weak: set[tuple[str, str]] = set()
     for row in review.to_dict(orient="records"):
         candidate_id = str(row.get("candidate_id", ""))
         if not candidate_id:
             continue
+        key = _candidate_variant_key(row)
         if str(row.get("review_verdict", "")) and str(row.get("review_verdict", "")) != "research_watchlist":
-            weak.add(candidate_id)
+            weak.add(key)
             continue
         if str(row.get("failure_reasons", "")).strip():
-            weak.add(candidate_id)
+            weak.add(key)
             continue
         if _float(row.get("validation_mean_sharpe", "")) < 0.0 or _float(row.get("blind_mean_sharpe", "")) < 0.0:
-            weak.add(candidate_id)
+            weak.add(key)
     return weak
+
+
+def _candidate_variant_key(row: dict[str, Any]) -> tuple[str, str]:
+    return str(row.get("candidate_id", "")), str(row.get("variant_id", "default") or "default")
 
 
 def _artifact_paths(randyslab: Path) -> dict[str, Path]:
@@ -392,6 +402,13 @@ def _failure_reason_count(frame: pd.DataFrame, reason: str) -> int:
     if frame.empty or "failure_reasons" not in frame.columns:
         return 0
     return int(frame["failure_reasons"].fillna("").astype(str).str.contains(reason, regex=False).sum())
+
+
+def _fmt_values(frame: pd.DataFrame, column: str) -> str:
+    if frame.empty or column not in frame.columns:
+        return "none"
+    values = sorted(str(int(float(value))) for value in pd.to_numeric(frame[column], errors="coerce").dropna().unique())
+    return ", ".join(values) if values else "none"
 
 
 def _num(value: Any) -> str:

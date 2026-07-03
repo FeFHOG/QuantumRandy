@@ -126,6 +126,22 @@ def test_v0_9d_failure_memory_maps_btc_eth_and_redundancy_rows(tmp_path) -> None
                 "mean_max_dd": 0.2,
                 "worst_max_dd": 0.3,
             },
+            {
+                "candidate_id": "qr_v09d_volume_conviction_001",
+                "formula": "zscore(corr(sub(close,open),volume,48),72)",
+                "formula_family": "volume_price_conviction",
+                "variant_id": "same_variant",
+                "intended_scope": "BTCUSDT_4h",
+                "applicability_hypothesis": "BTCUSDT 4h scoped strict candidate-family discovery.",
+                "out_of_scope_policy": "diagnostic_only",
+                "review_verdict": "research_watchlist",
+                "failure_reasons": "",
+                "mean_sharpe": 0.8,
+                "validation_mean_sharpe": 0.3,
+                "blind_mean_sharpe": 0.4,
+                "mean_max_dd": 0.2,
+                "worst_max_dd": 0.3,
+            },
         ]
     ).to_csv(review_csv, index=False)
     diagnostic_csv = tmp_path / "eth_factor_candidate_review.csv"
@@ -133,6 +149,23 @@ def test_v0_9d_failure_memory_maps_btc_eth_and_redundancy_rows(tmp_path) -> None
         [
             {
                 "candidate_id": "qr_v09d_funding_return_long_001",
+                "variant_id": "default",
+                "review_verdict": "blocked_by_conservative_rules",
+                "failure_reasons": "weak_blind_window",
+                "validation_mean_sharpe": 0.1,
+                "blind_mean_sharpe": -0.4,
+            },
+            {
+                "candidate_id": "qr_v09d_volume_conviction_001",
+                "variant_id": "same_variant",
+                "review_verdict": "research_watchlist",
+                "failure_reasons": "",
+                "validation_mean_sharpe": 0.5,
+                "blind_mean_sharpe": 0.4,
+            },
+            {
+                "candidate_id": "qr_v09d_volume_conviction_001",
+                "variant_id": "other_variant",
                 "review_verdict": "blocked_by_conservative_rules",
                 "failure_reasons": "weak_blind_window",
                 "validation_mean_sharpe": 0.1,
@@ -161,7 +194,7 @@ def test_v0_9d_failure_memory_maps_btc_eth_and_redundancy_rows(tmp_path) -> None
         source_correlation_dir="reports/factor_candidate_correlation/research_v0_9d_btc",
     )
 
-    assert len(rows) == 2
+    assert len(rows) == 3
     by_id = {row["candidate_id"]: row for row in rows}
     bundle = by_id["qr_v09d_bundle_trend_quality_001"]
     assert bundle["candidate_family"] == "scoped_equal_weight_bundle"
@@ -177,6 +210,10 @@ def test_v0_9d_failure_memory_maps_btc_eth_and_redundancy_rows(tmp_path) -> None
     assert funding["passed"] is False
     assert "eth_diagnostic_weakness" in funding["failure_labels"]
     assert "funding_confirmation_fragility" in funding["failure_labels"]
+    volume = by_id["qr_v09d_volume_conviction_001"]
+    assert volume["conservative_verdict"] == "research_1_0_candidate_pending_replication"
+    assert volume["passed"] is True
+    assert "eth_diagnostic_weakness" not in volume["failure_labels"]
 
     out = tmp_path / "failure_memory"
     manifest = write_v0_9d_failure_memory(
@@ -221,10 +258,29 @@ def test_v0_9d_report_renderer_states_readiness_outcomes() -> None:
         [
             {
                 "candidate_id": "qr_v09d_bundle_trend_quality_001",
+                "variant_id": "default",
                 "review_verdict": "blocked_by_conservative_rules",
                 "blind_mean_sharpe": -0.2,
                 "failure_reasons": "weak_blind_window",
             }
+        ]
+    )
+    variant_specific_diagnostic = pd.DataFrame(
+        [
+            {
+                "candidate_id": "qr_v09d_bundle_trend_quality_001",
+                "variant_id": "default",
+                "review_verdict": "research_watchlist",
+                "blind_mean_sharpe": 0.2,
+                "failure_reasons": "",
+            },
+            {
+                "candidate_id": "qr_v09d_bundle_trend_quality_001",
+                "variant_id": "other_variant",
+                "review_verdict": "blocked_by_conservative_rules",
+                "blind_mean_sharpe": -0.2,
+                "failure_reasons": "weak_blind_window",
+            },
         ]
     )
     redundancy = pd.DataFrame(
@@ -240,6 +296,41 @@ def test_v0_9d_report_renderer_states_readiness_outcomes() -> None:
 
     assert module._readiness_verdict(review, pd.DataFrame(), redundancy) == "research_1_0_candidate_pending_replication"
     assert module._readiness_verdict(review, diagnostic, redundancy) == "scoped_watchlist_needs_replication"
+    assert (
+        module._readiness_verdict(review.assign(variant_id="default"), variant_specific_diagnostic, redundancy)
+        == "research_1_0_candidate_pending_replication"
+    )
+    mixed_btc = pd.DataFrame(
+        [
+            {
+                "candidate_id": "qr_v09d_bundle_trend_quality_001",
+                "variant_id": "weak_variant",
+                "review_verdict": "research_watchlist",
+            },
+            {
+                "candidate_id": "qr_v09d_bundle_trend_quality_001",
+                "variant_id": "clean_variant",
+                "review_verdict": "research_watchlist",
+            },
+        ]
+    )
+    mixed_eth = pd.DataFrame(
+        [
+            {
+                "candidate_id": "qr_v09d_bundle_trend_quality_001",
+                "variant_id": "weak_variant",
+                "review_verdict": "blocked_by_conservative_rules",
+                "failure_reasons": "weak_blind_window",
+            },
+            {
+                "candidate_id": "qr_v09d_bundle_trend_quality_001",
+                "variant_id": "clean_variant",
+                "review_verdict": "research_watchlist",
+                "failure_reasons": "",
+            },
+        ]
+    )
+    assert module._readiness_verdict(mixed_btc, mixed_eth, redundancy) == "research_1_0_candidate_pending_replication"
     assert (
         module._readiness_verdict(
             review.assign(review_verdict="blocked_by_conservative_rules"),
@@ -302,5 +393,6 @@ def test_v0_9d_report_renderer_states_readiness_outcomes() -> None:
     assert "BTCUSDT_4h" in report
     assert "ETH Diagnostic Review" in report
     assert "Declared Review Mechanics Audit" in report
+    assert "effective completed-row floor" in report
     assert "`scoped_watchlist_needs_replication`" in report
     assert "No RandyPortfolio implementation" in report

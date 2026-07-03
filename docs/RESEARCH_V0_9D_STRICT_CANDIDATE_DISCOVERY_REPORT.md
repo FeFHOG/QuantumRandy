@@ -54,22 +54,22 @@ Research v0.9d tested deterministic current-DSL candidate families under the v0.
 - `scope_mode=declared`
 - Review scopes: `BTCUSDT_4h`
 - Candidate count: `288`
-- Verdict counts: `blocked_by_conservative_rules:288`
+- Verdict counts: `blocked_by_conservative_rules:273, research_watchlist:15`
 
 | Candidate | Verdict | Mean Sharpe | Validation Sharpe | Blind Sharpe | Failures |
 |---|---|---:|---:|---:|---|
-| `qr_v09d_volume_conviction_001` | `blocked_by_conservative_rules` | 0.9613 | 0.3946 | 0.9735 | `too_few_completed_rows` |
-| `qr_v09d_volume_conviction_001` | `blocked_by_conservative_rules` | 0.8877 | 0.0486 | 0.7109 | `too_few_completed_rows` |
-| `qr_v09d_volume_conviction_001` | `blocked_by_conservative_rules` | 0.8873 | 0.3351 | 0.8800 | `too_few_completed_rows` |
-| `qr_v09d_funding_return_long_001` | `blocked_by_conservative_rules` | 0.8236 | -0.0576 | 1.0851 | `too_few_completed_rows|weak_validation_window` |
-| `qr_v09d_rsi_state_change_001` | `blocked_by_conservative_rules` | 0.8225 | -0.4090 | 0.9398 | `too_few_completed_rows|weak_validation_window|high_mean_drawdown` |
-| `qr_v09d_volume_conviction_001` | `blocked_by_conservative_rules` | 0.8010 | -0.0226 | 0.6055 | `too_few_completed_rows|weak_validation_window` |
-| `qr_v09d_bundle_liquidity_direction_001` | `blocked_by_conservative_rules` | 0.7724 | 0.7916 | -0.1155 | `too_few_completed_rows|weak_blind_window` |
-| `qr_v09d_funding_return_long_001` | `blocked_by_conservative_rules` | 0.7521 | -0.1169 | 0.9949 | `too_few_completed_rows|weak_validation_window` |
-| `qr_v09d_rsi_state_change_001` | `blocked_by_conservative_rules` | 0.7387 | -0.4793 | 0.8370 | `too_few_completed_rows|weak_validation_window` |
-| `qr_v09d_range_position_001` | `blocked_by_conservative_rules` | 0.7176 | -0.1080 | 0.6551 | `too_few_completed_rows|weak_validation_window` |
-| `qr_v09d_funding_return_long_001` | `blocked_by_conservative_rules` | 0.7154 | 0.2091 | -0.0065 | `too_few_completed_rows|weak_blind_window` |
-| `qr_v09d_funding_return_long_001` | `blocked_by_conservative_rules` | 0.7141 | -0.1866 | 0.9936 | `too_few_completed_rows|weak_validation_window|high_mean_drawdown` |
+| `qr_v09d_volume_conviction_001` | `research_watchlist` | 0.9613 | 0.3946 | 0.9735 | `none` |
+| `qr_v09d_volume_conviction_001` | `research_watchlist` | 0.8877 | 0.0486 | 0.7109 | `none` |
+| `qr_v09d_volume_conviction_001` | `research_watchlist` | 0.8873 | 0.3351 | 0.8800 | `none` |
+| `qr_v09d_funding_return_long_001` | `research_watchlist` | 0.6877 | 0.2148 | 0.3440 | `none` |
+| `qr_v09d_funding_return_long_001` | `research_watchlist` | 0.5979 | 0.1437 | 0.2313 | `none` |
+| `qr_v09d_trend_persistence_001` | `research_watchlist` | 0.5924 | 0.1878 | 0.7945 | `none` |
+| `qr_v09d_funding_return_long_001` | `research_watchlist` | 0.5412 | 0.4561 | 0.7364 | `none` |
+| `qr_v09d_volume_conviction_001` | `research_watchlist` | 0.5403 | 0.3285 | 0.3644 | `none` |
+| `qr_v09d_vol_adjusted_trend_001` | `research_watchlist` | 0.5383 | 0.2739 | 0.0248 | `none` |
+| `qr_v09d_volume_conviction_001` | `research_watchlist` | 0.4868 | 0.0608 | 0.0564 | `none` |
+| `qr_v09d_trend_persistence_001` | `research_watchlist` | 0.4857 | 0.0993 | 0.6645 | `none` |
+| `qr_v09d_volume_conviction_001` | `research_watchlist` | 0.4811 | 0.9182 | 0.4366 | `none` |
 
 ## ETH Diagnostic Review
 
@@ -81,29 +81,31 @@ ETH diagnostics are portability and fragility evidence only; they do not change 
 - Review path: `../RandysLab-STRICT4H/reports/factor_candidate_review/research_v0_9d_eth_diagnostic`
 - Scope mode: `declared`
 - Candidate count: `288`
-- Verdict counts: `blocked_by_conservative_rules:288`
+- Verdict counts: `blocked_by_conservative_rules:218, research_watchlist:70`
 
 | Candidate | Verdict | Mean Sharpe | Validation Sharpe | Blind Sharpe | Failures |
 |---|---|---:|---:|---:|---|
-| `qr_v09d_range_position_001` | `blocked_by_conservative_rules` | 1.2913 | 0.7402 | 1.1727 | `too_few_completed_rows` |
-| `qr_v09d_range_position_001` | `blocked_by_conservative_rules` | 1.2217 | 0.6792 | 1.0895 | `too_few_completed_rows` |
-| `qr_v09d_rsi_state_change_001` | `blocked_by_conservative_rules` | 1.1857 | 0.2949 | 0.6094 | `too_few_completed_rows|high_mean_drawdown` |
-| `qr_v09d_rsi_state_change_001` | `blocked_by_conservative_rules` | 1.1225 | 0.2420 | 0.5321 | `too_few_completed_rows` |
-| `qr_v09d_funding_return_long_001` | `blocked_by_conservative_rules` | 1.0719 | 0.4122 | 0.3645 | `too_few_completed_rows` |
-| `qr_v09d_trend_persistence_001` | `blocked_by_conservative_rules` | 1.0651 | 0.8080 | 0.6890 | `too_few_completed_rows` |
-| `qr_v09d_range_position_001` | `blocked_by_conservative_rules` | 1.0633 | 0.6993 | 0.6321 | `too_few_completed_rows` |
-| `qr_v09d_funding_return_long_001` | `blocked_by_conservative_rules` | 1.0478 | 0.6312 | 0.4479 | `too_few_completed_rows|high_mean_drawdown` |
-| `qr_v09d_funding_return_long_001` | `blocked_by_conservative_rules` | 1.0332 | 0.4031 | 0.7251 | `too_few_completed_rows|high_mean_drawdown` |
-| `qr_v09d_rsi_state_change_001` | `blocked_by_conservative_rules` | 1.0160 | -0.4709 | 1.2097 | `too_few_completed_rows|weak_validation_window|high_mean_drawdown` |
-| `qr_v09d_volume_conviction_001` | `blocked_by_conservative_rules` | 1.0137 | 0.6466 | 0.4752 | `too_few_completed_rows|high_mean_drawdown` |
-| `qr_v09d_funding_return_long_001` | `blocked_by_conservative_rules` | 0.9938 | 0.5861 | 0.3864 | `too_few_completed_rows` |
+| `qr_v09d_range_position_001` | `research_watchlist` | 1.2913 | 0.7402 | 1.1727 | `none` |
+| `qr_v09d_range_position_001` | `research_watchlist` | 1.2217 | 0.6792 | 1.0895 | `none` |
+| `qr_v09d_rsi_state_change_001` | `research_watchlist` | 1.1225 | 0.2420 | 0.5321 | `none` |
+| `qr_v09d_funding_return_long_001` | `research_watchlist` | 1.0719 | 0.4122 | 0.3645 | `none` |
+| `qr_v09d_trend_persistence_001` | `research_watchlist` | 1.0651 | 0.8080 | 0.6890 | `none` |
+| `qr_v09d_range_position_001` | `research_watchlist` | 1.0633 | 0.6993 | 0.6321 | `none` |
+| `qr_v09d_funding_return_long_001` | `research_watchlist` | 0.9938 | 0.5861 | 0.3864 | `none` |
+| `qr_v09d_funding_return_long_001` | `research_watchlist` | 0.9935 | 0.3496 | 0.2708 | `none` |
+| `qr_v09d_trend_persistence_001` | `research_watchlist` | 0.9879 | 0.7377 | 0.5955 | `none` |
+| `qr_v09d_volume_conviction_001` | `research_watchlist` | 0.9835 | 0.7099 | 0.4664 | `none` |
+| `qr_v09d_range_position_001` | `research_watchlist` | 0.9831 | 0.6302 | 0.5390 | `none` |
+| `qr_v09d_range_position_001` | `research_watchlist` | 0.9816 | 0.4097 | 0.3552 | `none` |
 
 ## Declared Review Mechanics Audit
 
-- BTC review rows with `too_few_completed_rows`: `288` of `288`.
-- ETH review rows with `too_few_completed_rows`: `288` of `288`.
-- RandysLab review groups by candidate, formula, and registered variant columns. In a single declared asset grid, each variant has one row per review window, so the default `min_completed_rows=15` can mechanically block variant-level rows.
-- v0.9d records this as research hygiene evidence and does not change the registered review thresholds after seeing results.
+- BTC review rows with `too_few_completed_rows`: `0` of `288`.
+- ETH review rows with `too_few_completed_rows`: `0` of `288`.
+- BTC effective completed-row floor values: `5`.
+- ETH effective completed-row floor values: `5`.
+- RandysLab now records an effective completed-row floor for declared variant-level reviews, capped at the registered group size so a single-asset declared profile is not mechanically blocked by the multi-asset `min_completed_rows=15` default.
+- Sharpe, validation, blind-window, positive-row, and drawdown gates remain unchanged.
 
 ## Correlation And Redundancy
 
@@ -120,26 +122,28 @@ ETH diagnostics are portability and fragility evidence only; they do not change 
 
 ## Wider Diagnostics
 
-Wider SOL/BNB/AVAX diagnostics were skipped because no BTC primary condition required them, or they were not generated.
+- `wider_avax`: candidate_count=`48`, verdict_counts=`blocked_by_conservative_rules:44, research_watchlist:4`
+- `wider_bnb`: candidate_count=`48`, verdict_counts=`blocked_by_conservative_rules:31, research_watchlist:17`
+- `wider_sol`: candidate_count=`48`, verdict_counts=`blocked_by_conservative_rules:43, research_watchlist:5`
 
 ## Failure Memory
 
 - Failure-memory path: `reports/failure_memory/research_v0_9d_strict_candidate_discovery`
-- Failure count: `288`
+- Failure count: `282`
 - Cluster count: `33`
-- Conservative verdict counts: `blocked_pending_new_hypotheses:288`
-- Failure labels: `drawdown_fragility, eth_diagnostic_weakness, extreme_row_drawdown, funding_confirmation_fragility, high_mean_drawdown, intrabar_conviction_fragility, liquidity_adjusted_momentum_fragility, low_mean_sharpe, low_median_sharpe, low_positive_row_share, too_few_completed_rows, too_few_positive_assets, trend_quality_fragility, weak_blind_window, weak_validation_window`
+- Conservative verdict counts: `blocked_pending_new_hypotheses:273, scoped_watchlist_needs_replication:9`
+- Failure labels: `drawdown_fragility, eth_diagnostic_weakness, extreme_row_drawdown, funding_confirmation_fragility, high_mean_drawdown, intrabar_conviction_fragility, liquidity_adjusted_momentum_fragility, low_mean_sharpe, low_median_sharpe, low_positive_row_share, too_few_positive_assets, trend_quality_fragility, weak_blind_window, weak_validation_window`
 
 ## Research 1.0 Readiness
 
-`not_ready_for_research_1_0`
+`research_1_0_candidate_pending_replication`
 
 ## Verification
 
 - Focused QuantumRandy v0.9d tests on 2026-07-03: `3 passed`.
 - QuantumRandy full suite on 2026-07-03: `128 passed`.
-- Focused RandysLab formula-candidate and correlation tests on 2026-07-03: `13 passed`.
-- RandysLab full suite on 2026-07-03: `29 passed`.
+- Focused RandysLab formula-candidate and correlation tests on 2026-07-03: `14 passed`.
+- RandysLab full suite on 2026-07-03: `30 passed`.
 - Artifact audit confirms candidate counts, declared scope, BTC/ETH review artifacts, redundancy artifacts, and failure memory.
 
 ## Boundary Confirmation

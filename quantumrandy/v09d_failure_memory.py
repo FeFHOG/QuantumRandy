@@ -24,19 +24,20 @@ def build_v0_9d_failure_memory_rows(
     source_correlation_dir: str = "",
 ) -> list[dict[str, Any]]:
     review = pd.read_csv(review_csv).fillna("")
-    diagnostic = _diagnostic_by_candidate(diagnostic_review_csv)
+    diagnostic = _diagnostic_by_candidate_variant(diagnostic_review_csv)
     redundancy = _redundancy_by_candidate(correlation_csv)
     rows: list[dict[str, Any]] = []
     for raw in review.to_dict(orient="records"):
         candidate_id = str(raw.get("candidate_id", ""))
         failures = _split_labels(raw.get("failure_reasons", ""))
-        diagnostic_row = diagnostic.get(candidate_id, {})
+        diagnostic_row = diagnostic.get(_candidate_variant_key(raw), {})
         redundancy_row = redundancy.get(candidate_id, {})
         labels = _failure_labels(raw, failures, diagnostic_row, redundancy_row)
         verdict = _conservative_verdict(str(raw.get("review_verdict", "")), labels, redundancy_row)
         rows.append(
             {
                 "candidate_id": candidate_id,
+                "variant_id": _variant_id(raw),
                 "formula": raw.get("formula", ""),
                 "candidate_family": _candidate_family(raw),
                 "description": V09D_DESCRIPTION,
@@ -82,13 +83,13 @@ def write_v0_9d_failure_memory(
     return write_failure_memory(rows, out_dir)
 
 
-def _diagnostic_by_candidate(path: str | Path | None) -> dict[str, dict[str, Any]]:
+def _diagnostic_by_candidate_variant(path: str | Path | None) -> dict[tuple[str, str], dict[str, Any]]:
     frame = _read_optional_csv(path)
-    rows: dict[str, dict[str, Any]] = {}
+    rows: dict[tuple[str, str], dict[str, Any]] = {}
     for raw in frame.to_dict(orient="records"):
-        candidate_id = str(raw.get("candidate_id", ""))
-        if candidate_id:
-            rows[candidate_id] = raw
+        key = _candidate_variant_key(raw)
+        if key[0]:
+            rows[key] = raw
     return rows
 
 
@@ -127,6 +128,14 @@ def _candidate_family(row: dict[str, Any]) -> str:
     if "trend" in candidate_id:
         return "trend_quality"
     return "strict_candidate_family_discovery"
+
+
+def _candidate_variant_key(row: dict[str, Any]) -> tuple[str, str]:
+    return str(row.get("candidate_id", "")), _variant_id(row)
+
+
+def _variant_id(row: dict[str, Any]) -> str:
+    return str(row.get("variant_id", "default") or "default")
 
 
 def _conservative_verdict(review_verdict: str, labels: list[str], redundancy_row: dict[str, Any]) -> str:
