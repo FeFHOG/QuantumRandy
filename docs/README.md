@@ -23,14 +23,16 @@ materials are archived under `docs/archive/legacy_runtime_beta/`.
   pending candidates, robustness failure memory, and readiness verdict.
 - `RESEARCH_1_0_CHECKPOINT_REPORT.md`: final Research 1.0 research-only checkpoint declaration and exit-checklist
   audit.
+- `RESEARCH_V1_1_INDEPENDENT_SCOPED_FAMILY_REPLICATION_REPORT.md`: independent non-funding scoped family replication
+  pass after the first Research 1.0 candidate.
 
 ## Stack Boundary
 
 - `RANDY_STACK_TARGET_ARCHITECTURE.md`: QuantumRandy, RandysLab, future RandyPortfolio boundaries, and artifact contracts.
 - `V0_8_BETA_HANDOFF.md`: broad project handoff and current next steps.
 - `V1_0_RESEARCH_READINESS_PLAN.md`: Research 1.0 definition, gates, blockers, and readiness criteria.
-- `superpowers/plans/2026-07-03-research-v1-1-independent-scoped-family-replication.md`: next-step Research v1.1
-  plan for finding a second independent scoped family.
+- `superpowers/plans/2026-07-03-research-v1-1-independent-scoped-family-replication.md`: Research v1.1 plan for
+  finding a second independent scoped family.
 - `PROJECT_LOG.md`: chronological project log.
 
 ## Archive

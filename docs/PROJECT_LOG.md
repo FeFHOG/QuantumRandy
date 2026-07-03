@@ -1,5 +1,24 @@
 # QuantumRandy Project Log
 
+## 2026-07-03 Research v1.1 Independent Scoped Family Replication
+
+Completed the research-only v1.1 independent scoped family replication pass.
+
+- Report: `docs/RESEARCH_V1_1_INDEPENDENT_SCOPED_FAMILY_REPLICATION_REPORT.md`.
+- Current Research 1.0 survivor excluded: `qr_v09d_funding_return_long_001::thr_0p0_long_short_cap_0p5_none`.
+- Candidate cohort: `10` non-funding current-DSL candidates, `BTCUSDT_4h`,
+  `out_of_scope_policy=diagnostic_only`.
+- RandysLab artifacts: BTC primary declared review, ETH/SOL/BNB/AVAX diagnostics, BTC bundle correlation, and
+  scope-aware robustness gauntlet.
+- Robustness result: `50` candidate/variant rankings, `50` blocked, best blocked near misses survived `12/15`
+  scope-hard stresses.
+- Failure memory: `50` failed rows across `34` clusters.
+- Readiness verdict: `research_v1_1_independent_candidate_not_found`.
+
+Boundary preserved: no RandyPortfolio implementation, no live trading, no exchange private keys, no runtime factor
+publishing, no automatic factor admission, no new formula base fields, no production regime labels, and no selector
+evidence61.
+
 ## 2026-07-03 Research 1.0 Checkpoint Declaration
 
 Declared Research 1.0 as a research-only checkpoint after manual review of the v0.9d scope-aware replication evidence.
