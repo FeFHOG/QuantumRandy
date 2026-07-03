@@ -11,6 +11,10 @@ from quantumrandy.v12_failure_guided_respec_export import (
     V12_SINGLE_FACTOR_CANDIDATES,
     export_v1_2_failure_guided_scoped_respec,
 )
+from quantumrandy.v12_failure_guided_respec_memory import (
+    build_v1_2_failure_guided_respec_memory_rows,
+    write_v1_2_failure_guided_respec_failure_memory,
+)
 
 
 def _jsonl(path: Path) -> list[dict]:
@@ -85,3 +89,95 @@ def test_export_v1_2_failure_guided_candidates_are_scoped_and_non_funding(tmp_pa
     assert "Research v1.2" in report
     assert "failure-guided scoped candidate re-spec" in report
     assert "not a runtime publish payload" in report
+
+
+def test_v1_2_failure_memory_records_only_failed_rankings(tmp_path) -> None:
+    source_robustness_dir = "reports/factor_candidate_robustness/research_v1_2_failure_guided_respec"
+    ranking_csv = tmp_path / "watchlist_robustness_variant_ranking.csv"
+    pd.DataFrame(
+        [
+            {
+                "candidate_id": "qr_v12_failure",
+                "variant_id": "blocked_variant",
+                "formula": "sub(close, open)",
+                "conservative_verdict": "blocked",
+                "intended_scope": "BTCUSDT_4h",
+                "robustness_labels": "weak_blind_window",
+                "failure_reasons": "crash_drawdown",
+                "diagnostic_failure_reasons": "cross_asset_concentration",
+                "stress_survival_score": 0.5,
+                "stress_survival_count": 1,
+                "stress_count": 2,
+                "mean_sharpe": 0.123456789,
+                "validation_mean_sharpe": -0.2,
+                "blind_mean_sharpe": -0.3,
+                "mean_max_dd": -0.4,
+                "worst_max_dd": -0.5,
+            },
+            {
+                "candidate_id": "qr_v12_watchlist",
+                "variant_id": "watchlist_variant",
+                "formula": "add(close, volume)",
+                "conservative_verdict": "research_watchlist",
+                "intended_scope": "",
+                "robustness_labels": "clean_watchlist",
+                "failure_reasons": "",
+                "diagnostic_failure_reasons": "",
+                "stress_survival_count": 2,
+                "stress_count": 2,
+                "mean_sharpe": 1.0,
+                "validation_mean_sharpe": 1.1,
+                "blind_mean_sharpe": 1.2,
+                "mean_max_dd": -0.1,
+                "worst_max_dd": -0.2,
+            },
+        ]
+    ).to_csv(ranking_csv, index=False)
+
+    rows = build_v1_2_failure_guided_respec_memory_rows(
+        ranking_csv,
+        source_robustness_dir=source_robustness_dir,
+    )
+    manifest = write_v1_2_failure_guided_respec_failure_memory(
+        ranking_csv,
+        tmp_path / "failure_memory",
+        source_robustness_dir=source_robustness_dir,
+    )
+
+    assert len(rows) == 2
+    assert manifest["input_rows"] == 2
+    assert manifest["failure_count"] == 1
+    failed_row, survivor_row = rows
+    assert failed_row["candidate_family"] == "research_v1_2_failure_guided_respec_variant"
+    assert failed_row["intended_scope"] == "BTCUSDT_4h"
+    assert failed_row["out_of_scope_policy"] == "diagnostic_only"
+    assert failed_row["source_review_dir"] == source_robustness_dir
+    assert failed_row["source_robustness_dir"] == source_robustness_dir
+    assert failed_row["stress_survival"] == "1/2"
+    assert failed_row["passed"] is False
+    assert failed_row["sharpe"] == 0.12345679
+    assert failed_row["validation_sharpe"] == -0.2
+    assert failed_row["blind_sharpe"] == -0.3
+    assert failed_row["max_dd"] == -0.4
+    assert failed_row["worst_max_dd"] == -0.5
+    assert survivor_row["passed"] is True
+    assert survivor_row["intended_scope"] == "BTCUSDT_4h"
+    assert survivor_row["stress_survival"] == "2/2"
+    assert "replication_stress_fragility" not in set(str(survivor_row["failure_labels"]).split("|"))
+
+    failure_memory = pd.read_csv(tmp_path / "failure_memory" / "failure_memory.csv")
+    assert len(failure_memory) == 1
+    failed = failure_memory.iloc[0]
+    assert failed["candidate_id"] == "qr_v12_failure::blocked_variant"
+    assert failed["candidate_family"] == "research_v1_2_failure_guided_respec_variant"
+    assert failed["formula"] == "sub(close, open)"
+    assert failed["intended_scope"] == "BTCUSDT_4h"
+    assert failed["out_of_scope_policy"] == "diagnostic_only"
+    assert failed["conservative_verdict"] == "blocked"
+    assert failed["source_review_dir"] == source_robustness_dir
+    assert failed["failed_gates"] == "crash_drawdown"
+    assert failed["sharpe"] == 0.12345679
+    assert failed["validation_sharpe"] == -0.2
+    assert failed["max_dd"] == -0.4
+    labels = set(str(failed["failure_labels"]).split("|"))
+    assert {"failure_guided_respec", "non_funding_family", "replication_stress_fragility"}.issubset(labels)
