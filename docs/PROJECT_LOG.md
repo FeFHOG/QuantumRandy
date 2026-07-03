@@ -1,5 +1,21 @@
 # QuantumRandy Project Log
 
+## 2026-07-03 Research v0.9b Funding Pressure Single-Family
+
+Research v0.9b completed a BTCUSDT 4h scoped single-family pass for direct funding-pressure crowding mean reversion.
+
+- Report: `docs/RESEARCH_V0_9B_FUNDING_PRESSURE_REPORT.md`.
+- QuantumRandy generated `5` research-only funding-pressure candidates outside selector v0.8.2, each scoped with
+  `intended_scope=BTCUSDT_4h`, `applicability_hypothesis`, and `out_of_scope_policy=diagnostic_only`.
+- RandysLab declared-scope sensitivity generated `45` strict runs and `225` candidate rows for BTCUSDT only.
+- RandysLab declared-scope review used `scope_mode=declared` and blocked all `5` candidates under conservative rules.
+- Conservative verdict: `blocked_pending_new_hypotheses`.
+- QuantumRandy failure memory records `5` failed rows across `3` clusters with labels for drawdown fragility,
+  blind-window weakness, weak funding-pressure edge, and trend-persistence risk.
+
+Boundary preserved: no RandyPortfolio implementation, no live trading, no exchange private keys, no runtime factor
+publishing, and no automatic factor admission.
+
 ## 2026-07-03 Research v0.9a Verification
 
 Research v0.9a scoped schema and strict-judge alignment is verified.

@@ -185,12 +185,19 @@ def _failure_row(row: dict[str, Any]) -> dict[str, Any]:
     failed_gates = _derive_failed_gates(row)
     tree_items = _safe_subtrees(formula)
     return {
+        "candidate_id": row.get("candidate_id", ""),
+        "candidate_family": row.get("candidate_family", ""),
         "formula": formula,
         "description": row.get("description", ""),
         "hypothesis": row.get("hypothesis", ""),
         "expected_edge": row.get("expected_edge", ""),
         "expected_failure_mode": row.get("expected_failure_mode", ""),
         "rewrite_plan_if_killed": row.get("rewrite_plan_if_killed", ""),
+        "intended_scope": row.get("intended_scope", ""),
+        "out_of_scope_policy": row.get("out_of_scope_policy", ""),
+        "conservative_verdict": row.get("conservative_verdict", ""),
+        "failure_labels": row.get("failure_labels", ""),
+        "source_review_dir": row.get("source_review_dir", ""),
         "failed_gates": ",".join(failed_gates),
         "subtree_fingerprints": "|".join(tree_items),
         "brutal_score": _numeric(row.get("brutal_score")),

@@ -31,6 +31,24 @@ CONFLICT_AWARE_FAMILY_PAIRS = {
     ("price", "volume_liquidity"),
 }
 
+V09B_FUNDING_PRESSURE_FORMULAS = [
+    "neg(zscore(funding_rate,72))",
+    "neg(zscore(ema(funding_rate,12),72))",
+    "neg(zscore(ema(funding_rate,24),96))",
+    "neg(zscore(div(funding_rate,std(close,48)),96))",
+    "neg(zscore(corr(funding_rate,ret(close,12),48),72))",
+]
+
+V09B_FUNDING_PRESSURE_HYPOTHESIS = (
+    "BTCUSDT 4h funding pressure can mark crowded perpetual positioning; extreme or smoothed funding states may "
+    "mean-revert after next-bar execution costs."
+)
+
+V09B_FUNDING_PRESSURE_FAILURE_MODE = (
+    "The family may fail in strong directional trends where high funding persists, or when funding pressure is too "
+    "weak, sparse, or delayed to offset fees, slippage, and funding costs."
+)
+
 
 def export_selector_v082_factor_candidates(
     evidence_summary_dir: str | Path,
@@ -118,9 +136,83 @@ def export_selector_v082_factor_candidates(
     return manifest
 
 
+def export_v0_9b_funding_pressure_candidates(
+    out_dir: str | Path,
+    *,
+    intended_scope: str = "BTCUSDT_4h",
+    applicability_hypothesis: str = V09B_FUNDING_PRESSURE_HYPOTHESIS,
+    out_of_scope_policy: str = "diagnostic_only",
+    randyslab_eval_profile: str = "strict4h_v1",
+) -> dict[str, Any]:
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    records = _build_v0_9b_funding_pressure_records(
+        intended_scope=intended_scope,
+        applicability_hypothesis=applicability_hypothesis,
+        out_of_scope_policy=out_of_scope_policy,
+        randyslab_eval_profile=randyslab_eval_profile,
+    )
+
+    jsonl_path = out / "factor_candidates.jsonl"
+    csv_path = out / "factor_candidates.csv"
+    manifest_path = out / "factor_candidate_export_manifest.json"
+    report_path = out / "FACTOR_CANDIDATE_EXPORT.md"
+    events_path = out / "events.jsonl"
+
+    safe_write_text(
+        jsonl_path,
+        "".join(json.dumps(record, ensure_ascii=False) + "\n" for record in records),
+        events_path,
+    )
+    safe_write_csv(csv_path, _records_to_csv_frame(records), events_path)
+    manifest = {
+        "artifact_type": "quantumrandy_factor_candidate_export_manifest",
+        "schema_version": 1,
+        "candidate_family": "funding_pressure_crowding_mean_reversion",
+        "safety": {
+            "research_only": True,
+            "not_runtime_publish_payload": True,
+            "does_not_update_runtime": True,
+            "does_not_auto_admit_factors": True,
+            "no_live_execution": True,
+            "does_not_create_portfolio_scheduler": True,
+        },
+        "scope_contract": {
+            "intended_scope": intended_scope,
+            "applicability_hypothesis": applicability_hypothesis,
+            "out_of_scope_policy": out_of_scope_policy,
+        },
+        "future_portfolio_interface": {
+            "consumer_project": "RandyPortfolio",
+            "status": "interface_only_not_implemented",
+            "allowed_use": "research_artifact_input",
+            "forbidden_use": "runtime_allocation_or_live_execution",
+        },
+        "source": {
+            "research_checkpoint": "v0.9b",
+            "family": "funding_pressure_crowding_mean_reversion",
+            "created_from_report": "docs/superpowers/specs/2026-07-03-research-v0-9b-design.md",
+        },
+        "candidate_count": len(records),
+        "outputs": {
+            "jsonl": jsonl_path.as_posix(),
+            "csv": csv_path.as_posix(),
+            "markdown": report_path.as_posix(),
+            "manifest": manifest_path.as_posix(),
+        },
+    }
+    safe_write_json(manifest_path, manifest, events_path)
+    safe_write_text(report_path, render_factor_candidate_export_report(manifest, records), events_path)
+    return manifest
+
+
 def render_factor_candidate_export_report(manifest: dict[str, Any], records: list[dict[str, Any]]) -> str:
+    family = str(manifest.get("candidate_family", "") or "")
+    title = "QuantumRandy Factor Candidate Export"
+    if family == "funding_pressure_crowding_mean_reversion":
+        title = "QuantumRandy Funding Pressure Factor Candidate Export"
     lines = [
-        "# QuantumRandy Factor Candidate Export",
+        f"# {title}",
         "",
         "This is a research-only factor-candidate export. It is not a runtime publish payload, admission decision,",
         "portfolio construction step, or live execution plan.",
@@ -140,6 +232,8 @@ def render_factor_candidate_export_report(manifest: dict[str, Any], records: lis
         "## Candidates",
         "",
     ]
+    if family:
+        lines.insert(8, f"- Candidate family: `{family}`")
     if not records:
         lines.append("No candidates were exported.")
     else:
@@ -265,6 +359,77 @@ def _build_export_records(
             str(row["formula"]),
         ),
     )
+
+
+def _build_v0_9b_funding_pressure_records(
+    *,
+    intended_scope: str,
+    applicability_hypothesis: str,
+    out_of_scope_policy: str,
+    randyslab_eval_profile: str,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for idx, formula in enumerate(V09B_FUNDING_PRESSURE_FORMULAS, start=1):
+        rows.append(
+            {
+                "artifact_type": "quantumrandy_factor_candidate_export",
+                "schema_version": 1,
+                "research_only": True,
+                "not_runtime_publish_payload": True,
+                "candidate_id": _v09b_candidate_id(idx),
+                "formula": formula,
+                "formula_family": "funding_pressure_crowding",
+                "intended_scope": intended_scope,
+                "applicability_hypothesis": applicability_hypothesis,
+                "out_of_scope_policy": out_of_scope_policy,
+                "hypothesis": _v09b_candidate_hypothesis(formula),
+                "expected_failure_mode": V09B_FUNDING_PRESSURE_FAILURE_MODE,
+                "portfolio_interface_contract": {
+                    "consumer_project": "RandyPortfolio",
+                    "status": "interface_only_not_implemented",
+                    "allowed_use": "research_artifact_input",
+                    "forbidden_use": "runtime_allocation_or_live_execution",
+                },
+                "generation_source": "research_v0_9b_deterministic_family",
+                "selector_evidence_window": "not_selector_v082",
+                "parent_factor_id": "",
+                "parent_formula": "",
+                "parent_formula_family": "",
+                "evidence_parent_factor_ids": "",
+                "llm_true_improved_count": 0,
+                "highlight_count": 0,
+                "coverage_only_trap_count": 0,
+                "sharpe_improved_no_pass_lift_count": 0,
+                "best_pass_rate_delta": 0.0,
+                "best_mean_sharpe_delta": 0.0,
+                "mean_pass_rate_delta": 0.0,
+                "mean_sharpe_delta": 0.0,
+                "failed_assets_examples": "",
+                "negative_family_conflict": False,
+                "conflict_notes": "New v0.9b funding-pressure family outside selector v0.8.2; requires strict judging.",
+                "required_features": _required_features(formula),
+                "candidate_tier": "exploratory",
+                "randyslab_eval_profile": randyslab_eval_profile,
+                "created_from_report": "docs/superpowers/specs/2026-07-03-research-v0-9b-design.md",
+            }
+        )
+    return rows
+
+
+def _v09b_candidate_id(idx: int) -> str:
+    return f"qr_v09b_funding_{idx:03d}"
+
+
+def _v09b_candidate_hypothesis(formula: str) -> str:
+    if "corr(" in formula:
+        return "Funding and short-horizon return correlation may reveal crowded BTCUSDT positioning pressure."
+    if "div(" in formula:
+        return "Funding pressure scaled by realized volatility may isolate crowded positioning from noisy volatility."
+    if "ema(funding_rate,24)" in formula:
+        return "Slower smoothed funding pressure may capture persistent BTCUSDT crowding without raw funding noise."
+    if "ema(funding_rate,12)" in formula:
+        return "Smoothed funding pressure may capture BTCUSDT crowding while reducing single-print funding noise."
+    return "Raw BTCUSDT funding pressure z-score may capture crowded positioning mean reversion."
 
 
 def _records_to_csv_frame(records: list[dict[str, Any]]) -> pd.DataFrame:

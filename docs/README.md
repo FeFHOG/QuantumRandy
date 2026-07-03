@@ -11,6 +11,8 @@ materials are archived under `docs/archive/legacy_runtime_beta/`.
 - `FACTOR_CANDIDATE_EXPORTS.md`: research-only factor-candidate export format and command.
 - `V0_9_RESEARCH_EXECUTION_PLAN.md`: next research milestone for scoped multi-factor and regime-feature readiness.
 - `RESEARCH_V0_9A_VERIFICATION_REPORT.md`: scoped schema and RandysLab strict-judge alignment verification.
+- `RESEARCH_V0_9B_FUNDING_PRESSURE_REPORT.md`: BTCUSDT 4h funding-pressure scoped single-family verdict and
+  failure memory.
 
 ## Stack Boundary
 
