@@ -15,6 +15,8 @@ materials are archived under `docs/archive/legacy_runtime_beta/`.
   failure memory.
 - `RESEARCH_V0_9C_MULTI_FACTOR_BUNDLE_REPORT.md`: BTCUSDT 4h current-DSL multi-factor bundle verdict, redundancy
   review, failure memory, and Research 1.0 readiness decision.
+- `RESEARCH_1_0_PREREQUISITE_VERIFICATION_REPORT.md`: post-v0.9 prerequisite closure, logic-error audit,
+  crypto-native feature-readiness verdict, and Research 1.0 blocker status.
 
 ## Stack Boundary
 

@@ -1,5 +1,20 @@
 # QuantumRandy Project Log
 
+## 2026-07-03 Research 1.0 Prerequisite Closure
+
+Closed the post-v0.9 engineering and readiness prerequisites that can be completed without inventing strict factor
+evidence.
+
+- Report: `docs/RESEARCH_1_0_PREREQUISITE_VERIFICATION_REPORT.md`.
+- Fixed QuantumRandy rank-correlation metrics so Research tests do not require SciPy at runtime.
+- Added a read-only crypto-native feature-readiness audit for open interest, basis, funding term structure,
+  liquidations, taker imbalance, and order-book depth.
+- No new formula base fields were admitted.
+- Research 1.0 readiness remains blocked because no strict-surviving robust factor family exists yet.
+
+Boundary preserved: no RandyPortfolio implementation, no live trading, no exchange private keys, no runtime factor
+publishing, no automatic factor admission, no new base formula fields, and no selector evidence61.
+
 ## 2026-07-03 Research v0.9c Multi-Factor Bundle
 
 Research v0.9c completed the BTCUSDT 4h current-DSL scoped multi-factor bundle checkpoint.
