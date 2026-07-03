@@ -6,6 +6,7 @@ Completed the pre-third-project documentation package after the v1.3 funding-adj
 
 - Manual review: `docs/RESEARCH_V1_3_MANUAL_REVIEW_REPORT.md`.
 - Paper observation protocol: `docs/RESEARCH_V1_3_PAPER_OBSERVATION_PROTOCOL.md`.
+- Paper observation starter: `scripts/prepare_v1_3_paper_observation.py`.
 - Third-project readiness report: `docs/PRE_THIRD_PROJECT_READINESS_REPORT.md`.
 - Current verdict: `pre_third_project_ready_except_paper_observation_execution`.
 - Remaining gate before opening a third project: execute the v1.3 paper-observation protocol and write the observation

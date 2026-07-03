@@ -34,6 +34,8 @@ materials are archived under `docs/archive/legacy_runtime_beta/`.
 - `RESEARCH_V1_3_PAPER_OBSERVATION_PROTOCOL.md`: frozen paper-observation protocol for the v1.3 survivor family.
 - `PRE_THIRD_PROJECT_READINESS_REPORT.md`: readiness and remaining gates before opening a third project such as
   RandyPortfolio.
+- `scripts/prepare_v1_3_paper_observation.py`: creates an ignored, paper-only starter packet for the v1.3 observation
+  protocol.
 
 ## Stack Boundary
 

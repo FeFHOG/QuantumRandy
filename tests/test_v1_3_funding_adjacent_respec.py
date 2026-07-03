@@ -630,3 +630,246 @@ def test_v1_3_report_renderer_formats_pipe_delimited_robustness_labels(monkeypat
     assert "`fee_fragility|btc_weakness`" not in report
     row = next(line for line in report.splitlines() if "qr_v13_funding_return_short_corr_001" in line)
     assert row.count("|") == 10
+
+
+def test_v1_3_paper_observation_packet_freezes_reviewed_survivors(tmp_path) -> None:
+    from quantumrandy.v13_paper_observation import (
+        EXPECTED_FORMULA,
+        PAIRED_DIAGNOSTIC_VARIANT_ID,
+        PRIMARY_VARIANT_ID,
+        write_v1_3_paper_observation_packet,
+    )
+
+    export_manifest = tmp_path / "factor_candidate_export_manifest.json"
+    export_manifest.write_text(
+        json.dumps(
+            {
+                "artifact_type": "quantumrandy_factor_candidate_export_manifest",
+                "research_checkpoint": "v1.3",
+                "candidate_family": "funding_adjacent_scoped_respec",
+                "funding_adjacent_status": "funding_adjacent_not_independent_non_funding",
+                "independence_claim": "none_funding_adjacent_locality_probe",
+                "scope_contract": {"intended_scope": "BTCUSDT_4h", "out_of_scope_policy": "diagnostic_only"},
+                "safety": {"research_only": True, "not_runtime_publish_payload": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+    ranking = tmp_path / "watchlist_robustness_variant_ranking.csv"
+    pd.DataFrame(
+        [
+            {
+                "candidate_id": "qr_v13_funding_range_norm_001",
+                "variant_id": PRIMARY_VARIANT_ID,
+                "formula": EXPECTED_FORMULA,
+                "conservative_verdict": "research_watchlist",
+                "stress_survival_count": 15,
+                "stress_count": 15,
+                "mean_sharpe": 1.146843,
+                "validation_mean_sharpe": 0.793275,
+                "blind_mean_sharpe": 0.892120,
+                "worst_max_dd": 0.384100,
+                "robustness_labels": "sol_avax_concentration|validation_weakness|blind_weakness",
+            },
+            {
+                "candidate_id": "qr_v13_funding_range_norm_001",
+                "variant_id": PAIRED_DIAGNOSTIC_VARIANT_ID,
+                "formula": EXPECTED_FORMULA,
+                "conservative_verdict": "research_watchlist",
+                "stress_survival_count": 15,
+                "stress_count": 15,
+                "mean_sharpe": 1.231654,
+                "validation_mean_sharpe": 0.338280,
+                "blind_mean_sharpe": 0.630982,
+                "worst_max_dd": 0.293852,
+                "robustness_labels": "blind_weakness|sol_avax_concentration",
+            },
+            {
+                "candidate_id": "qr_v13_blocked_001",
+                "variant_id": "blocked",
+                "formula": EXPECTED_FORMULA,
+                "conservative_verdict": "blocked_pending_new_hypotheses",
+                "stress_survival_count": 14,
+                "stress_count": 15,
+                "mean_sharpe": 0.1,
+                "validation_mean_sharpe": 0.1,
+                "blind_mean_sharpe": 0.1,
+                "worst_max_dd": 0.5,
+                "robustness_labels": "fee_fragility",
+            },
+        ]
+    ).to_csv(ranking, index=False)
+
+    manifest = write_v1_3_paper_observation_packet(
+        export_manifest_path=export_manifest,
+        ranking_csv_path=ranking,
+        out_dir=tmp_path / "packet",
+    )
+
+    assert manifest["status"] == "ready_not_started"
+    assert manifest["protocol_verdict"] == "research_v1_3_paper_observation_protocol_ready_not_started"
+    assert manifest["safety"]["not_runtime_publish_payload"] is True
+    assert manifest["safety"]["does_not_update_runtime"] is True
+    assert manifest["safety"]["does_not_create_randyportfolio"] is True
+    assert [row["role"] for row in manifest["candidates"]] == ["primary", "paired_diagnostic"]
+    assert [row["variant_id"] for row in manifest["candidates"]] == [PRIMARY_VARIANT_ID, PAIRED_DIAGNOSTIC_VARIANT_ID]
+    assert manifest["candidates"][0]["stress_survival"] == "15/15"
+    assert manifest["candidates"][0]["runtime_publish_status"] == "forbidden"
+    assert "sol_avax_concentration" in manifest["candidates"][0]["robustness_labels"]
+    assert (tmp_path / "packet" / "paper_observation_manifest.json").exists()
+    assert (tmp_path / "packet" / "paper_observation_candidates.csv").exists()
+    start = (tmp_path / "packet" / "PAPER_OBSERVATION_START.md").read_text(encoding="utf-8")
+    assert "not a runtime publish payload" in start
+    assert "No RandyPortfolio implementation" in start
+
+
+def test_v1_3_paper_observation_packet_rejects_unreviewed_survivor_set(tmp_path) -> None:
+    from quantumrandy.v13_paper_observation import (
+        EXPECTED_FORMULA,
+        PRIMARY_VARIANT_ID,
+        write_v1_3_paper_observation_packet,
+    )
+
+    export_manifest = tmp_path / "factor_candidate_export_manifest.json"
+    export_manifest.write_text(
+        json.dumps(
+            {
+                "artifact_type": "quantumrandy_factor_candidate_export_manifest",
+                "research_checkpoint": "v1.3",
+                "candidate_family": "funding_adjacent_scoped_respec",
+                "funding_adjacent_status": "funding_adjacent_not_independent_non_funding",
+                "independence_claim": "none_funding_adjacent_locality_probe",
+                "scope_contract": {"intended_scope": "BTCUSDT_4h", "out_of_scope_policy": "diagnostic_only"},
+                "safety": {"research_only": True, "not_runtime_publish_payload": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+    ranking = tmp_path / "watchlist_robustness_variant_ranking.csv"
+    pd.DataFrame(
+        [
+            {
+                "candidate_id": "qr_v13_funding_range_norm_001",
+                "variant_id": PRIMARY_VARIANT_ID,
+                "formula": EXPECTED_FORMULA,
+                "conservative_verdict": "research_watchlist",
+                "stress_survival_count": 15,
+                "stress_count": 15,
+                "mean_sharpe": 1.0,
+                "validation_mean_sharpe": 1.0,
+                "blind_mean_sharpe": 1.0,
+                "worst_max_dd": 0.2,
+                "robustness_labels": "",
+            }
+        ]
+    ).to_csv(ranking, index=False)
+
+    with pytest.raises(ValueError, match="exactly two reviewed survivor rows"):
+        write_v1_3_paper_observation_packet(
+            export_manifest_path=export_manifest,
+            ranking_csv_path=ranking,
+            out_dir=tmp_path / "packet",
+        )
+
+
+def test_v1_3_paper_observation_packet_rejects_duplicate_survivor_rows(tmp_path) -> None:
+    from quantumrandy.v13_paper_observation import (
+        EXPECTED_FORMULA,
+        PAIRED_DIAGNOSTIC_VARIANT_ID,
+        PRIMARY_VARIANT_ID,
+        write_v1_3_paper_observation_packet,
+    )
+
+    export_manifest = tmp_path / "factor_candidate_export_manifest.json"
+    export_manifest.write_text(
+        json.dumps(
+            {
+                "artifact_type": "quantumrandy_factor_candidate_export_manifest",
+                "research_checkpoint": "v1.3",
+                "candidate_family": "funding_adjacent_scoped_respec",
+                "funding_adjacent_status": "funding_adjacent_not_independent_non_funding",
+                "independence_claim": "none_funding_adjacent_locality_probe",
+                "scope_contract": {"intended_scope": "BTCUSDT_4h", "out_of_scope_policy": "diagnostic_only"},
+                "safety": {"research_only": True, "not_runtime_publish_payload": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+    base = {
+        "candidate_id": "qr_v13_funding_range_norm_001",
+        "formula": EXPECTED_FORMULA,
+        "conservative_verdict": "research_watchlist",
+        "stress_survival_count": 15,
+        "stress_count": 15,
+        "mean_sharpe": 1.0,
+        "validation_mean_sharpe": 1.0,
+        "blind_mean_sharpe": 1.0,
+        "worst_max_dd": 0.2,
+        "robustness_labels": "",
+    }
+    ranking = tmp_path / "watchlist_robustness_variant_ranking.csv"
+    pd.DataFrame(
+        [
+            {**base, "variant_id": PRIMARY_VARIANT_ID},
+            {**base, "variant_id": PRIMARY_VARIANT_ID, "stress_survival_count": 14},
+            {**base, "variant_id": PAIRED_DIAGNOSTIC_VARIANT_ID},
+        ]
+    ).to_csv(ranking, index=False)
+
+    with pytest.raises(ValueError, match="exactly two reviewed survivor rows"):
+        write_v1_3_paper_observation_packet(
+            export_manifest_path=export_manifest,
+            ranking_csv_path=ranking,
+            out_dir=tmp_path / "packet",
+        )
+
+
+def test_v1_3_paper_observation_packet_rejects_wrong_manifest_provenance(tmp_path) -> None:
+    from quantumrandy.v13_paper_observation import (
+        EXPECTED_FORMULA,
+        PAIRED_DIAGNOSTIC_VARIANT_ID,
+        PRIMARY_VARIANT_ID,
+        write_v1_3_paper_observation_packet,
+    )
+
+    export_manifest = tmp_path / "factor_candidate_export_manifest.json"
+    export_manifest.write_text(
+        json.dumps(
+            {
+                "artifact_type": "quantumrandy_factor_candidate_export_manifest",
+                "research_checkpoint": "v1.2",
+                "candidate_family": "funding_adjacent_scoped_respec",
+                "funding_adjacent_status": "funding_adjacent_not_independent_non_funding",
+                "independence_claim": "none_funding_adjacent_locality_probe",
+                "scope_contract": {"intended_scope": "BTCUSDT_4h", "out_of_scope_policy": "diagnostic_only"},
+                "safety": {"research_only": True, "not_runtime_publish_payload": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+    base = {
+        "candidate_id": "qr_v13_funding_range_norm_001",
+        "formula": EXPECTED_FORMULA,
+        "conservative_verdict": "research_watchlist",
+        "stress_survival_count": 15,
+        "stress_count": 15,
+        "mean_sharpe": 1.0,
+        "validation_mean_sharpe": 1.0,
+        "blind_mean_sharpe": 1.0,
+        "worst_max_dd": 0.2,
+        "robustness_labels": "",
+    }
+    ranking = tmp_path / "watchlist_robustness_variant_ranking.csv"
+    pd.DataFrame(
+        [
+            {**base, "variant_id": PRIMARY_VARIANT_ID},
+            {**base, "variant_id": PAIRED_DIAGNOSTIC_VARIANT_ID},
+        ]
+    ).to_csv(ranking, index=False)
+
+    with pytest.raises(ValueError, match="v1.3 export manifest"):
+        write_v1_3_paper_observation_packet(
+            export_manifest_path=export_manifest,
+            ranking_csv_path=ranking,
+            out_dir=tmp_path / "packet",
+        )

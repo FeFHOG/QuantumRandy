@@ -125,6 +125,24 @@ research_v1_3_paper_observation_extend
 research_v1_3_paper_observation_fail_return_to_research
 ```
 
+## Starter Packet
+
+Prepare the frozen local observation packet with:
+
+```bash
+python scripts/prepare_v1_3_paper_observation.py
+```
+
+This writes ignored files under `reports/paper_observation/research_v1_3_funding_adjacent/`:
+
+- `paper_observation_manifest.json`;
+- `paper_observation_candidates.csv`;
+- `PAPER_OBSERVATION_START.md`;
+- `DAILY_NOTE_TEMPLATE.md`.
+
+The starter packet is still `ready_not_started`; it does not update runtime manifests, call a runtime server, submit a
+publish payload, or start live execution.
+
 ## Boundary Confirmation
 
 - No RandyPortfolio implementation.
