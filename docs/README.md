@@ -13,6 +13,8 @@ materials are archived under `docs/archive/legacy_runtime_beta/`.
 - `RESEARCH_V0_9A_VERIFICATION_REPORT.md`: scoped schema and RandysLab strict-judge alignment verification.
 - `RESEARCH_V0_9B_FUNDING_PRESSURE_REPORT.md`: BTCUSDT 4h funding-pressure scoped single-family verdict and
   failure memory.
+- `RESEARCH_V0_9C_MULTI_FACTOR_BUNDLE_REPORT.md`: BTCUSDT 4h current-DSL multi-factor bundle verdict, redundancy
+  review, failure memory, and Research 1.0 readiness decision.
 
 ## Stack Boundary
 

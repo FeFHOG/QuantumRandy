@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import importlib.util
+from pathlib import Path
 
 import pandas as pd
 
@@ -141,3 +143,80 @@ def test_v0_9c_failure_memory_maps_review_and_correlation_rows(tmp_path) -> None
     assert memory.iloc[0]["conservative_verdict"] == "research_memory_only"
     report = (out / "FAILURE_MEMORY_REPORT.md").read_text(encoding="utf-8")
     assert "Failed formulas" in report
+
+
+def test_v0_9c_report_renderer_uses_scope_contract_and_readiness() -> None:
+    script = Path(__file__).resolve().parents[1] / "scripts" / "render_v0_9c_report.py"
+    spec = importlib.util.spec_from_file_location("render_v0_9c_report", script)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    review = pd.DataFrame(
+        [
+            {
+                "candidate_id": "qr_v09c_bundle_trend_crowding_001",
+                "review_verdict": "research_watchlist",
+                "intended_scope": "BTCUSDT_4h",
+                "mean_sharpe": 0.4,
+                "validation_mean_sharpe": 0.1,
+                "blind_mean_sharpe": 0.2,
+                "failure_reasons": "",
+            }
+        ]
+    )
+    redundancy = pd.DataFrame(
+        [
+            {
+                "bundle_candidate_id": "qr_v09c_bundle_trend_crowding_001",
+                "redundancy_verdict": "diversified_enough_for_research",
+                "max_abs_component_corr": 0.4,
+                "high_corr_pair_count": 0,
+            }
+        ]
+    )
+    readiness = module._readiness_verdict(review, redundancy)
+    report = module._render(
+        export_manifest={
+            "candidate_count": 9,
+            "single_factor_count": 6,
+            "bundle_count": 3,
+            "scope_contract": {"intended_scope": "BTCUSDT_4h", "out_of_scope_policy": "diagnostic_only"},
+        },
+        candidates=[
+            {
+                "candidate_id": "qr_v09c_liquidity_001",
+                "formula_family": "liquidity_participation",
+                "formula": "zscore(div(volume,sma(volume,48)),120)",
+            },
+            {
+                "candidate_id": "qr_v09c_bundle_trend_crowding_001",
+                "component_candidate_ids": ["qr_v09c_liquidity_001"],
+                "combination_method": "equal_weight_mean",
+                "formula": "equal_weight_mean(zscore(div(volume,sma(volume,48)),120))",
+            },
+        ],
+        sensitivity_summary={"run_count": 45, "candidate_row_count": 405},
+        review_summary={"candidate_count": 9, "rules": {"scope_mode": "declared"}, "verdict_counts": {"research_watchlist": 1}},
+        review=review,
+        correlation_summary={
+            "high_corr_threshold": 0.8,
+            "pairwise_row_count": 36,
+            "bundle_verdict_counts": {"diversified_enough_for_research": 1},
+        },
+        pairwise=pd.DataFrame(),
+        redundancy=redundancy,
+        gated_summary={"run_count": 20, "candidate_row_count": 60},
+        memory_manifest={"failure_count": 8, "cluster_count": 2},
+        memory=pd.DataFrame(
+            [{"conservative_verdict": "research_memory_only", "failure_labels": "bundle_redundancy|drawdown_fragility"}]
+        ),
+        readiness=readiness,
+    )
+
+    assert "BTCUSDT_4h" in report
+    assert "Scope mode: `declared`" in report
+    assert "Single-factor count: `6`" in report
+    assert "liquidity_participation" in report
+    assert "`research_1_0_candidate_pending_replication`" in report
+    assert "No RandyPortfolio implementation" in report

@@ -1,5 +1,20 @@
 # QuantumRandy Project Log
 
+## 2026-07-03 Research v0.9c Multi-Factor Bundle
+
+Research v0.9c completed the BTCUSDT 4h current-DSL scoped multi-factor bundle checkpoint.
+
+- Report: `docs/RESEARCH_V0_9C_MULTI_FACTOR_BUNDLE_REPORT.md`.
+- QuantumRandy exported deterministic single-factor and equal-weight bundle candidates with `intended_scope=BTCUSDT_4h`
+  and `out_of_scope_policy=diagnostic_only`.
+- RandysLab declared-scope sensitivity and review judged all factor and bundle rows under `scope_mode=declared`.
+- RandysLab correlation review produced bundle redundancy verdicts.
+- QuantumRandy failure memory records strict gate and redundancy labels.
+- Research 1.0 readiness verdict is recorded in the report.
+
+Boundary preserved: no RandyPortfolio implementation, no live trading, no exchange private keys, no runtime factor
+publishing, no automatic factor admission, no new base formula fields, and no selector evidence61.
+
 ## 2026-07-03 Research v0.9b Funding Pressure Single-Family
 
 Research v0.9b completed a BTCUSDT 4h scoped single-family pass for direct funding-pressure crowding mean reversion.
