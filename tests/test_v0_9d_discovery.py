@@ -301,5 +301,6 @@ def test_v0_9d_report_renderer_states_readiness_outcomes() -> None:
     assert "Research v0.9d Strict Candidate-Family Discovery Report" in report
     assert "BTCUSDT_4h" in report
     assert "ETH Diagnostic Review" in report
+    assert "Declared Review Mechanics Audit" in report
     assert "`scoped_watchlist_needs_replication`" in report
     assert "No RandyPortfolio implementation" in report

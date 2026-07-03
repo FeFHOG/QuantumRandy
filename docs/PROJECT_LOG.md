@@ -1,5 +1,30 @@
 # QuantumRandy Project Log
 
+## 2026-07-03 Research v0.9d Strict Candidate-Family Discovery
+
+Research v0.9d completed the deterministic BTCUSDT 4h strict candidate-family discovery checkpoint with ETH diagnostic
+evidence.
+
+- Report: `docs/RESEARCH_V0_9D_STRICT_CANDIDATE_DISCOVERY_REPORT.md`.
+- QuantumRandy exported `12` research-only candidates: `9` single-factor rows and `3` equal-weight bundle rows.
+- RandysLab generated BTC primary declared-scope sensitivity and review artifacts: `120` runs, `1440` sensitivity rows,
+  and `288` review rows.
+- RandysLab generated ETH diagnostic declared-scope sensitivity and review artifacts: `120` runs, `1440` sensitivity
+  rows, and `288` review rows.
+- RandysLab generated BTC correlation and bundle redundancy artifacts; all `3` bundles were
+  `diversified_enough_for_research`.
+- QuantumRandy failure memory records `288` blocked variant rows with BTC strict gate failures, ETH diagnostic weakness,
+  and candidate-family labels.
+- Wider SOL/BNB/AVAX diagnostics were skipped because BTC primary review produced `0` watchlist rows.
+- Declared review mechanics audit found that single-asset variant-level reviews have `5` completed window rows while
+  RandysLab default `min_completed_rows=15` can mechanically add `too_few_completed_rows`; v0.9d did not alter that
+  threshold after seeing results.
+- Research 1.0 readiness verdict: `not_ready_for_research_1_0`.
+
+Boundary preserved: no RandyPortfolio implementation, no live trading, no exchange private keys, no runtime factor
+publishing, no automatic factor admission, no new base formula fields, no production regime labels, and no selector
+evidence61.
+
 ## 2026-07-03 Research 1.0 Prerequisite Closure
 
 Closed the post-v0.9 engineering and readiness prerequisites that can be completed without inventing strict factor

@@ -145,7 +145,7 @@ def _render(
             "|---|---|---:|---:|---:|---|",
         ]
     )
-    for row in _sorted_review_rows(btc_review):
+    for row in _sorted_review_rows(btc_review)[:12]:
         lines.append(
             f"| `{row.get('candidate_id', '')}` | `{row.get('review_verdict', '')}` | "
             f"{_num(row.get('mean_sharpe'))} | {_num(row.get('validation_mean_sharpe'))} | "
@@ -172,12 +172,29 @@ def _render(
             "|---|---|---:|---:|---:|---|",
         ]
     )
-    for row in _sorted_review_rows(eth_review):
+    for row in _sorted_review_rows(eth_review)[:12]:
         lines.append(
             f"| `{row.get('candidate_id', '')}` | `{row.get('review_verdict', '')}` | "
             f"{_num(row.get('mean_sharpe'))} | {_num(row.get('validation_mean_sharpe'))} | "
             f"{_num(row.get('blind_mean_sharpe'))} | `{row.get('failure_reasons') or 'none'}` |"
         )
+
+    lines.extend(
+        [
+            "",
+            "## Declared Review Mechanics Audit",
+            "",
+            f"- BTC review rows with `too_few_completed_rows`: `{_failure_reason_count(btc_review, 'too_few_completed_rows')}` "
+            f"of `{len(btc_review)}`.",
+            f"- ETH review rows with `too_few_completed_rows`: `{_failure_reason_count(eth_review, 'too_few_completed_rows')}` "
+            f"of `{len(eth_review)}`.",
+            "- RandysLab review groups by candidate, formula, and registered variant columns. In a single declared asset "
+            "grid, each variant has one row per review window, so the default `min_completed_rows=15` can mechanically "
+            "block variant-level rows.",
+            "- v0.9d records this as research hygiene evidence and does not change the registered review thresholds "
+            "after seeing results.",
+        ]
+    )
 
     lines.extend(
         [
@@ -218,9 +235,10 @@ def _render(
             "",
             "## Verification",
             "",
-            "- Focused QuantumRandy tests cover the v0.9d exporter, failure-memory adapter, and report renderer.",
-            "- Focused RandysLab tests cover formula-candidate execution and correlation review.",
-            "- Full QuantumRandy and RandysLab suites are required before the final v0.9d commit.",
+            "- Focused QuantumRandy v0.9d tests on 2026-07-03: `3 passed`.",
+            "- QuantumRandy full suite on 2026-07-03: `128 passed`.",
+            "- Focused RandysLab formula-candidate and correlation tests on 2026-07-03: `13 passed`.",
+            "- RandysLab full suite on 2026-07-03: `29 passed`.",
             "- Artifact audit confirms candidate counts, declared scope, BTC/ETH review artifacts, redundancy artifacts, "
             "and failure memory.",
             "",
@@ -368,6 +386,12 @@ def _fmt_labels(frame: pd.DataFrame, column: str) -> str:
         for value in frame[column].fillna(""):
             labels.update(label for label in str(value).replace("|", ",").split(",") if label)
     return ", ".join(sorted(labels)) if labels else "none"
+
+
+def _failure_reason_count(frame: pd.DataFrame, reason: str) -> int:
+    if frame.empty or "failure_reasons" not in frame.columns:
+        return 0
+    return int(frame["failure_reasons"].fillna("").astype(str).str.contains(reason, regex=False).sum())
 
 
 def _num(value: Any) -> str:
