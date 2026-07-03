@@ -436,3 +436,83 @@ def test_v1_3_failure_memory_handles_missing_stress_scores_and_real_gate_fallbac
     assert "funding_adjacent_family" not in invalid_failed["failed_gates"]
     assert blank_failed["stress_survival_score"] == ""
     assert invalid_failed["stress_survival_score"] == ""
+
+
+def test_v1_3_report_renderer_states_readiness_without_admission(monkeypatch) -> None:
+    import importlib.util
+
+    script = Path(__file__).resolve().parents[1] / "scripts" / "render_v1_3_funding_adjacent_scoped_respec_report.py"
+    spec = importlib.util.spec_from_file_location("render_v1_3_funding_adjacent_scoped_respec_report", script)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    ranking = pd.DataFrame(
+        [
+            {
+                "candidate_id": "qr_v13_funding_return_short_corr_001",
+                "variant_id": "thr_0p0_long_flat_cap_0p5_calm_vol_lte_1p5",
+                "conservative_verdict": "research_watchlist",
+                "stress_survival_count": 15,
+                "stress_count": 15,
+                "mean_sharpe": 0.8,
+                "worst_max_dd": 0.3,
+                "validation_mean_sharpe": 0.4,
+                "blind_mean_sharpe": 0.5,
+                "robustness_labels": "funding_adjacent_locality",
+            }
+        ]
+    )
+    blocked = ranking.assign(conservative_verdict="blocked_pending_new_hypotheses", stress_survival_count=12)
+
+    assert (
+        module._readiness_verdict(ranking)
+        == "research_v1_3_funding_adjacent_candidate_replicated_pending_manual_review"
+    )
+    assert module._readiness_verdict(blocked) == "research_v1_3_funding_adjacent_candidate_not_found"
+    assert module._readiness_verdict(pd.DataFrame()) == "research_v1_3_funding_adjacent_candidate_not_found"
+
+    fake_randyslab = Path("/tmp/nonstandard_quant_workspace/RandysLab-STRICT4H")
+    monkeypatch.setattr(module, "_find_sibling_repo", lambda root, repo_name: fake_randyslab)
+    artifact_paths = module._artifact_paths(fake_randyslab)
+
+    report = module._render(
+        export_manifest={
+            "candidate_count": 16,
+            "single_factor_count": 12,
+            "bundle_count": 4,
+            "funding_adjacent_status": "funding_adjacent_not_independent_non_funding",
+            "scope_contract": {"intended_scope": "BTCUSDT_4h", "out_of_scope_policy": "diagnostic_only"},
+            "excluded_research10_survivor": {
+                "candidate_id": "qr_v09d_funding_return_long_001",
+                "variant_id": "thr_0p0_long_short_cap_0p5_none",
+                "formula_family": "funding_return_long_horizon",
+                "formula": "zscore(corr(funding_rate,ret(close,42),120),72)",
+            },
+        },
+        candidates=[
+            {
+                "candidate_id": "qr_v13_funding_return_short_corr_001",
+                "formula_family": "funding_return_interaction",
+                "formula": "zscore(corr(funding_rate,ret(close,12),72),120)",
+            }
+        ],
+        btc_review_summary={"candidate_count": 192, "verdict_counts": {"research_watchlist": 3}},
+        eth_review_summary={"candidate_count": 192, "verdict_counts": {"blocked_by_conservative_rules": 100}},
+        correlation_summary={"bundle_count": 4, "bundle_verdict_counts": {"diversified_enough_for_research": 3}},
+        robustness_summary={"detail_row_count": 14640, "scenario_summary_count": 1280, "variant_count": 80},
+        ranking=ranking,
+        memory_manifest={"input_rows": 80, "failure_count": 79, "cluster_count": 25},
+        readiness="research_v1_3_funding_adjacent_candidate_replicated_pending_manual_review",
+    )
+
+    assert "Research v1.3 Funding-Adjacent Scoped Re-Spec Report" in report
+    assert "qr_v09d_funding_return_long_001" in report
+    assert "qr_v13_funding_return_short_corr_001" in report
+    assert "research_v1_3_funding_adjacent_candidate_replicated_pending_manual_review" in report
+    assert "not factor admission" in report
+    assert "not independent non-funding replication" in report
+    assert "No RandyPortfolio implementation" in report
+    assert f"- Review path: `{module._rel(artifact_paths['btc_review'])}`" in report
+    assert f"- Correlation path: `{module._rel(artifact_paths['correlation'])}`" in report
+    assert f"- Robustness path: `{module._rel(artifact_paths['robustness'])}`" in report
