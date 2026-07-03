@@ -7,6 +7,7 @@ from typing import Any
 
 import pandas as pd
 
+from .expression import parse_formula
 from .io_utils import append_jsonl, safe_write_csv, safe_write_json, safe_write_text
 
 V13_SCOPE = "BTCUSDT_4h"
@@ -239,11 +240,7 @@ def export_v1_3_funding_adjacent_scoped_respec(
             "out_of_scope_policy": out_of_scope_policy,
         },
         "future_portfolio_interface": _portfolio_contract(),
-        "source": {
-            "research_checkpoint": "v1.3",
-            "created_from_spec": V13_CREATED_FROM_SPEC,
-            "created_from_plan": V13_CREATED_FROM_PLAN,
-        },
+        "source": _source(),
         "outputs": {
             "jsonl": jsonl_path.as_posix(),
             "bundle_jsonl": bundle_jsonl_path.as_posix(),
@@ -325,7 +322,7 @@ def _bundle_records(single_records: list[dict[str, Any]], **scope: str) -> list[
     by_id = {record["candidate_id"]: record for record in single_records}
     records = []
     for item in V13_BUNDLE_CANDIDATES:
-        _reject_excluded_survivor_ids(item["candidate_id"], item["component_candidate_ids"])
+        _validate_bundle_components(item, by_id)
         component_formulas = [by_id[candidate_id]["formula"] for candidate_id in item["component_candidate_ids"]]
         bundle_formula = f"div(add(add({component_formulas[0]},{component_formulas[1]}),{component_formulas[2]}),3)"
         bundle = {
@@ -348,6 +345,9 @@ def _record(
 ) -> dict[str, Any]:
     formulas = [item["formula"], *list(item.get("component_formulas") or [])]
     _reject_excluded_survivor(item["candidate_id"], formulas)
+    required_features = _required_features(formulas)
+    if "funding_rate" not in required_features:
+        raise ValueError(f"v1.3 funding-adjacent respec requires funding_rate: {item['candidate_id']}")
     has_components = bool(item.get("component_formulas"))
     return {
         "artifact_type": "quantumrandy_factor_candidate_export",
@@ -363,13 +363,16 @@ def _record(
         "combination_method": "equal_weight_mean" if has_components else "",
         "funding_adjacent_status": V13_FUNDING_ADJACENT_STATUS,
         "independence_claim": V13_INDEPENDENCE_CLAIM,
+        "excluded_research10_survivor": dict(V13_EXCLUDED_RESEARCH10_SURVIVOR),
+        "source": _source(),
+        "safety": _safety(),
         "intended_scope": intended_scope,
         "applicability_hypothesis": applicability_hypothesis,
         "out_of_scope_policy": out_of_scope_policy,
         "hypothesis": item["hypothesis"],
         "expected_failure_mode": item.get("expected_failure_mode", V13_EXPECTED_FAILURE_MODE),
         "portfolio_interface_contract": _portfolio_contract(),
-        "required_features": _required_features(formulas),
+        "required_features": required_features,
         "candidate_tier": "funding_adjacent_bundle" if has_components else "funding_adjacent_candidate",
         "randyslab_eval_profile": randyslab_eval_profile,
     }
@@ -378,16 +381,32 @@ def _record(
 def _reject_excluded_survivor(candidate_id: str, formulas: list[str]) -> None:
     excluded_id = V13_EXCLUDED_RESEARCH10_SURVIVOR["candidate_id"]
     excluded_formula = V13_EXCLUDED_RESEARCH10_SURVIVOR["formula"]
+    excluded_canonical = _canonical_formula(excluded_formula)
     if candidate_id == excluded_id:
         raise ValueError(f"v1.3 funding-adjacent respec excludes Research 1.0 survivor ID: {candidate_id}")
-    if any(formula == excluded_formula for formula in formulas):
+    if any(_canonical_formula(formula) == excluded_canonical for formula in formulas):
         raise ValueError(f"v1.3 funding-adjacent respec excludes Research 1.0 survivor formula: {candidate_id}")
 
 
-def _reject_excluded_survivor_ids(candidate_id: str, component_candidate_ids: list[str]) -> None:
+def _validate_bundle_components(item: dict[str, Any], by_id: dict[str, dict[str, Any]]) -> None:
+    candidate_id = item["candidate_id"]
+    component_candidate_ids = list(item.get("component_candidate_ids") or [])
+    if len(component_candidate_ids) != 3:
+        raise ValueError(f"v1.3 funding-adjacent bundle requires exactly 3 components: {candidate_id}")
+    if len(set(component_candidate_ids)) != 3:
+        raise ValueError(f"v1.3 funding-adjacent bundle requires unique components: {candidate_id}")
     excluded_id = V13_EXCLUDED_RESEARCH10_SURVIVOR["candidate_id"]
     if excluded_id in component_candidate_ids:
         raise ValueError(f"v1.3 funding-adjacent respec excludes Research 1.0 survivor bundle member: {candidate_id}")
+    for component_id in component_candidate_ids:
+        if component_id not in by_id:
+            raise ValueError(
+                f"v1.3 funding-adjacent bundle references unknown component {component_id}: {candidate_id}"
+            )
+
+
+def _canonical_formula(formula: str) -> str:
+    return parse_formula(formula).canonical()
 
 
 def _jsonl(records: list[dict[str, Any]]) -> str:
@@ -402,6 +421,11 @@ def _csv_frame(records: list[dict[str, Any]]) -> pd.DataFrame:
         row["component_candidate_ids"] = json.dumps(record.get("component_candidate_ids", []), ensure_ascii=True)
         row["portfolio_interface_contract"] = json.dumps(record.get("portfolio_interface_contract", {}), ensure_ascii=True)
         row["required_features"] = json.dumps(record.get("required_features", []), ensure_ascii=True)
+        row["excluded_research10_survivor"] = json.dumps(
+            record.get("excluded_research10_survivor", {}), ensure_ascii=True
+        )
+        row["source"] = json.dumps(record.get("source", {}), ensure_ascii=True)
+        row["safety"] = json.dumps(record.get("safety", {}), ensure_ascii=True)
         rows.append(row)
     return pd.DataFrame(rows)
 
@@ -419,6 +443,14 @@ def _safety() -> dict[str, bool]:
         "does_not_auto_admit_factors": True,
         "no_live_execution": True,
         "does_not_create_portfolio_scheduler": True,
+    }
+
+
+def _source() -> dict[str, str]:
+    return {
+        "research_checkpoint": "v1.3",
+        "created_from_spec": V13_CREATED_FROM_SPEC,
+        "created_from_plan": V13_CREATED_FROM_PLAN,
     }
 
 
