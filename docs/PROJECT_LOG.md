@@ -1,5 +1,20 @@
 # QuantumRandy Project Log
 
+## 2026-07-03 Research v1.2 Design Selected
+
+Selected Research v1.2 as a failure-guided scoped candidate re-spec after the v1.1 clean negative result.
+
+- Spec: `docs/superpowers/specs/2026-07-03-research-v1-2-failure-guided-scoped-respec-design.md`.
+- Direction: stay research-only, use v1.1 failure memory, and re-spec a narrow independent non-funding cohort.
+- Target families: BTC volume-conviction hardening, BTC trend-quality simplification, and crash-resilient participation
+  filters.
+- Current decision: no paper observation and no RandyPortfolio planning before another independent scoped family is
+  found or a clean v1.2 negative result is recorded.
+
+Boundary preserved: no RandyPortfolio implementation, no live trading, no exchange private keys, no runtime factor
+publishing, no automatic factor admission, no new formula base fields, no production regime labels, and no selector
+evidence61.
+
 ## 2026-07-03 Research v1.1 Independent Scoped Family Replication
 
 Completed the research-only v1.1 independent scoped family replication pass.
