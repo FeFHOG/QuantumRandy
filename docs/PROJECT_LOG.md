@@ -1,5 +1,20 @@
 # QuantumRandy Project Log
 
+## 2026-07-03 Research 1.0 Candidate Replication
+
+Completed the first Research 1.0 replication gauntlet for v0.9d pending candidates.
+
+- Report: `docs/RESEARCH_1_0_CANDIDATE_REPLICATION_REPORT.md`.
+- RandysLab stressed the v0.9d candidate export across `5` pending variant ids, `16` scenarios, and BTC/ETH/SOL/BNB/AVAX.
+- Robustness artifacts: `10980` detail rows, `960` scenario summary rows, and `60` candidate/variant rankings.
+- No candidate/variant survived all stress scenarios; best near misses survived `14/16`.
+- QuantumRandy replication failure memory records `60` failed rows across `33` clusters.
+- Research 1.0 readiness verdict: `not_ready_for_research_1_0`.
+
+Boundary preserved: no RandyPortfolio implementation, no live trading, no exchange private keys, no runtime factor
+publishing, no automatic factor admission, no new base formula fields, no production regime labels, and no selector
+evidence61.
+
 ## 2026-07-03 Research v0.9d Strict Candidate-Family Discovery
 
 Research v0.9d completed the deterministic BTCUSDT 4h strict candidate-family discovery checkpoint with ETH diagnostic

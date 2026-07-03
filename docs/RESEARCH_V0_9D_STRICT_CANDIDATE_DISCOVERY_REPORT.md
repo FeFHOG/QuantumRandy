@@ -141,7 +141,7 @@ ETH diagnostics are portability and fragility evidence only; they do not change 
 ## Verification
 
 - Focused QuantumRandy v0.9d tests on 2026-07-03: `3 passed`.
-- QuantumRandy full suite on 2026-07-03: `128 passed`.
+- QuantumRandy full suite on 2026-07-03: `129 passed`.
 - Focused RandysLab formula-candidate and correlation tests on 2026-07-03: `14 passed`.
 - RandysLab full suite on 2026-07-03: `30 passed`.
 - Artifact audit confirms candidate counts, declared scope, BTC/ETH review artifacts, redundancy artifacts, and failure memory.

@@ -19,6 +19,8 @@ materials are archived under `docs/archive/legacy_runtime_beta/`.
   review, correlation/redundancy review, failure memory, and Research 1.0 readiness decision.
 - `RESEARCH_1_0_PREREQUISITE_VERIFICATION_REPORT.md`: post-v0.9 prerequisite closure, logic-error audit,
   crypto-native feature-readiness verdict, and Research 1.0 blocker status.
+- `RESEARCH_1_0_CANDIDATE_REPLICATION_REPORT.md`: first Research 1.0 candidate replication gauntlet for v0.9d
+  pending candidates, robustness failure memory, and readiness verdict.
 
 ## Stack Boundary
 
