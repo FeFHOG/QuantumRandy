@@ -516,3 +516,60 @@ def test_v1_3_report_renderer_states_readiness_without_admission(monkeypatch) ->
     assert f"- Review path: `{module._rel(artifact_paths['btc_review'])}`" in report
     assert f"- Correlation path: `{module._rel(artifact_paths['correlation'])}`" in report
     assert f"- Robustness path: `{module._rel(artifact_paths['robustness'])}`" in report
+
+
+def test_v1_3_report_renderer_requires_robustness_ranking_csv(tmp_path) -> None:
+    import importlib.util
+
+    script = Path(__file__).resolve().parents[1] / "scripts" / "render_v1_3_funding_adjacent_scoped_respec_report.py"
+    spec = importlib.util.spec_from_file_location("render_v1_3_funding_adjacent_scoped_respec_report", script)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    with pytest.raises(FileNotFoundError, match="watchlist_robustness_variant_ranking.csv"):
+        module._read_required_csv(tmp_path / "watchlist_robustness_variant_ranking.csv")
+
+
+def test_v1_3_report_renderer_shows_missing_partial_diagnostics(monkeypatch) -> None:
+    import importlib.util
+
+    script = Path(__file__).resolve().parents[1] / "scripts" / "render_v1_3_funding_adjacent_scoped_respec_report.py"
+    spec = importlib.util.spec_from_file_location("render_v1_3_funding_adjacent_scoped_respec_report", script)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    fake_randyslab = Path("/tmp/nonstandard_quant_workspace/RandysLab-STRICT4H")
+    monkeypatch.setattr(module, "_find_sibling_repo", lambda root, repo_name: fake_randyslab)
+
+    report = module._render(
+        export_manifest={
+            "candidate_count": 16,
+            "single_factor_count": 12,
+            "bundle_count": 4,
+            "funding_adjacent_status": "funding_adjacent_not_independent_non_funding",
+            "scope_contract": {"intended_scope": "BTCUSDT_4h", "out_of_scope_policy": "diagnostic_only"},
+            "excluded_research10_survivor": {
+                "candidate_id": "qr_v09d_funding_return_long_001",
+                "variant_id": "thr_0p0_long_short_cap_0p5_none",
+                "formula_family": "funding_return_long_horizon",
+            },
+        },
+        candidates=[],
+        btc_review_summary={"candidate_count": 192, "verdict_counts": {"research_watchlist": 3}},
+        eth_review_summary={"candidate_count": 192, "verdict_counts": {"blocked_by_conservative_rules": 100}},
+        diagnostic_review_summaries={
+            "bnb_review": {"candidate_count": 192, "verdict_counts": {"blocked_by_conservative_rules": 101}}
+        },
+        correlation_summary={"bundle_count": 4, "bundle_verdict_counts": {"diversified_enough_for_research": 3}},
+        robustness_summary={"detail_row_count": 14640, "scenario_summary_count": 1280, "variant_count": 80},
+        ranking=pd.DataFrame(),
+        memory_manifest={"input_rows": 80, "failure_count": 79, "cluster_count": 25},
+        readiness="research_v1_3_funding_adjacent_candidate_not_found",
+    )
+
+    assert "- ETH candidate count: `192`, verdict counts: `blocked_by_conservative_rules:100`" in report
+    assert "- SOL diagnostics: missing expected artifact." in report
+    assert "- BNB candidate count: `192`, verdict counts: `blocked_by_conservative_rules:101`" in report
+    assert "- AVAX diagnostics: missing expected artifact." in report

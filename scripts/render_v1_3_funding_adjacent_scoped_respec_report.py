@@ -24,7 +24,7 @@ def main() -> None:
     eth_review_summary = diagnostic_review_summaries.get("eth_review", {})
     correlation_summary = _json(paths["correlation"] / "factor_candidate_correlation_summary.json")
     robustness_summary = _json(paths["robustness"] / "watchlist_robustness_summary.json")
-    ranking = _read_csv(paths["robustness"] / "watchlist_robustness_variant_ranking.csv")
+    ranking = _read_required_csv(paths["robustness"] / "watchlist_robustness_variant_ranking.csv")
     memory_manifest = _json(MEMORY_DIR / "failure_memory_manifest.json")
 
     readiness = _readiness_verdict(ranking)
@@ -265,6 +265,7 @@ def _diagnostic_text(
     for key in ["eth_review", "sol_review", "bnb_review", "avax_review"]:
         summary = available.get(key)
         if summary is None:
+            lines.append(f"- {labels[key]} diagnostics: missing expected artifact.")
             continue
         lines.append(
             f"- {labels[key]} candidate count: `{summary.get('candidate_count')}`, "
@@ -326,6 +327,12 @@ def _jsonl(path: Path) -> list[dict[str, Any]]:
 def _read_csv(path: Path) -> pd.DataFrame:
     if not path.exists():
         return pd.DataFrame()
+    return pd.read_csv(path).fillna("")
+
+
+def _read_required_csv(path: Path) -> pd.DataFrame:
+    if not path.exists():
+        raise FileNotFoundError(f"Required CSV artifact is missing: {path}")
     return pd.read_csv(path).fillna("")
 
 
