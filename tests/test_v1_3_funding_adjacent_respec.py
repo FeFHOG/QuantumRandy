@@ -279,3 +279,89 @@ def test_export_v1_3_rejects_duplicate_or_wrong_sized_bundle_components(monkeypa
     )
     with pytest.raises(ValueError, match="exactly 3 components"):
         export_v1_3_funding_adjacent_scoped_respec(tmp_path / "size_export")
+
+
+def test_v1_3_failure_memory_records_only_failed_rankings(tmp_path) -> None:
+    from quantumrandy.v13_funding_adjacent_respec_memory import (
+        build_v1_3_funding_adjacent_respec_memory_rows,
+        write_v1_3_funding_adjacent_respec_failure_memory,
+    )
+
+    source_robustness_dir = "reports/factor_candidate_robustness/research_v1_3_funding_adjacent_respec"
+    ranking_csv = tmp_path / "watchlist_robustness_variant_ranking.csv"
+    pd.DataFrame(
+        [
+            {
+                "candidate_id": "qr_v13_funding_return_short_corr_001",
+                "variant_id": "thr_0p0_long_flat_cap_0p5_calm_vol_lte_1p5",
+                "formula": "zscore(corr(funding_rate,ret(close,12),72),120)",
+                "conservative_verdict": "blocked_pending_new_hypotheses",
+                "intended_scope": "BTCUSDT_4h",
+                "failure_reasons": "weak_blind_window",
+                "diagnostic_failure_reasons": "sol_avax_concentration",
+                "robustness_labels": "fee_fragility|btc_weakness",
+                "stress_survival_score": 0.8,
+                "stress_survival_count": 12,
+                "stress_count": 15,
+                "mean_sharpe": 0.6,
+                "validation_mean_sharpe": 0.2,
+                "blind_mean_sharpe": 0.1,
+                "mean_max_dd": 0.2,
+                "worst_max_dd": 0.45,
+            },
+            {
+                "candidate_id": "qr_v13_funding_ema_shift_001",
+                "variant_id": "thr_0p0_long_short_cap_0p5_calm_vol_lte_1p5",
+                "formula": "zscore(sub(ema(funding_rate,12),ema(funding_rate,48)),120)",
+                "conservative_verdict": "research_watchlist",
+                "intended_scope": "",
+                "failure_reasons": "",
+                "diagnostic_failure_reasons": "",
+                "robustness_labels": "funding_adjacent_locality",
+                "stress_survival_count": 15,
+                "stress_count": 15,
+                "mean_sharpe": 0.7,
+                "validation_mean_sharpe": 0.4,
+                "blind_mean_sharpe": 0.5,
+                "mean_max_dd": 0.2,
+                "worst_max_dd": 0.3,
+            },
+        ]
+    ).to_csv(ranking_csv, index=False)
+
+    rows = build_v1_3_funding_adjacent_respec_memory_rows(
+        ranking_csv,
+        source_robustness_dir=source_robustness_dir,
+    )
+    manifest = write_v1_3_funding_adjacent_respec_failure_memory(
+        ranking_csv,
+        tmp_path / "failure_memory",
+        source_robustness_dir=source_robustness_dir,
+    )
+
+    assert len(rows) == 2
+    assert manifest["input_rows"] == 2
+    assert manifest["failure_count"] == 1
+    failed_row, survivor_row = rows
+    assert failed_row["candidate_family"] == "research_v1_3_funding_adjacent_respec_variant"
+    assert failed_row["funding_adjacent_status"] == "funding_adjacent_not_independent_non_funding"
+    assert failed_row["independence_claim"] == "none_funding_adjacent_locality_probe"
+    assert failed_row["intended_scope"] == "BTCUSDT_4h"
+    assert failed_row["out_of_scope_policy"] == "diagnostic_only"
+    assert failed_row["source_review_dir"] == source_robustness_dir
+    assert failed_row["source_robustness_dir"] == source_robustness_dir
+    assert failed_row["stress_survival"] == "12/15"
+    assert failed_row["passed"] is False
+    assert "funding_adjacent_respec" in failed_row["failure_labels"]
+    assert "funding_adjacent_family" in failed_row["failure_labels"]
+    assert "replication_stress_fragility" in failed_row["failure_labels"]
+    assert survivor_row["passed"] is True
+    assert survivor_row["intended_scope"] == "BTCUSDT_4h"
+    assert "replication_stress_fragility" not in set(str(survivor_row["failure_labels"]).split("|"))
+
+    failure_memory = pd.read_csv(tmp_path / "failure_memory" / "failure_memory.csv")
+    assert len(failure_memory) == 1
+    failed = failure_memory.iloc[0]
+    assert failed["candidate_id"] == "qr_v13_funding_return_short_corr_001::thr_0p0_long_flat_cap_0p5_calm_vol_lte_1p5"
+    assert failed["candidate_family"] == "research_v1_3_funding_adjacent_respec_variant"
+    assert failed["failed_gates"] == "weak_blind_window"
