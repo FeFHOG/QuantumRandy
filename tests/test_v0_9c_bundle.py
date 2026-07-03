@@ -219,4 +219,5 @@ def test_v0_9c_report_renderer_uses_scope_contract_and_readiness() -> None:
     assert "Single-factor count: `6`" in report
     assert "liquidity_participation" in report
     assert "`research_1_0_candidate_pending_replication`" in report
+    assert "QuantumRandy full suite on 2026-07-03: `110 passed, 8 failed`" in report
     assert "No RandyPortfolio implementation" in report

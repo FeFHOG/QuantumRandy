@@ -95,8 +95,10 @@ No new base fields were admitted in v0.9c. Current allowed fields remain `open`,
 
 - Focused QuantumRandy tests cover the v0.9c exporter, report renderer, and failure-memory adapter.
 - Focused RandysLab tests cover formula candidates and correlation review.
+- RandysLab full suite on 2026-07-03: `29 passed`.
+- QuantumRandy full suite on 2026-07-03: `110 passed, 8 failed`; failures remain in pre-existing portfolio, portfolio-universe, runtime/scipy, selector-pipeline, smoke/scipy, and universe categories outside the v0.9c export, review, report, and failure-memory path.
 - Artifact audit confirmed candidate counts, declared scope, redundancy artifacts, gated diagnostics, and failure memory.
-- Final full-suite and diff-check evidence is recorded in the completion notes for this checkpoint.
+- Final diff-check evidence is recorded in the completion notes for this checkpoint.
 
 ## Boundary Confirmation
 
