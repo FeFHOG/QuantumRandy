@@ -1,12 +1,12 @@
 # QuantumRandy v0.8 Beta Handoff
 
-Last updated: 2026-07-02
+Last updated: 2026-07-03
 
 This handoff records the v0.8 beta state of the Randy quant stack after the first server-paper application layer and
 Phase 4 portfolio research path. GitHub-facing notes are intentionally in English.
 
-For a maturity-level view of what is beta-ready versus still research-only, see
-`docs/STACK_MATURITY_STATUS.md`.
+For the archived v0.8 maturity-level view of what was beta-ready versus still research-only, see
+`docs/archive/legacy_runtime_beta/STACK_MATURITY_STATUS.md`.
 
 ## Repository State
 
@@ -100,7 +100,8 @@ portfolio manifest -> runtime proposal -> localhost runtime -> submit proposal -
 
 ## Server 48h Paper Trial Checklist
 
-Use `docs/SERVER_48H_TRIAL_RUNBOOK.md` as the operator-facing Ubuntu/tmux checklist for the first full trial.
+Use `docs/archive/legacy_runtime_beta/SERVER_48H_TRIAL_RUNBOOK.md` as the operator-facing Ubuntu/tmux checklist for the
+first full trial.
 
 1. Start `scripts/runtime_server.py` with `QUANTUMRANDY_ADMIN_TOKEN` and `QUANTUMRANDY_INGEST_TOKEN` set to long random
    local-only values.
@@ -148,14 +149,96 @@ Use `docs/SERVER_48H_TRIAL_RUNBOOK.md` as the operator-facing Ubuntu/tmux checkl
 - Milestone review: `docs/SELECTOR_REWRITE_V0_8_2_MILESTONE_REVIEW.md`.
 - Selector repeat stop: do not run evidence61 unless explicitly requested. Marginal evidence is saturated enough to
   move to research-only candidate export and strict RandysLab judging.
+- Research-only factor-candidate export:
+  `reports/factor_candidate_exports/selector_v082_milestone_4_60/`.
+- Export docs: `docs/FACTOR_CANDIDATE_EXPORTS.md`.
+- Export contents: `7` primary formula candidates as JSONL plus CSV mirror, manifest, and Markdown summary.
+- First RandysLab strict judge pass completed across local BTC, ETH, SOL, BNB, and AVAX datasets. All `7` formulas
+  completed without formula failures under next-bar/T+1 matching, fees, funding, slippage, ledgers, metrics, and
+  failure-reason preservation.
+- First strict read: mixed, not admission evidence. BTC was weak under the blunt direct-sign rule; SOL/AVAX supplied
+  the strongest positives. The best mean-Sharpe formulas across the five local assets were
+  `zscore(std(close,48),144)` and `zscore(std(close,48),120)`, but drawdowns remained large.
+- Window/threshold sensitivity sweep completed across BTC, ETH, SOL, BNB, AVAX; training, validation, blind; and
+  thresholds `0.0`, `0.5`, `1.0`. All `315` standalone rows completed.
+- Simple equal-weight component combo sweep completed with `180` rows. The strongest diagnostic blend was
+  `mean(zscore(ema(volume,48),120), zscore(std(close,48),144))`, which improved mean Sharpe and worst-row Sharpe
+  versus the standalone formulas, but still had large drawdowns.
+- Conservative RandysLab review gate completed. All `7` standalone formulas and all `4` simple combos were
+  `blocked_by_conservative_rules`; the strongest combo was blocked for `high_mean_drawdown` and
+  `extreme_row_drawdown`.
+- Long/flat drawdown probe improved simple-combo aggregate metrics versus long/short. Best long/flat combo remained
+  `mean(zscore(ema(volume,48),120), zscore(std(close,48),144))`, with mean Sharpe `0.6969`, median Sharpe `0.7924`,
+  worst Sharpe `-0.8382`, and mean max drawdown `0.4626`; it still failed conservative review due to drawdown.
+- Scoped RandysLab drawdown-reduction pass completed for the participation-plus-realized-volatility combo only. The
+  pass was long-flat only and swept thresholds `0.5`, `1.0`, `1.5`, `2.0`; exposure caps `1.0`, `0.75`, `0.5`, `0.25`;
+  and simple realized-volatility caps using `zscore(std(close,48),144) <= 1.5` or `<= 1.0` across BTC, ETH, SOL, BNB,
+  AVAX and training/validation/blind windows.
+- Drawdown-reduction result: `11/48` variants became RandysLab `research_watchlist`; `37/48` remained
+  `blocked_by_conservative_rules`. The best drawdown-balanced variant was
+  `thr_0p5_long_flat_cap_0p5_none`, with mean Sharpe `0.6378`, median Sharpe `0.5469`, mean max drawdown `0.2785`,
+  worst max drawdown `0.6975`, and positive rows `14/15`.
+- The full-exposure no-filter control at threshold `0.5` still failed for
+  `high_mean_drawdown|extreme_row_drawdown`. Lower exposure caps and the `rvz_lte_1p5` volatility cap were the clearest
+  drawdown reducers. BTC weakness and validation-window fragility remain material caveats.
+- Deep RandysLab drawdown mitigation completed for the same participation-plus-realized-volatility combo. The expanded
+  campaign swept `4320` strict rows across long-short and long-flat modes, exposure caps, realized-volatility filters,
+  stricter thresholds, and research drawdown-stop cooldown rules. Conservative review produced `44/288`
+  `research_watchlist` variants and `244/288` blocked variants.
+- Best deep-mitigation variant: `thr_0p5_long_flat_cap_0p5_none_dd_stop_35_cd_42`, with mean Sharpe `0.6419`, median
+  Sharpe `0.6415`, worst Sharpe `-1.0450`, mean max drawdown `0.2683`, worst max drawdown `0.5888`, and positive rows
+  `14/15`. This is still a research-watchlist label only, not factor admission or runtime publishing.
+- Drawdown root-cause audit captured `3329` episodes across a `1440` row core grid. Worst episode: SOLUSDT validation,
+  full-exposure long-flat control, peak `2021-09-09 00:00 UTC`, trough `2022-11-09 16:00 UTC`, max drawdown `0.9239`.
+  Preserved labels: `sol_avax_concentration|validation_weakness|crash_period_drawdown|extreme_row_drawdown`.
+- Factor-factory memory update: keep participation plus realized volatility as a useful theme; prefer long-flat,
+  half-exposure, and moderate realized-volatility filters as strict-judge mitigation hints; do not promote
+  full-exposure variants; do not treat drawdown stops as a cure without exposure control; preserve BTC weakness,
+  SOL/AVAX concentration, validation weakness, and crash-period drawdown labels.
+- Strict judging verdict: `docs/SELECTOR_V082_STRICT_JUDGING_VERDICT.md`.
+- Drawdown-reduction summary: `../RandysLab-STRICT4H/docs/SELECTOR_V082_DRAWDOWN_REDUCTION_PASS.md`.
+- Deep drawdown mitigation summary:
+  `../RandysLab-STRICT4H/docs/SELECTOR_V082_DRAWDOWN_DEEP_MITIGATION_REPORT.md`.
+- Follow-up RandysLab robustness gauntlet completed for the leading watchlist and near-miss variants under stricter
+  fee/slippage, funding, combined harsh-cost, crash-window, leave-one-asset-out, validation-only, and blind-only
+  stresses. Artifacts:
+  `../RandysLab-STRICT4H/reports/factor_candidate_robustness/selector_v082_combo_watchlist_robustness_gauntlet/`.
+- Robustness verdict: no tested variant remains `research_watchlist` after the stricter gauntlet. The best prior
+  watchlist variant, `thr_0p5_long_flat_cap_0p5_none_dd_stop_35_cd_42`, survived `15/16` scenarios but failed the
+  2020 COVID crash-focused window on BTC/ETH weakness. The tested family is downgraded to
+  `blocked pending new hypotheses`.
+- Robustness report:
+  `../RandysLab-STRICT4H/docs/SELECTOR_V082_WATCHLIST_ROBUSTNESS_GAUNTLET_REPORT.md`.
+- Follow-up RandysLab crash-remediation hypothesis gauntlet completed without restoring watchlist status. The pass
+  tested `7` research-only combo candidates across the prior `7` mitigation variants and `21` strict stress scenarios,
+  including paired SOL/AVAX exclusion, BTC/ETH-only validation, and BTC/ETH-only 2020 COVID stress. Artifacts:
+  `../RandysLab-STRICT4H/reports/factor_candidate_robustness/selector_v082_crash_remediation_hypothesis_gauntlet/`.
+- Crash-remediation verdict: all `49` candidate-variant rankings remain `blocked_pending_new_hypotheses`. The best new
+  diagnostic row, `combo_volume48_ret24_calmvol_funding_calm_mean` with
+  `thr_0p5_long_flat_cap_1p0_none_dd_stop_35_cd_42`, survived `16/21` scenarios and improved the broad 2020 COVID
+  slice, but still failed BTC/ETH-only COVID on low positive-row share and failed validation-focused stresses on low
+  mean/median Sharpe.
+- Crash-remediation report:
+  `../RandysLab-STRICT4H/docs/SELECTOR_V082_CRASH_REMEDIATION_HYPOTHESIS_REPORT.md`.
+- Factor-factory memory update: trend plus calm-volatility plus funding-calm components can reduce the prior COVID
+  crash symptom, but they are diagnostic memory only. Selector v0.8.2 remains blocked pending genuinely new hypotheses,
+  with ETH crash behavior, validation robustness, and SOL/AVAX paired-exclusion fragility preserved as first-class
+  labels.
 - Boundary: these are research-only selector evidence artifacts, not runtime publish payloads or admission decisions.
 
 ## Next Best Steps
 
-- Build a research-only selector v0.8.2 factor-candidate export from the milestone winners and send it to strict
-  RandysLab judging.
+- Treat the drawdown-reduced participation-plus-realized-volatility family as blocked pending new hypotheses after the
+  robustness gauntlet. Do not publish it into runtime and do not promote it as admitted factor evidence.
+- Next strict research checkpoint should be Research v0.9a: scoped schema and strict-judge alignment. Confirm
+  `intended_scope`, `applicability_hypothesis`, and `out_of_scope_policy` flow from QuantumRandy exports into RandysLab
+  sensitivity/review artifacts before starting a BTCUSDT scoped single-family pass.
+- After v0.9a, move beyond the tested selector v0.8.2 crash-remediation formula family. ETH crash behavior,
+  validation-window robustness, and SOL/AVAX paired-exclusion fragility should remain hard gates.
 - Add public crypto-native feature candidates only after data readiness checks for open interest, basis, liquidation
   prints, and taker imbalance.
+- Keep RandyPortfolio as an interface-only future consumer. Do not implement portfolio scheduling, dynamic allocation,
+  or production regime routing in QuantumRandy or RandysLab.
 - Run one real Binance feeder one-shot against a local runtime and inspect the monitor report with baseline comparison.
 - If that is clean, run the server 48h paper trial without strategy churn.
 - Keep aligning portfolio reports and runtime monitor reports around comparable metrics.

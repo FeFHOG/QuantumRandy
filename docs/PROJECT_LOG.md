@@ -1,5 +1,149 @@
 # QuantumRandy Project Log
 
+## 2026-07-03 Research v0.9a Verification
+
+Research v0.9a scoped schema and strict-judge alignment is verified.
+
+- Verification report: `docs/RESEARCH_V0_9A_VERIFICATION_REPORT.md`.
+- QuantumRandy export verification generated `7` research-only candidates with `intended_scope=BTCUSDT_4h`,
+  `applicability_hypothesis`, and `out_of_scope_policy=diagnostic_only`.
+- RandysLab sensitivity verification generated `105` BTCUSDT rows across `15` local strict judge runs and preserved the
+  three scope contract fields.
+- RandysLab declared-scope review verification generated `7` review rows with `scope_mode=declared`,
+  `scope_asset_count=1`, and a Markdown Scope Contract table.
+- Focused tests passed: QuantumRandy factor-candidate export `2/2`; RandysLab factor-candidate strict judging,
+  sensitivity, and review `12/12`; RandysLab full suite `28/28`.
+- QuantumRandy full suite still has unrelated residual failures outside the v0.9a export path; see the verification
+  report for the exact note.
+
+Boundary preserved: no RandyPortfolio implementation, no live trading, no exchange private keys, no runtime factor
+publishing, and no automatic factor admission.
+
+## 2026-07-03 Selector v0.8.2 Watchlist Robustness Gauntlet
+
+RandysLab completed a stricter research-only robustness gauntlet for selector v0.8.2 participation-plus-realized-volatility
+watchlist and near-miss variants:
+
+```text
+mean(zscore(ema(volume,48),120), zscore(std(close,48),144))
+```
+
+Boundary preserved:
+
+- No selector evidence61 run.
+- No live trading or exchange private keys.
+- No runtime factor publishing.
+- No active runtime strategy modification.
+- No RandyPortfolio creation.
+- No QuantumRandy portfolio-module migration.
+- QuantumRandy remains the factor factory; RandysLab remains the strict judge.
+
+Stress scope:
+
+- `7` variants tested.
+- `16` stress scenarios.
+- `1281` strict detail rows.
+- Higher taker-fee/slippage scenarios.
+- Funding multiplier scenarios.
+- Combined harsh-cost scenarios.
+- 2020 COVID and 2021-2022 crash-focused windows.
+- Leave-one-asset-out tests for BTC, ETH, SOL, BNB, and AVAX.
+- Validation-only and blind-only stress rankings.
+
+Result:
+
+- No tested variant remains `research_watchlist` after the stricter all-scenario gate.
+- Best prior watchlist variant, `thr_0p5_long_flat_cap_0p5_none_dd_stop_35_cd_42`, survived `15/16` scenarios but
+  failed the 2020 COVID crash-focused window on BTC/ETH weakness.
+- The tested family is downgraded to `blocked pending new hypotheses`.
+- Full-exposure controls remained blocked; the full long-flat control still ranks well by mean Sharpe but fails
+  drawdown and stress survival.
+- Drawdown-stop cooldown helped the 2021-2022/validation drawdown case when paired with half exposure, but it did not
+  solve 2020 crash weakness.
+
+QuantumRandy memory update:
+
+- Keep participation plus realized volatility as a useful research theme, not as promoted factor evidence.
+- Prefer half-exposure long-flat as a mitigation hint, but do not keep this exact family on watchlist after stress.
+- Preserve explicit labels: `btc_weakness`, `sol_avax_concentration`, `validation_weakness`, `blind_weakness`,
+  `crash_period_drawdown`, `fee_fragility`, `funding_fragility`, and `asset_exclusion_fragility`.
+- New hypotheses should target crash-specific BTC/ETH behavior, validation-window drawdown, and concentration risk
+  rather than only more exposure caps or drawdown stops.
+
+Artifacts:
+
+- RandysLab report:
+  `../RandysLab-STRICT4H/docs/SELECTOR_V082_WATCHLIST_ROBUSTNESS_GAUNTLET_REPORT.md`.
+- Robustness outputs:
+  `../RandysLab-STRICT4H/reports/factor_candidate_robustness/selector_v082_combo_watchlist_robustness_gauntlet/`.
+- Robustness code:
+  `../RandysLab-STRICT4H/randyslab/factor_candidate_robustness.py`.
+- Runner:
+  `../RandysLab-STRICT4H/scripts/run_watchlist_robustness_gauntlet.py`.
+
+## 2026-07-03 Strict Judging Verdict And Docs Cleanup
+
+- Added `docs/SELECTOR_V082_STRICT_JUDGING_VERDICT.md` as the current research-only verdict for selector v0.8.2
+  factor export, RandysLab strict judging, sensitivity sweeps, combo diagnostics, conservative review, and long/flat
+  drawdown probe.
+- Verdict conclusion: positive smoothed participation and positive realized-volatility state remain useful
+  factor-factory research hints, especially as a participation-plus-realized-volatility combo, but all standalone and
+  simple-combo candidates remain blocked by conservative RandysLab rules due to drawdown.
+- Added `docs/README.md` as the current docs entry point.
+- Archived older audit, runtime-server, server-paper, roadmap, and maturity documents under
+  `docs/archive/legacy_runtime_beta/` instead of deleting them.
+- Updated root README and v0.8 handoff links to point at archived legacy docs where appropriate.
+- This was a documentation and organization pass only. It did not run selector evidence61, admit factors, publish
+  runtime strategies, create RandyPortfolio, or add live execution.
+
+## 2026-07-02 Selector v0.8.2 Factor-Candidate Export
+
+- Added a research-only factor-candidate export path for the frozen selector v0.8.2 evidence60 milestone.
+- New exporter:
+  `scripts/export_factor_candidates.py`.
+- New package module:
+  `quantumrandy/factor_candidate_export.py`.
+- Generated:
+  `reports/factor_candidate_exports/selector_v082_milestone_4_60/`.
+- The export contains `7` primary formula candidates as JSONL plus a CSV mirror, manifest, and Markdown summary.
+- Exported formulas are the repeated milestone winners:
+  `zscore(ema(volume,48),120)`, `zscore(ema(volume,24),96)`, `zscore(ema(volume,24),120)`,
+  `zscore(ema(volume,36),144)`, `zscore(std(close,48),120)`, `zscore(std(close,48),144)`, and
+  `zscore(std(close,36),144)`.
+- Every export record is stamped as research-only and not a runtime publish payload. The export does not admit factors,
+  update runtime strategies, construct portfolios, or enable live execution.
+- First strict RandysLab judging pass completed across local BTC, ETH, SOL, BNB, and AVAX datasets with next-bar/T+1
+  alignment, fees, funding, slippage, ledgers, metrics, and explicit failure reasons.
+- All `7` exported formulas completed with no formula failures on each asset. The first-pass read is mixed and not
+  admission evidence: BTC was weak across the direct-sign rule, while SOL/AVAX carried the strongest positives.
+- Best mean-Sharpe formulas across the five local assets were `zscore(std(close,48),144)` and
+  `zscore(std(close,48),120)`, but drawdowns remained large and the results need per-window, threshold, and
+  combination research before any downstream use.
+- Extended RandysLab strict judging with a research-only sensitivity sweep across BTC, ETH, SOL, BNB, AVAX;
+  training, validation, blind windows; and thresholds `0.0`, `0.5`, `1.0`.
+- Standalone sweep: all `315` rows completed. The best mean-Sharpe standalone was
+  `zscore(ema(volume,48),120)` with mean Sharpe `0.4083`, but worst-row Sharpe was `-1.5848` and mean max drawdown
+  remained high.
+- Simple equal-weight component-factor combo sweep: all `180` rows completed. The best diagnostic combo was
+  `mean(zscore(ema(volume,48),120), zscore(std(close,48),144))`, with mean Sharpe `0.5412`, median Sharpe `0.7308`,
+  worst Sharpe `-1.0577`, and mean max drawdown `0.5336`.
+- Combo improvement is research evidence only. It is not RandyPortfolio, not factor admission, and not a runtime
+  publish payload.
+- Added a conservative RandysLab review gate over sensitivity outputs. It applies explicit blockers for weak
+  validation/blind windows, concentrated positive evidence, high mean drawdown, and extreme row drawdown.
+- Conservative review result: all `7` standalone formulas and all `4` simple combos were
+  `blocked_by_conservative_rules`. The strongest combo remained diagnostically interesting but was blocked for
+  `high_mean_drawdown` and `extreme_row_drawdown`.
+- Factor-factory memory implication: preserve positive participation-plus-realized-volatility blend evidence as a
+  research hint only; do not admit, publish, or promote these formulas until drawdown and window instability improve.
+- Added a long/flat drawdown-reduction probe for simple combos. Compared with long/short, long/flat improved aggregate
+  mean Sharpe from `0.3836` to `0.6101`, median Sharpe from `0.5220` to `0.7385`, worst Sharpe from `-1.8016` to
+  `-1.2124`, and mean max drawdown from `0.5663` to `0.4808`.
+- Best long/flat combo remained `mean(zscore(ema(volume,48),120), zscore(std(close,48),144))`, with mean Sharpe
+  `0.6969`, median Sharpe `0.7924`, worst Sharpe `-0.8382`, and mean max drawdown `0.4626`.
+- The long/flat probe still failed the conservative review because worst drawdown remained too high. Next research
+  should target exposure sizing, volatility caps, or regime filters rather than direct promotion.
+
 ## 2026-07-02 Selector Evidence60 Milestone Review
 
 - Stopped the hard-gated selector repeat campaign at evidence60. Evidence61 should not be run unless explicitly
@@ -1067,3 +1211,207 @@ DeepSeek 测试按钮能通但研究调用失败的原因诊断：
 | `README.md` | 新增 4 个章节 |
 | `CHANGELOG.md` | **新建** — 版本日志 |
 | `docs/PROJECT_LOG.md` | 本文档
+
+### 2026-07-03 Selector v0.8.2 Drawdown-Reduction Research Pass
+
+RandysLab completed a research-only drawdown-reduction pass for the selector v0.8.2
+participation-plus-realized-volatility combo:
+
+```text
+mean(zscore(ema(volume,48),120), zscore(std(close,48),144))
+```
+
+Boundary preserved:
+
+- No selector evidence61 run.
+- No live trading or exchange private keys.
+- No runtime factor publishing.
+- No active runtime strategy modification.
+- No RandyPortfolio creation.
+- No QuantumRandy portfolio-module migration.
+- QuantumRandy remains the factor factory; RandysLab remains the strict judge.
+
+Pass design:
+
+- Long-flat only.
+- Assets: BTCUSDT, ETHUSDT, SOLUSDT, BNBUSDT, AVAXUSDT.
+- Windows: training, validation, blind.
+- Thresholds: `0.5`, `1.0`, `1.5`, `2.0`.
+- Exposure caps: `1.0`, `0.75`, `0.5`, `0.25`.
+- Realized-volatility caps: none, `zscore(std(close,48),144) <= 1.5`, and
+  `zscore(std(close,48),144) <= 1.0`.
+
+Result:
+
+- Sensitivity rows: `720`.
+- Conservative review variants: `48`.
+- `11/48` variants became RandysLab `research_watchlist`.
+- `37/48` variants remained `blocked_by_conservative_rules`.
+
+Best drawdown-balanced variant:
+
+```text
+thr_0p5_long_flat_cap_0p5_none
+```
+
+Metrics:
+
+- Mean Sharpe: `0.6378`.
+- Median Sharpe: `0.5469`.
+- Worst Sharpe: `-0.8595`.
+- Positive rows: `14/15`.
+- Mean max drawdown: `0.2785`.
+- Worst max drawdown: `0.6975`.
+
+The full-exposure no-filter control at threshold `0.5` still failed for
+`high_mean_drawdown|extreme_row_drawdown`, with mean max drawdown `0.4690` and worst max drawdown `0.9239`.
+
+Conclusion: the combo now has drawdown-reduced research-watchlist variants under RandysLab conservative rules, but this
+is not factor admission, not runtime publishing, not portfolio construction, and not live execution approval. Lower
+exposure caps and the `rvz_lte_1p5` volatility cap were the clearest drawdown reducers. BTC weakness and
+validation-window fragility remain material caveats for future strict research.
+
+### 2026-07-03 Selector v0.8.2 Deep Drawdown-Mitigation Campaign
+
+RandysLab completed a deeper research-only drawdown root-cause and mitigation campaign for the same selector v0.8.2
+participation-plus-realized-volatility combo:
+
+```text
+mean(zscore(ema(volume,48),120), zscore(std(close,48),144))
+```
+
+Additional scope:
+
+- Strict `4320` row mitigation sweep across BTCUSDT, ETHUSDT, SOLUSDT, BNBUSDT, AVAXUSDT; training, validation,
+  blind windows; thresholds `0.5`, `1.0`, `1.5`, `2.0`; long-short and long-flat modes; exposure caps; realized-vol
+  filters; and drawdown-stop cooldown variants.
+- Conservative review of `288` variants.
+- Reproducible drawdown episode audit across a `1440` row core grid, capturing `3329` drawdown episodes.
+- Explicit failure labels for `btc_weakness`, `sol_avax_concentration`, `validation_weakness`,
+  `crash_period_drawdown`, and `extreme_row_drawdown`.
+
+Result:
+
+- `44/288` variants reached RandysLab `research_watchlist`.
+- `244/288` remained `blocked_by_conservative_rules`.
+- Best current variant: `thr_0p5_long_flat_cap_0p5_none_dd_stop_35_cd_42`.
+- Best variant metrics: mean Sharpe `0.6419`, median Sharpe `0.6415`, worst Sharpe `-1.0450`, positive rows `14/15`,
+  mean max drawdown `0.2683`, worst max drawdown `0.5888`.
+- Full-exposure long-flat control remained blocked for `high_mean_drawdown|extreme_row_drawdown`.
+
+Root-cause read:
+
+- Worst episode: SOLUSDT validation, full-exposure long-flat control, peak `2021-09-09 00:00 UTC`, trough
+  `2022-11-09 16:00 UTC`, max drawdown `0.9239`.
+- Episode labels show that drawdown is not only BTC weakness. SOL/AVAX concentration and validation crash-period
+  drawdowns are first-class blockers.
+
+QuantumRandy memory update:
+
+- Keep participation plus realized volatility as a useful factor-factory research theme.
+- Prefer long-flat, half-exposure, and moderate realized-volatility filters as strict-judge mitigation hints.
+- Do not promote full-exposure variants or drawdown-stop-only variants.
+- Preserve BTC weakness, SOL/AVAX concentration, validation weakness, and crash-period drawdown labels for future
+  candidate memory.
+
+Artifacts:
+
+- RandysLab report:
+  `../RandysLab-STRICT4H/docs/SELECTOR_V082_DRAWDOWN_DEEP_MITIGATION_REPORT.md`.
+- Sensitivity:
+  `../RandysLab-STRICT4H/reports/factor_candidate_sensitivity/selector_v082_combo_drawdown_deep_mitigation/`.
+- Review:
+  `../RandysLab-STRICT4H/reports/factor_candidate_review/selector_v082_combo_drawdown_deep_mitigation/`.
+- Episode diagnostics:
+  `../RandysLab-STRICT4H/reports/factor_candidate_drawdown_diagnostics/selector_v082_combo_drawdown_deep_mitigation_core/`.
+
+Boundary remains unchanged: research-only, no selector evidence61, no live trading, no exchange private keys, no
+runtime factor publishing, no active runtime strategy modification, no RandyPortfolio creation, and no QuantumRandy
+portfolio-module migration.
+
+### 2026-07-03 Selector v0.8.2 Crash-Remediation Hypothesis Gauntlet
+
+RandysLab completed the next research-only robustness pass for the selector v0.8.2 participation-plus-realized-volatility
+memory after the prior watchlist family was downgraded to `blocked pending new hypotheses`.
+
+Boundary preserved:
+
+- No selector evidence61 run.
+- No live trading or exchange private keys.
+- No runtime factor publishing.
+- No active runtime strategy modification.
+- No RandyPortfolio creation.
+- No QuantumRandy portfolio-module migration.
+- QuantumRandy remains the factor factory; RandysLab remains the strict judge.
+
+Hypothesis design:
+
+- Retained the original participation-plus-realized-volatility combo as an internal benchmark.
+- Added 24-bar and 48-bar return trend guards.
+- Added calm-volatility variants using inverted realized-volatility z-score.
+- Added funding-calm variants using inverted funding-rate z-score.
+- Extended strict stress scenarios from `16` to `21`, adding paired SOL/AVAX exclusion, BTC/ETH-only all-window and
+  validation stresses, and a BTC/ETH-only 2020 COVID crash stress.
+
+Run size:
+
+- Candidate combos: `7`.
+- Mitigation variants per candidate: `7`.
+- Stress scenarios: `21`.
+- Strict detail rows: `10045`.
+- Scenario summaries: `1029`.
+- Final candidate-variant rankings: `49`.
+
+Result:
+
+- All `49` final rows remain `blocked_pending_new_hypotheses`.
+- No tested crash-remediation hypothesis earns `research_watchlist`.
+- Best new diagnostic row:
+  `combo_volume48_ret24_calmvol_funding_calm_mean` with
+  `thr_0p5_long_flat_cap_1p0_none_dd_stop_35_cd_42`.
+- Best row survival: `16/21` scenarios.
+- Best row metrics: mean Sharpe `0.5466`, median Sharpe `0.3854`, worst Sharpe `-0.7764`, mean max drawdown `0.2815`,
+  worst max drawdown `0.7142`.
+
+Interpretation:
+
+- The new defensive combo improved the broad 2020 COVID crash slice and BTC/ETH-only aggregate behavior versus the
+  prior top variant.
+- It still failed the BTC/ETH-only COVID slice on low positive-row share because ETH remained weak.
+- It also failed validation-focused stresses on low mean/median Sharpe.
+- Trend plus calm-volatility plus funding-calm components are useful factor-factory diagnostic memory, not watchlist or
+  admission evidence.
+
+Artifacts:
+
+- RandysLab report:
+  `../RandysLab-STRICT4H/docs/SELECTOR_V082_CRASH_REMEDIATION_HYPOTHESIS_REPORT.md`.
+- Hypothesis export:
+  `../RandysLab-STRICT4H/reports/factor_candidate_combination_exports/selector_v082_crash_remediation_hypotheses/`.
+- Robustness gauntlet:
+  `../RandysLab-STRICT4H/reports/factor_candidate_robustness/selector_v082_crash_remediation_hypothesis_gauntlet/`.
+
+Conservative memory update: selector v0.8.2 remains blocked pending genuinely new hypotheses. Preserve ETH crash
+weakness, BTC/ETH-only validation weakness, SOL/AVAX paired-exclusion fragility, and validation-window drawdown labels
+for future factor-factory research.
+
+### 2026-07-03 Research v0.9a Scope-Alignment Repair
+
+Follow-up audit found that the Research v0.9 plan needed infrastructure alignment before a BTCUSDT scoped
+multi-factor bundle could be pursued safely.
+
+Repairs:
+
+- QuantumRandy factor-candidate exports now carry `intended_scope`, `applicability_hypothesis`, and
+  `out_of_scope_policy`.
+- Exports also include a RandyPortfolio interface contract marked `interface_only_not_implemented`; this is metadata
+  only and does not create a portfolio scheduler.
+- RandysLab conservative review now supports declared-scope review rules so a single-asset scoped candidate is not
+  incorrectly judged by universal positive-asset-count gates.
+- RandysLab formula judging now supports core regime-proxy operators needed by current QuantumRandy scoped inputs:
+  `corr`, `div`, `sub`, and `rsi`, plus related simple arithmetic transforms.
+- Documentation now treats the next checkpoint as `Research v0.9a: scoped schema and strict-judge alignment`, followed
+  by BTCUSDT scoped single-family research and only then scoped multi-factor bundle research.
+
+Boundary preserved: QuantumRandy remains the factor factory, RandysLab remains the strict judge, RandyPortfolio remains
+a future interface-only consumer, and no live execution or runtime publishing path was introduced.

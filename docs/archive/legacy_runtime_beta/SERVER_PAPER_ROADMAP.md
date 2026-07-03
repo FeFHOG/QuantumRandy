@@ -109,7 +109,7 @@ Do not split now unless dependency or deployment pain becomes real.
 The server agent should operate only from explicit deployment instructions. It should not improvise live-trading
 features.
 
-The minimal operational handoff is maintained in `docs/SERVER_AGENT_DEPLOYMENT.md`.
+The minimal operational handoff is maintained in `SERVER_AGENT_DEPLOYMENT.md`.
 
 ### Must Not Do
 
@@ -143,7 +143,7 @@ Recommended server baseline:
 
 ### Deployment Commands
 
-Current runtime server startup is documented in `docs/RUNTIME_SERVER.md`.
+Current runtime server startup is documented in `RUNTIME_SERVER.md`.
 
 Expected first commands:
 

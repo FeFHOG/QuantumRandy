@@ -1,0 +1,26 @@
+# QuantumRandy Docs
+
+This directory keeps current QuantumRandy research, architecture, and handoff documents. Older runtime-beta and audit
+materials are archived under `docs/archive/legacy_runtime_beta/`.
+
+## Current Research
+
+- `SELECTOR_V082_STRICT_JUDGING_VERDICT.md`: current strict RandysLab verdict for selector v0.8.2 candidates.
+- `SELECTOR_REWRITE_V0_8_2_MILESTONE_REVIEW.md`: frozen evidence60 milestone review.
+- `SELECTOR_REWRITE_V0_8_2_BASELINE.md`: selector v0.8.2 baseline context.
+- `FACTOR_CANDIDATE_EXPORTS.md`: research-only factor-candidate export format and command.
+- `V0_9_RESEARCH_EXECUTION_PLAN.md`: next research milestone for scoped multi-factor and regime-feature readiness.
+- `RESEARCH_V0_9A_VERIFICATION_REPORT.md`: scoped schema and RandysLab strict-judge alignment verification.
+
+## Stack Boundary
+
+- `RANDY_STACK_TARGET_ARCHITECTURE.md`: QuantumRandy, RandysLab, future RandyPortfolio boundaries, and artifact contracts.
+- `V0_8_BETA_HANDOFF.md`: broad project handoff and current next steps.
+- `V1_0_RESEARCH_READINESS_PLAN.md`: Research 1.0 definition, gates, blockers, and readiness criteria.
+- `PROJECT_LOG.md`: chronological project log.
+
+## Archive
+
+- `archive/legacy_runtime_beta/`: older audit, server runtime, server paper-trial, and v0.8 beta maturity docs.
+
+Archive files are preserved for reference but should not be treated as the current algorithm-layer plan.

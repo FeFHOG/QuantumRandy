@@ -118,7 +118,8 @@ strategies against pushed market bars. It has no intelligence or exchange order 
 is hard-capped at USD 1,000 per strategy, with configurable latency, slippage jitter, adverse slippage, signal noise, and
 missed fills. Factor and strategy manifests support atomic, generation-guarded hot updates.
 
-See [docs/RUNTIME_SERVER.md](docs/RUNTIME_SERVER.md) for the API and local startup instructions.
+See [docs/archive/legacy_runtime_beta/RUNTIME_SERVER.md](docs/archive/legacy_runtime_beta/RUNTIME_SERVER.md) for the
+archived API and local startup instructions.
 
 ## 4-Gate Brutal Filter
 

@@ -6,7 +6,7 @@ This note is the minimal handoff for running the QuantumRandy paper observation 
 operational and conservative. The server agent should not add trading features while following this document.
 
 For the first 48-hour Ubuntu/tmux trial, use the exact operator checklist in
-`docs/SERVER_48H_TRIAL_RUNBOOK.md` after reading this deployment note.
+`SERVER_48H_TRIAL_RUNBOOK.md` after reading this deployment note.
 
 ## Scope
 

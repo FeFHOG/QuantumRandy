@@ -17,6 +17,7 @@ QuantumRandy owns research for individual alpha factors:
 - evaluate individual factor behavior across assets and windows;
 - rewrite weak candidates with LLM and failure-memory context;
 - produce research-only factor artifacts for downstream review;
+- declare factor scope metadata such as intended asset/regime applicability and out-of-scope policy;
 - maintain selector evidence and factor evidence audit trails.
 
 QuantumRandy does not own the final portfolio layer:
@@ -40,6 +41,7 @@ RandysLab owns strict backtest judgment:
 - T+1 or next-bar matching semantics;
 - fees, funding, slippage, ledger construction, and metrics;
 - failure reasons and audit reports;
+- scope-aware conservative review based on metadata supplied by QuantumRandy or future RandyPortfolio artifacts;
 - baseline exports used as control artifacts.
 
 RandysLab baseline exports are control artifacts. They are not QuantumRandy runtime publish payloads, factor admission
@@ -96,6 +98,9 @@ Draft fields:
   "schema_version": 1,
   "factor_id": "qr_example",
   "formula": "zscore(ema(volume,48),120)",
+  "intended_scope": "BTCUSDT_4h",
+  "applicability_hypothesis": "BTCUSDT 4h scoped participation research.",
+  "out_of_scope_policy": "diagnostic_only",
   "source": "selector_rewrite",
   "generation_source": "llm_rewrite",
   "research_only": true,
@@ -113,7 +118,14 @@ Draft fields:
   "safety": {
     "not_runtime_publish_payload": true,
     "does_not_auto_admit_factor": true,
-    "requires_manual_review_before_portfolio_use": true
+    "requires_manual_review_before_portfolio_use": true,
+    "does_not_create_portfolio_scheduler": true
+  },
+  "portfolio_interface_contract": {
+    "consumer_project": "RandyPortfolio",
+    "status": "interface_only_not_implemented",
+    "allowed_use": "research_artifact_input",
+    "forbidden_use": "runtime_allocation_or_live_execution"
   }
 }
 ```
