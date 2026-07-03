@@ -86,3 +86,112 @@ def test_export_v0_9d_strict_candidate_discovery_is_scoped_research_only(tmp_pat
     assert "Research v0.9d" in report
     assert "BTCUSDT_4h" in report
     assert "not a runtime publish payload" in report
+
+
+def test_v0_9d_failure_memory_maps_btc_eth_and_redundancy_rows(tmp_path) -> None:
+    from quantumrandy.v09d_failure_memory import build_v0_9d_failure_memory_rows, write_v0_9d_failure_memory
+
+    review_csv = tmp_path / "factor_candidate_review.csv"
+    pd.DataFrame(
+        [
+            {
+                "candidate_id": "qr_v09d_bundle_trend_quality_001",
+                "formula": "equal_weight_mean(a,b,c)",
+                "formula_family": "scoped_equal_weight_bundle",
+                "variant_id": "default",
+                "intended_scope": "BTCUSDT_4h",
+                "applicability_hypothesis": "BTCUSDT 4h scoped strict candidate-family discovery.",
+                "out_of_scope_policy": "diagnostic_only",
+                "review_verdict": "blocked_by_conservative_rules",
+                "failure_reasons": "weak_validation_window|high_mean_drawdown",
+                "mean_sharpe": 0.2,
+                "validation_mean_sharpe": -0.1,
+                "blind_mean_sharpe": 0.4,
+                "mean_max_dd": 0.5,
+                "worst_max_dd": 0.75,
+            },
+            {
+                "candidate_id": "qr_v09d_funding_return_long_001",
+                "formula": "zscore(corr(funding_rate,ret(close,42),120),72)",
+                "formula_family": "funding_return_long_horizon",
+                "variant_id": "default",
+                "intended_scope": "BTCUSDT_4h",
+                "applicability_hypothesis": "BTCUSDT 4h scoped strict candidate-family discovery.",
+                "out_of_scope_policy": "diagnostic_only",
+                "review_verdict": "research_watchlist",
+                "failure_reasons": "",
+                "mean_sharpe": 0.7,
+                "validation_mean_sharpe": 0.2,
+                "blind_mean_sharpe": 0.3,
+                "mean_max_dd": 0.2,
+                "worst_max_dd": 0.3,
+            },
+        ]
+    ).to_csv(review_csv, index=False)
+    diagnostic_csv = tmp_path / "eth_factor_candidate_review.csv"
+    pd.DataFrame(
+        [
+            {
+                "candidate_id": "qr_v09d_funding_return_long_001",
+                "review_verdict": "blocked_by_conservative_rules",
+                "failure_reasons": "weak_blind_window",
+                "validation_mean_sharpe": 0.1,
+                "blind_mean_sharpe": -0.4,
+            }
+        ]
+    ).to_csv(diagnostic_csv, index=False)
+    correlation_csv = tmp_path / "factor_candidate_bundle_redundancy.csv"
+    pd.DataFrame(
+        [
+            {
+                "bundle_candidate_id": "qr_v09d_bundle_trend_quality_001",
+                "component_count": 3,
+                "max_abs_component_corr": 0.88,
+                "redundancy_verdict": "redundant_research_memory_only",
+            }
+        ]
+    ).to_csv(correlation_csv, index=False)
+
+    rows = build_v0_9d_failure_memory_rows(
+        review_csv,
+        source_review_dir="reports/factor_candidate_review/research_v0_9d_btc_primary",
+        diagnostic_review_csv=diagnostic_csv,
+        source_diagnostic_dir="reports/factor_candidate_review/research_v0_9d_eth_diagnostic",
+        correlation_csv=correlation_csv,
+        source_correlation_dir="reports/factor_candidate_correlation/research_v0_9d_btc",
+    )
+
+    assert len(rows) == 2
+    by_id = {row["candidate_id"]: row for row in rows}
+    bundle = by_id["qr_v09d_bundle_trend_quality_001"]
+    assert bundle["candidate_family"] == "scoped_equal_weight_bundle"
+    assert bundle["conservative_verdict"] == "research_memory_only"
+    assert "weak_validation_window" in bundle["failure_labels"]
+    assert "drawdown_fragility" in bundle["failure_labels"]
+    assert "trend_quality_fragility" in bundle["failure_labels"]
+    assert "bundle_redundancy" in bundle["failure_labels"]
+    assert "component_overlap" in bundle["failure_labels"]
+
+    funding = by_id["qr_v09d_funding_return_long_001"]
+    assert funding["conservative_verdict"] == "scoped_watchlist_needs_replication"
+    assert funding["passed"] is False
+    assert "eth_diagnostic_weakness" in funding["failure_labels"]
+    assert "funding_confirmation_fragility" in funding["failure_labels"]
+
+    out = tmp_path / "failure_memory"
+    manifest = write_v0_9d_failure_memory(
+        review_csv,
+        out,
+        source_review_dir="reports/factor_candidate_review/research_v0_9d_btc_primary",
+        diagnostic_review_csv=diagnostic_csv,
+        source_diagnostic_dir="reports/factor_candidate_review/research_v0_9d_eth_diagnostic",
+        correlation_csv=correlation_csv,
+        source_correlation_dir="reports/factor_candidate_correlation/research_v0_9d_btc",
+    )
+    assert manifest["artifact_type"] == "quantumrandy_failure_memory"
+    assert manifest["failure_count"] == 2
+    memory = pd.read_csv(out / "failure_memory.csv")
+    assert set(memory["candidate_id"]) == {
+        "qr_v09d_bundle_trend_quality_001",
+        "qr_v09d_funding_return_long_001",
+    }
