@@ -35,6 +35,8 @@ materials are archived under `docs/archive/legacy_runtime_beta/`.
 - `V1_0_RESEARCH_READINESS_PLAN.md`: Research 1.0 definition, gates, blockers, and readiness criteria.
 - `superpowers/specs/2026-07-03-research-v1-3-funding-adjacent-scoped-respec-design.md`: Research v1.3 design for a
   funding-adjacent scoped re-spec after v1.1 and v1.2 clean negative non-funding results.
+- `superpowers/plans/2026-07-03-research-v1-3-funding-adjacent-scoped-respec.md`: Research v1.3 implementation plan
+  for the funding-adjacent scoped re-spec.
 - `superpowers/specs/2026-07-03-research-v1-2-failure-guided-scoped-respec-design.md`: Research v1.2 design for
   failure-guided scoped candidate re-spec after the v1.1 clean negative result.
 - `superpowers/plans/2026-07-03-research-v1-2-failure-guided-scoped-respec.md`: Research v1.2 implementation plan for

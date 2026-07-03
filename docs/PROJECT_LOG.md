@@ -6,12 +6,13 @@ Selected Research v1.3 as a funding-adjacent scoped re-spec after v1.1 and v1.2 
 non-funding results.
 
 - Spec: `docs/superpowers/specs/2026-07-03-research-v1-3-funding-adjacent-scoped-respec-design.md`.
+- Implementation plan: `docs/superpowers/plans/2026-07-03-research-v1-3-funding-adjacent-scoped-respec.md`.
 - Direction: test whether the observed edge is local to funding/carry/friction structure rather than continuing to
   hard-mine the current admitted non-funding DSL space.
 - Current Research 1.0 survivor remains excluded:
   `qr_v09d_funding_return_long_001::thr_0p0_long_short_cap_0p5_none`.
 - V1.3 may use `funding_rate`, but it must declare itself funding-adjacent and must not claim non-funding independence.
-- Current decision: write and review the v1.3 design before creating an implementation plan.
+- Current decision: implementation plan written and ready for review before execution.
 
 Boundary preserved: no RandyPortfolio implementation, no live trading, no exchange private keys, no runtime factor
 publishing, no automatic factor admission, no new formula base fields, no production regime labels, and no selector
