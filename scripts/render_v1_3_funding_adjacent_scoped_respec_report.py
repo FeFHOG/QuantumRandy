@@ -175,7 +175,7 @@ def _render(
                 f"`{row.get('conservative_verdict', '')}` | "
                 f"{_stress_survival(row)} | {_num(row.get('mean_sharpe'))} | "
                 f"{_num(row.get('validation_mean_sharpe'))} | {_num(row.get('blind_mean_sharpe'))} | "
-                f"{_num(row.get('worst_max_dd'))} | `{row.get('robustness_labels', '') or 'none'}` |"
+                f"{_num(row.get('worst_max_dd'))} | `{_table_labels(row.get('robustness_labels'))}` |"
             )
     else:
         lines.append("| none | none | none | 0/0 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | none |")
@@ -354,6 +354,13 @@ def _num(value: Any) -> str:
 
 def _stress_survival(row: dict[str, Any]) -> str:
     return f"{_int(row.get('stress_survival_count'))}/{_int(row.get('stress_count'))}"
+
+
+def _table_labels(value: Any) -> str:
+    labels = [label.strip() for label in str(value or "").split("|") if label.strip()]
+    if not labels:
+        return "none"
+    return ", ".join(labels)
 
 
 def _int(value: Any) -> int:

@@ -573,3 +573,60 @@ def test_v1_3_report_renderer_shows_missing_partial_diagnostics(monkeypatch) -> 
     assert "- SOL diagnostics: missing expected artifact." in report
     assert "- BNB candidate count: `192`, verdict counts: `blocked_by_conservative_rules:101`" in report
     assert "- AVAX diagnostics: missing expected artifact." in report
+
+
+def test_v1_3_report_renderer_formats_pipe_delimited_robustness_labels(monkeypatch) -> None:
+    import importlib.util
+
+    script = Path(__file__).resolve().parents[1] / "scripts" / "render_v1_3_funding_adjacent_scoped_respec_report.py"
+    spec = importlib.util.spec_from_file_location("render_v1_3_funding_adjacent_scoped_respec_report", script)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    fake_randyslab = Path("/tmp/nonstandard_quant_workspace/RandysLab-STRICT4H")
+    monkeypatch.setattr(module, "_find_sibling_repo", lambda root, repo_name: fake_randyslab)
+
+    ranking = pd.DataFrame(
+        [
+            {
+                "candidate_id": "qr_v13_funding_return_short_corr_001",
+                "variant_id": "thr_0p0_long_flat_cap_0p5_calm_vol_lte_1p5",
+                "conservative_verdict": "research_watchlist",
+                "stress_survival_count": 15,
+                "stress_count": 15,
+                "mean_sharpe": 0.8,
+                "worst_max_dd": 0.3,
+                "validation_mean_sharpe": 0.4,
+                "blind_mean_sharpe": 0.5,
+                "robustness_labels": "fee_fragility|btc_weakness",
+            }
+        ]
+    )
+
+    report = module._render(
+        export_manifest={
+            "candidate_count": 16,
+            "single_factor_count": 12,
+            "bundle_count": 4,
+            "funding_adjacent_status": "funding_adjacent_not_independent_non_funding",
+            "scope_contract": {"intended_scope": "BTCUSDT_4h", "out_of_scope_policy": "diagnostic_only"},
+            "excluded_research10_survivor": {
+                "candidate_id": "qr_v09d_funding_return_long_001",
+                "variant_id": "thr_0p0_long_short_cap_0p5_none",
+                "formula_family": "funding_return_long_horizon",
+            },
+        },
+        candidates=[],
+        btc_review_summary={"candidate_count": 192, "verdict_counts": {"research_watchlist": 3}},
+        correlation_summary={"bundle_count": 4, "bundle_verdict_counts": {"diversified_enough_for_research": 3}},
+        robustness_summary={"detail_row_count": 14640, "scenario_summary_count": 1280, "variant_count": 80},
+        ranking=ranking,
+        memory_manifest={"input_rows": 80, "failure_count": 79, "cluster_count": 25},
+        readiness="research_v1_3_funding_adjacent_candidate_replicated_pending_manual_review",
+    )
+
+    assert "`fee_fragility, btc_weakness`" in report
+    assert "`fee_fragility|btc_weakness`" not in report
+    row = next(line for line in report.splitlines() if "qr_v13_funding_return_short_corr_001" in line)
+    assert row.count("|") == 10
