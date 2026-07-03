@@ -29,6 +29,11 @@ materials are archived under `docs/archive/legacy_runtime_beta/`.
   the v1.1 clean negative result.
 - `RESEARCH_V1_3_FUNDING_ADJACENT_SCOPED_RESPEC_REPORT.md`: funding-adjacent scoped re-spec after v1.1 and v1.2
   clean negative non-funding results.
+- `RESEARCH_V1_3_MANUAL_REVIEW_REPORT.md`: manual review of the v1.3 survivor family before paper-observation
+  planning.
+- `RESEARCH_V1_3_PAPER_OBSERVATION_PROTOCOL.md`: frozen paper-observation protocol for the v1.3 survivor family.
+- `PRE_THIRD_PROJECT_READINESS_REPORT.md`: readiness and remaining gates before opening a third project such as
+  RandyPortfolio.
 
 ## Stack Boundary
 

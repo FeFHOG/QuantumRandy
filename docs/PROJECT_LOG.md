@@ -1,5 +1,20 @@
 # QuantumRandy Project Log
 
+## 2026-07-04 Pre-Third-Project Readiness Package
+
+Completed the pre-third-project documentation package after the v1.3 funding-adjacent survivor review.
+
+- Manual review: `docs/RESEARCH_V1_3_MANUAL_REVIEW_REPORT.md`.
+- Paper observation protocol: `docs/RESEARCH_V1_3_PAPER_OBSERVATION_PROTOCOL.md`.
+- Third-project readiness report: `docs/PRE_THIRD_PROJECT_READINESS_REPORT.md`.
+- Current verdict: `pre_third_project_ready_except_paper_observation_execution`.
+- Remaining gate before opening a third project: execute the v1.3 paper-observation protocol and write the observation
+  report.
+
+Boundary preserved: no RandyPortfolio implementation, no new repository, no live trading, no exchange private keys, no
+runtime factor publishing, no automatic factor admission, no production regime labels, no new formula base fields, and
+no selector evidence61.
+
 ## 2026-07-03 Research v1.3 Funding-Adjacent Scoped Re-Spec
 
 Completed the research-only v1.3 funding-adjacent scoped re-spec pass.
