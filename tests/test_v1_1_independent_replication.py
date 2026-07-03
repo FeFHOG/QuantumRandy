@@ -72,3 +72,86 @@ def test_export_v1_1_independent_candidates_excludes_current_funding_survivor(tm
     assert "Research v1.1" in report
     assert "independent scoped family replication" in report
     assert "not a runtime publish payload" in report
+
+
+def test_v1_1_failure_memory_records_only_failed_independent_rankings(tmp_path) -> None:
+    from quantumrandy.v11_independent_replication_memory import (
+        build_v1_1_independent_replication_memory_rows,
+        write_v1_1_independent_replication_failure_memory,
+    )
+
+    ranking_csv = tmp_path / "watchlist_robustness_variant_ranking.csv"
+    pd.DataFrame(
+        [
+            {
+                "candidate_id": "qr_v11_volume_conviction_001",
+                "formula": "zscore(corr(sub(close,open),volume,48),72)",
+                "variant_id": "thr_0p0_long_flat_cap_0p5_none",
+                "conservative_verdict": "blocked_pending_new_hypotheses",
+                "failure_reasons": "weak_validation_window",
+                "diagnostic_failure_reasons": "low_mean_sharpe",
+                "robustness_labels": "fee_fragility|asset_exclusion_fragility",
+                "stress_survival_count": 14,
+                "stress_count": 15,
+                "stress_survival_score": 0.93333333,
+                "diagnostic_scenario_count": 1,
+                "mean_sharpe": 0.8,
+                "validation_mean_sharpe": -0.1,
+                "blind_mean_sharpe": 0.5,
+                "mean_max_dd": 0.2,
+                "worst_max_dd": 0.4,
+            },
+            {
+                "candidate_id": "qr_v11_range_position_001",
+                "formula": "zscore(div(sub(close,sma(close,48)),sub(max(high,48),min(low,48))),96)",
+                "variant_id": "thr_0p0_long_short_cap_0p5_none",
+                "conservative_verdict": "research_watchlist",
+                "failure_reasons": "",
+                "diagnostic_failure_reasons": "low_mean_sharpe",
+                "robustness_labels": "sol_avax_concentration",
+                "stress_survival_count": 15,
+                "stress_count": 15,
+                "stress_survival_score": 1.0,
+                "diagnostic_scenario_count": 1,
+                "mean_sharpe": 0.7,
+                "validation_mean_sharpe": 0.3,
+                "blind_mean_sharpe": 0.4,
+                "mean_max_dd": 0.2,
+                "worst_max_dd": 0.3,
+            },
+        ]
+    ).to_csv(ranking_csv, index=False)
+
+    rows = build_v1_1_independent_replication_memory_rows(
+        ranking_csv,
+        source_robustness_dir="reports/factor_candidate_robustness/research_v1_1_independent_replication",
+    )
+
+    assert len(rows) == 2
+    by_id = {row["candidate_id"]: row for row in rows}
+    failed = by_id["qr_v11_volume_conviction_001::thr_0p0_long_flat_cap_0p5_none"]
+    assert failed["passed"] is False
+    assert failed["candidate_family"] == "research_v1_1_independent_replication_variant"
+    assert failed["intended_scope"] == "BTCUSDT_4h"
+    assert failed["out_of_scope_policy"] == "diagnostic_only"
+    assert failed["stress_survival"] == "14/15"
+    assert "independent_family_replication" in failed["failure_labels"]
+    assert "replication_stress_fragility" in failed["failure_labels"]
+    assert "weak_validation_window" in failed["failure_labels"]
+
+    survivor = by_id["qr_v11_range_position_001::thr_0p0_long_short_cap_0p5_none"]
+    assert survivor["passed"] is True
+    assert "replication_stress_fragility" not in survivor["failure_labels"]
+
+    out = tmp_path / "failure_memory"
+    manifest = write_v1_1_independent_replication_failure_memory(
+        ranking_csv,
+        out,
+        source_robustness_dir="reports/factor_candidate_robustness/research_v1_1_independent_replication",
+    )
+
+    assert manifest["artifact_type"] == "quantumrandy_failure_memory"
+    assert manifest["input_rows"] == 2
+    assert manifest["failure_count"] == 1
+    memory = pd.read_csv(out / "failure_memory.csv")
+    assert memory.iloc[0]["candidate_id"] == "qr_v11_volume_conviction_001::thr_0p0_long_flat_cap_0p5_none"
