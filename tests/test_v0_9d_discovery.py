@@ -195,3 +195,111 @@ def test_v0_9d_failure_memory_maps_btc_eth_and_redundancy_rows(tmp_path) -> None
         "qr_v09d_bundle_trend_quality_001",
         "qr_v09d_funding_return_long_001",
     }
+
+
+def test_v0_9d_report_renderer_states_readiness_outcomes() -> None:
+    script = Path(__file__).resolve().parents[1] / "scripts" / "render_v0_9d_report.py"
+    spec = importlib.util.spec_from_file_location("render_v0_9d_report", script)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    review = pd.DataFrame(
+        [
+            {
+                "candidate_id": "qr_v09d_bundle_trend_quality_001",
+                "review_verdict": "research_watchlist",
+                "intended_scope": "BTCUSDT_4h",
+                "mean_sharpe": 0.5,
+                "validation_mean_sharpe": 0.2,
+                "blind_mean_sharpe": 0.1,
+                "failure_reasons": "",
+            }
+        ]
+    )
+    diagnostic = pd.DataFrame(
+        [
+            {
+                "candidate_id": "qr_v09d_bundle_trend_quality_001",
+                "review_verdict": "blocked_by_conservative_rules",
+                "blind_mean_sharpe": -0.2,
+                "failure_reasons": "weak_blind_window",
+            }
+        ]
+    )
+    redundancy = pd.DataFrame(
+        [
+            {
+                "bundle_candidate_id": "qr_v09d_bundle_trend_quality_001",
+                "redundancy_verdict": "diversified_enough_for_research",
+                "max_abs_component_corr": 0.4,
+                "high_corr_pair_count": 0,
+            }
+        ]
+    )
+
+    assert module._readiness_verdict(review, pd.DataFrame(), redundancy) == "research_1_0_candidate_pending_replication"
+    assert module._readiness_verdict(review, diagnostic, redundancy) == "scoped_watchlist_needs_replication"
+    assert (
+        module._readiness_verdict(
+            review.assign(review_verdict="blocked_by_conservative_rules"),
+            pd.DataFrame(),
+            redundancy,
+        )
+        == "not_ready_for_research_1_0"
+    )
+
+    report = module._render(
+        export_manifest={
+            "candidate_count": 12,
+            "single_factor_count": 9,
+            "bundle_count": 3,
+            "scope_contract": {"intended_scope": "BTCUSDT_4h", "out_of_scope_policy": "diagnostic_only"},
+        },
+        candidates=[
+            {
+                "candidate_id": "qr_v09d_trend_efficiency_001",
+                "formula_family": "trend_quality_efficiency",
+                "formula": "zscore(div(ret(close,24),div(sub(max(high,48),min(low,48)),close)),96)",
+            },
+            {
+                "candidate_id": "qr_v09d_bundle_trend_quality_001",
+                "formula_family": "scoped_equal_weight_bundle",
+                "component_candidate_ids": ["qr_v09d_trend_efficiency_001"],
+                "combination_method": "equal_weight_mean",
+                "formula": "equal_weight_mean(zscore(ret(close,24),96))",
+            },
+        ],
+        btc_sensitivity_summary={"run_count": 240, "candidate_row_count": 2880},
+        btc_review_summary={
+            "candidate_count": 12,
+            "rules": {"scope_mode": "declared"},
+            "verdict_counts": {"research_watchlist": 1},
+        },
+        btc_review=review,
+        eth_sensitivity_summary={"run_count": 240, "candidate_row_count": 2880},
+        eth_review_summary={
+            "candidate_count": 12,
+            "rules": {"scope_mode": "declared"},
+            "verdict_counts": {"blocked_by_conservative_rules": 12},
+        },
+        eth_review=diagnostic,
+        correlation_summary={
+            "high_corr_threshold": 0.8,
+            "pairwise_row_count": 66,
+            "bundle_verdict_counts": {"diversified_enough_for_research": 1},
+        },
+        redundancy=redundancy,
+        wider_summaries={},
+        memory_manifest={"failure_count": 12, "cluster_count": 4},
+        memory=pd.DataFrame(
+            [{"conservative_verdict": "scoped_watchlist_needs_replication", "failure_labels": "eth_diagnostic_weakness"}]
+        ),
+        readiness="scoped_watchlist_needs_replication",
+    )
+
+    assert "Research v0.9d Strict Candidate-Family Discovery Report" in report
+    assert "BTCUSDT_4h" in report
+    assert "ETH Diagnostic Review" in report
+    assert "`scoped_watchlist_needs_replication`" in report
+    assert "No RandyPortfolio implementation" in report
