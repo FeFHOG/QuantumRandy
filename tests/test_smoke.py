@@ -101,3 +101,21 @@ def test_predictive_metrics_exclude_warmup_rows() -> None:
     metrics = summarize_ledger(ledger, bar_hours=4)
     assert metrics["predictive_observations"] == 2.0
     assert metrics["directional_win_rate"] == 1.0
+
+
+def test_summarize_ledger_rank_ic_is_scipy_free() -> None:
+    idx = pd.date_range("2024-01-01", periods=5, freq="4h", tz="UTC")
+    ledger = pd.DataFrame(
+        {
+            "factor": [1.0, 2.0, 3.0, 4.0, 5.0],
+            "r_mkt": [0.0, 0.04, 0.03, 0.02, 0.01],
+            "r_net": 0.0,
+            "delta_exposure": 0.0,
+        },
+        index=idx,
+    )
+
+    metrics = summarize_ledger(ledger, bar_hours=4)
+
+    assert metrics["predictive_observations"] == 4.0
+    assert metrics["rank_ic"] == pytest.approx(-1.0)

@@ -5,6 +5,7 @@ import pandas as pd
 
 from .config import CostConfig, ExecutionConfig
 from .expression import evaluate_formula
+from .stats import finite_float, pearson_corr, spearman_corr
 
 
 def signal_from_factor(factor: pd.Series, threshold: float) -> pd.Series:
@@ -92,8 +93,9 @@ def summarize_ledger(ledger: pd.DataFrame, bar_hours: int) -> dict[str, float]:
     predictive_factor = factor[valid]
     predictive_return = future[valid]
     has_variation = len(predictive_factor) > 1 and predictive_factor.std(ddof=0) > 0
-    ic = float(predictive_factor.corr(predictive_return)) if has_variation else 0.0
-    rank_ic = float(predictive_factor.corr(predictive_return, method="spearman")) if has_variation else 0.0
+    return_has_variation = len(predictive_return) > 1 and predictive_return.std(ddof=0) > 0
+    ic = pearson_corr(predictive_factor, predictive_return) if has_variation and return_has_variation else 0.0
+    rank_ic = spearman_corr(predictive_factor, predictive_return) if has_variation and return_has_variation else 0.0
     directional_win_rate = (
         float(((predictive_factor * predictive_return) > 0).mean())
         if len(predictive_factor)
@@ -101,9 +103,9 @@ def summarize_ledger(ledger: pd.DataFrame, bar_hours: int) -> dict[str, float]:
     )
     return {
         "bars": float(len(ledger)),
-        "ic": 0.0 if np.isnan(ic) else ic,
-        "rank_ic": 0.0 if np.isnan(rank_ic) else rank_ic,
-        "directional_win_rate": 0.0 if np.isnan(directional_win_rate) else directional_win_rate,
+        "ic": finite_float(ic),
+        "rank_ic": finite_float(rank_ic),
+        "directional_win_rate": finite_float(directional_win_rate),
         "predictive_observations": float(len(predictive_factor)),
         "sharpe": sharpe(r, bars_per_year),
         "cagr": cagr(r, bars_per_year),

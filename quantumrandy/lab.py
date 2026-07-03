@@ -10,6 +10,7 @@ from .backtest import run_formula_backtest, summarize_ledger
 from .config import CostConfig, ExecutionConfig, FilterConfig
 from .evaluator import AlphaResult
 from .expression import evaluate_formula
+from .stats import spearman_corr
 
 
 @dataclass(frozen=True)
@@ -133,12 +134,12 @@ def mature_factor_formulas() -> list[str]:
 
 
 def estimate_halflife_bars(factor: pd.Series, returns: pd.Series, max_horizon: int = 42) -> int:
-    base = abs(float(factor.corr(returns.shift(-1), method="spearman")))
-    if np.isnan(base) or base <= 1e-9:
+    base = abs(spearman_corr(factor, returns.shift(-1)))
+    if base <= 1e-9:
         return 0
     for horizon in range(2, max_horizon + 1):
-        corr = abs(float(factor.corr(returns.shift(-horizon), method="spearman")))
-        if np.isnan(corr) or corr <= base * 0.5:
+        corr = abs(spearman_corr(factor, returns.shift(-horizon)))
+        if corr <= base * 0.5:
             return horizon
     return max_horizon
 
