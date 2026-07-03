@@ -5,6 +5,7 @@
 Selected Research v1.2 as a failure-guided scoped candidate re-spec after the v1.1 clean negative result.
 
 - Spec: `docs/superpowers/specs/2026-07-03-research-v1-2-failure-guided-scoped-respec-design.md`.
+- Implementation plan: `docs/superpowers/plans/2026-07-03-research-v1-2-failure-guided-scoped-respec.md`.
 - Direction: stay research-only, use v1.1 failure memory, and re-spec a narrow independent non-funding cohort.
 - Target families: BTC volume-conviction hardening, BTC trend-quality simplification, and crash-resilient participation
   filters.
