@@ -1,5 +1,24 @@
 # QuantumRandy Project Log
 
+## 2026-07-03 Research v1.2 Failure-Guided Scoped Candidate Re-Spec
+
+Completed the research-only v1.2 failure-guided scoped candidate re-spec pass.
+
+- Report: `docs/RESEARCH_V1_2_FAILURE_GUIDED_SCOPED_RESPEC_REPORT.md`.
+- Current Research 1.0 survivor excluded: `qr_v09d_funding_return_long_001::thr_0p0_long_short_cap_0p5_none`.
+- Candidate cohort: `12` non-funding current-DSL candidates, `BTCUSDT_4h`,
+  `out_of_scope_policy=diagnostic_only`.
+- RandysLab artifacts: BTC primary declared review, ETH/SOL/BNB/AVAX diagnostics, BTC bundle correlation, and
+  scope-aware robustness gauntlet.
+- Robustness result: `60` candidate/variant rankings, `60` blocked, best blocked near miss survived `14/15`
+  scope-hard stresses.
+- Failure memory: `60` failed rows across `47` clusters.
+- Readiness verdict: `research_v1_2_failure_guided_candidate_not_found`.
+
+Boundary preserved: no RandyPortfolio implementation, no live trading, no exchange private keys, no runtime factor
+publishing, no automatic factor admission, no new formula base fields, no production regime labels, and no selector
+evidence61.
+
 ## 2026-07-03 Research v1.2 Design Selected
 
 Selected Research v1.2 as a failure-guided scoped candidate re-spec after the v1.1 clean negative result.

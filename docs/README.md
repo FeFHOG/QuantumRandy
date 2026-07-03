@@ -25,6 +25,8 @@ materials are archived under `docs/archive/legacy_runtime_beta/`.
   audit.
 - `RESEARCH_V1_1_INDEPENDENT_SCOPED_FAMILY_REPLICATION_REPORT.md`: independent non-funding scoped family replication
   pass after the first Research 1.0 candidate.
+- `RESEARCH_V1_2_FAILURE_GUIDED_SCOPED_RESPEC_REPORT.md`: failure-guided non-funding scoped candidate re-spec after
+  the v1.1 clean negative result.
 
 ## Stack Boundary
 
