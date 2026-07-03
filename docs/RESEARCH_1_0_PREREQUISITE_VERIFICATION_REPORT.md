@@ -2,7 +2,7 @@
 
 Date: 2026-07-03
 
-Status: prerequisite closure complete; Research 1.0 factor readiness remains blocked.
+Status: prerequisite closure complete; one Research 1.0 scoped candidate is replicated pending manual review.
 
 This report is research-only. It is not factor admission, runtime publishing, RandyPortfolio, live trading, or
 production regime classification.
@@ -10,11 +10,12 @@ production regime classification.
 ## Verdict
 
 ```text
-not_ready_for_research_1_0
+research_1_0_candidate_replicated_pending_manual_review
 ```
 
-Research 1.0 is still blocked because no strict-surviving robust candidate family exists yet. This pass closes the
-remaining engineering and data-readiness prerequisites that can be completed without inventing factor evidence.
+Research 1.0 prerequisite engineering and data-readiness work is closed. The v0.9d scope-aware replication pass now has
+one BTCUSDT declared-scope candidate/variant that survived all current scope-hard robustness stresses. This is still
+research-only evidence, not factor admission, runtime publishing, or portfolio approval.
 
 ## v0.9 Completion
 
@@ -33,7 +34,9 @@ remaining engineering and data-readiness prerequisites that can be completed wit
 - QuantumRandy had two local prerequisite-closure commits before this report commit:
   - `a625ce1 Make research rank metrics scipy-free`;
   - `6f4495e Add crypto-native feature readiness audit`.
-- RandysLab source was not modified in this pass.
+- RandysLab was later updated for scope-aware robustness ranking in
+  `randyslab/factor_candidate_robustness.py`, with regression coverage in
+  `tests/test_factor_candidate_robustness.py`.
 
 ## Engineering Hygiene
 
@@ -60,14 +63,21 @@ Fix:
 - `estimate_halflife_bars` now uses the same SciPy-free Spearman helper.
 - Added regression tests in `tests/test_stats.py` and `tests/test_smoke.py`.
 
-Fresh verification after the fix and feature-readiness implementation:
+Fresh verification after the current scope-aware replication update:
 
 ```text
-QuantumRandy: 125 passed in 1.74s
-RandysLab: 29 passed in 1.58s
+QuantumRandy: 129 passed in 1.80s
+RandysLab: 31 passed in 1.70s
 ```
 
-Focused evidence:
+Focused evidence from the current scope-aware replication update:
+
+```text
+QuantumRandy v0.9d and replication-memory tests: 4 passed in 0.17s
+RandysLab factor-candidate and correlation tests: 21 passed in 0.32s
+```
+
+Earlier focused evidence from the SciPy-free metric repair:
 
 ```text
 tests/test_stats.py tests/test_smoke.py tests/test_runtime.py: 24 passed in 0.71s
@@ -137,7 +147,7 @@ Scoped schema evidence:
   `out_of_scope_policy`.
 - v0.9a verifies that RandysLab sensitivity writes those fields into `factor_candidate_sensitivity_detail.csv`.
 - v0.9a verifies that RandysLab review rows include those fields plus `scope_mode`.
-- v0.9b and v0.9c preserve `scope_mode=declared` in the tracked reports.
+- v0.9b, v0.9c, and v0.9d preserve `scope_mode=declared` in the tracked reports.
 
 Formula profile evidence:
 
@@ -154,28 +164,32 @@ SUPPORTED_FIELDS = {"open", "high", "low", "close", "volume", "funding_rate"}
 
 ## Strict Factor-Family Status
 
-v0.9c strict review remains the current factor-family status:
+v0.9d strict candidate discovery and scope-aware replication now supersede the earlier v0.9c blocked-only status:
 
-- Candidate count: `9`.
-- Single-factor count: `6`.
-- Bundle count: `3`.
+- Candidate export count: `12`.
+- BTC primary watchlist rows: `15`.
+- Same-variant ETH-confirmed rows: `6`.
 - Intended scope: `BTCUSDT_4h`.
-- Declared-scope review verdict counts: `blocked_by_conservative_rules:9`.
-- Failure-memory conservative verdict counts: `blocked_pending_new_hypotheses:8, research_memory_only:1`.
+- Replication rankings: `60`.
+- Scope-hard stress scenarios per ranking: `15`.
+- Diagnostic-only scenarios per ranking: `1`.
+- Scope-replicated research candidate: `qr_v09d_funding_return_long_001::thr_0p0_long_short_cap_0p5_none`.
+- Replication failure-memory rows: `59` failed rows across `33` clusters.
 
-There is still no robust scoped candidate family that survives strict Research 1.0 review gates.
+Out-of-scope asset rows remain diagnostic labels. The replicated candidate is not admitted to production and does not
+change runtime behavior.
 
 ## Research 1.0 Gate Status
 
 | Gate | Status | Evidence |
 |---|---|---|
-| Candidate export schema | Closed | v0.9a/v0.9b/v0.9c tracked reports. |
-| Strict declared-scope judge alignment | Closed | v0.9a/v0.9b/v0.9c tracked reports. |
-| Failure-memory loop | Closed | v0.9b and v0.9c failure-memory reports. |
-| Repository test hygiene | Closed | QuantumRandy `125 passed`; RandysLab `29 passed`. |
+| Candidate export schema | Closed | v0.9a/v0.9b/v0.9c/v0.9d tracked reports. |
+| Strict declared-scope judge alignment | Closed | v0.9a/v0.9b/v0.9c/v0.9d tracked reports and scope-aware replication ranking. |
+| Failure-memory loop | Closed | v0.9b/v0.9c/v0.9d plus Research 1.0 replication failure memory. |
+| Repository test hygiene | Closed | Latest verification is recorded in `docs/RESEARCH_1_0_CANDIDATE_REPLICATION_REPORT.md`. |
 | Public crypto-native feature readiness | Closed as audit, not admitted | Feature audit shows all six groups `missing_source`. |
-| Strict-surviving robust factor family | Blocked | v0.9c blocked all 9 candidates. |
-| Research 1.0 readiness | Blocked | No strict-surviving robust candidate family exists yet. |
+| Strict-surviving robust factor family | Candidate pending manual review | v0.9d replication found 1 BTCUSDT scoped candidate surviving `15/15` hard stresses. |
+| Research 1.0 readiness | Candidate pending manual review | `research_1_0_candidate_replicated_pending_manual_review`; not admission or runtime publishing. |
 
 ## Boundary Confirmation
 

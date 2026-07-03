@@ -2,14 +2,17 @@
 
 ## 2026-07-03 Research 1.0 Candidate Replication
 
-Completed the first Research 1.0 replication gauntlet for v0.9d pending candidates.
+Completed the first scope-aware Research 1.0 replication gauntlet for v0.9d pending candidates.
 
 - Report: `docs/RESEARCH_1_0_CANDIDATE_REPLICATION_REPORT.md`.
 - RandysLab stressed the v0.9d candidate export across `5` pending variant ids, `16` scenarios, and BTC/ETH/SOL/BNB/AVAX.
 - Robustness artifacts: `10980` detail rows, `960` scenario summary rows, and `60` candidate/variant rankings.
-- No candidate/variant survived all stress scenarios; best near misses survived `14/16`.
-- QuantumRandy replication failure memory records `60` failed rows across `33` clusters.
-- Research 1.0 readiness verdict: `not_ready_for_research_1_0`.
+- Declared `BTCUSDT_4h` scope now hard-gates BTC rows across `15` stress scenarios; `exclude_btcusdt` is retained as
+  diagnostic-only rather than an automatic blocker.
+- One candidate/variant survived all scope-hard stresses:
+  `qr_v09d_funding_return_long_001::thr_0p0_long_short_cap_0p5_none`.
+- QuantumRandy replication failure memory records `59` failed rows across `33` clusters.
+- Research 1.0 readiness verdict: `research_1_0_candidate_replicated_pending_manual_review`.
 
 Boundary preserved: no RandyPortfolio implementation, no live trading, no exchange private keys, no runtime factor
 publishing, no automatic factor admission, no new base formula fields, no production regime labels, and no selector
@@ -49,7 +52,8 @@ evidence.
 - Added a read-only crypto-native feature-readiness audit for open interest, basis, funding term structure,
   liquidations, taker imbalance, and order-book depth.
 - No new formula base fields were admitted.
-- Research 1.0 readiness remains blocked because no strict-surviving robust factor family exists yet.
+- Research 1.0 readiness is superseded by the later v0.9d scope-aware replication pass, which produced one
+  replicated research candidate pending manual review.
 
 Boundary preserved: no RandyPortfolio implementation, no live trading, no exchange private keys, no runtime factor
 publishing, no automatic factor admission, no new base formula fields, and no selector evidence61.
