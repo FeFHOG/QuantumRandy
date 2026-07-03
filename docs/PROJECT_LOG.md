@@ -1,5 +1,21 @@
 # QuantumRandy Project Log
 
+## 2026-07-03 Research v1.3 Funding-Adjacent Scoped Re-Spec
+
+Completed the research-only v1.3 funding-adjacent scoped re-spec pass.
+
+- Report: `docs/RESEARCH_V1_3_FUNDING_ADJACENT_SCOPED_RESPEC_REPORT.md`.
+- Current Research 1.0 survivor excluded: `qr_v09d_funding_return_long_001::thr_0p0_long_short_cap_0p5_none`.
+- Candidate cohort: `16` funding-adjacent current-DSL candidates, `BTCUSDT_4h`,
+  `out_of_scope_policy=diagnostic_only`.
+- RandysLab artifacts: BTC primary declared review, ETH/SOL/BNB/AVAX diagnostics, BTC bundle correlation, and
+  scope-aware robustness gauntlet.
+- Readiness verdict: `research_v1_3_funding_adjacent_candidate_replicated_pending_manual_review`.
+
+Boundary preserved: no RandyPortfolio implementation, no live trading, no exchange private keys, no runtime factor
+publishing, no automatic factor admission, no new formula base fields, no production regime labels, and no selector
+evidence61.
+
 ## 2026-07-03 Research v1.3 Design Selected
 
 Selected Research v1.3 as a funding-adjacent scoped re-spec after v1.1 and v1.2 both returned clean negative

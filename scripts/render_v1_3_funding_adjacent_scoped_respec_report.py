@@ -82,7 +82,7 @@ def _render(
     lines = [
         "# Research v1.3 Funding-Adjacent Scoped Re-Spec Report",
         "",
-        "Date: 2026-07-04",
+        "Date: 2026-07-03",
         "",
         "Status: complete for the research-only funding-adjacent scoped re-spec report renderer.",
         "",

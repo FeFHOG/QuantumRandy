@@ -27,6 +27,8 @@ materials are archived under `docs/archive/legacy_runtime_beta/`.
   pass after the first Research 1.0 candidate.
 - `RESEARCH_V1_2_FAILURE_GUIDED_SCOPED_RESPEC_REPORT.md`: failure-guided non-funding scoped candidate re-spec after
   the v1.1 clean negative result.
+- `RESEARCH_V1_3_FUNDING_ADJACENT_SCOPED_RESPEC_REPORT.md`: funding-adjacent scoped re-spec after v1.1 and v1.2
+  clean negative non-funding results.
 
 ## Stack Boundary
 
