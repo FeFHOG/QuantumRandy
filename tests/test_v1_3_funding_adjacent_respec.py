@@ -6,8 +6,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from quantumrandy.expression import parse_formula
 import quantumrandy.v13_funding_adjacent_respec_export as v13_export
+from quantumrandy.expression import parse_formula
 from quantumrandy.v13_funding_adjacent_respec_export import (
     V13_BUNDLE_CANDIDATES,
     V13_EXCLUDED_RESEARCH10_SURVIVOR,

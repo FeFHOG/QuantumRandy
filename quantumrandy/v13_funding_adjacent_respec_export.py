@@ -77,21 +77,27 @@ V13_SINGLE_FACTOR_CANDIDATES = [
         "candidate_id": "qr_v13_funding_return_product_001",
         "formula_family": "funding_return_interaction",
         "formula": "zscore(mul(zscore(funding_rate,96),zscore(ret(close,12),96)),120)",
-        "hypothesis": "Funding pressure interacting with recent return may distinguish trend confirmation from crowding.",
+        "hypothesis": (
+            "Funding pressure interacting with recent return may distinguish trend confirmation from crowding."
+        ),
         "expected_failure_mode": "Can fail through higher turnover or redundancy with funding-return correlation.",
     },
     {
         "candidate_id": "qr_v13_smooth_funding_return_corr_001",
         "formula_family": "funding_return_interaction",
         "formula": "zscore(corr(ema(funding_rate,12),ret(close,24),96),120)",
-        "hypothesis": "Smoothed funding/return alignment may test carry locality at a horizon distinct from Research 1.0.",
+        "hypothesis": (
+            "Smoothed funding/return alignment may test carry locality at a horizon distinct from Research 1.0."
+        ),
         "expected_failure_mode": "Can fail if smoothing lags funding transitions or weakens blind-window behavior.",
     },
     {
         "candidate_id": "qr_v13_funding_volatility_penalty_001",
         "formula_family": "cost_aware_carry_filter",
         "formula": "neg(zscore(mul(funding_rate,std(ret(close,6),48)),120))",
-        "hypothesis": "Funding pressure penalized by short-horizon volatility may reduce fee and funding stress fragility.",
+        "hypothesis": (
+            "Funding pressure penalized by short-horizon volatility may reduce fee and funding stress fragility."
+        ),
         "expected_failure_mode": "Can fail by suppressing valid high-volatility funding opportunities.",
     },
     {
@@ -172,7 +178,9 @@ V13_BUNDLE_CANDIDATES = [
             "qr_v13_smooth_funding_retvol_norm_001",
             "qr_v13_funding_calm_filter_001",
         ],
-        "hypothesis": "Cost-aware carry filters may reduce fee and funding fragility without adding execution controls.",
+        "hypothesis": (
+            "Cost-aware carry filters may reduce fee and funding fragility without adding execution controls."
+        ),
     },
     {
         "candidate_id": "qr_v13_bundle_funding_transition_001",
@@ -182,7 +190,10 @@ V13_BUNDLE_CANDIDATES = [
             "qr_v13_funding_delta_reversal_001",
             "qr_v13_funding_delta_return_corr_001",
         ],
-        "hypothesis": "Funding transition components may test whether shifts in funding state are more robust than static level.",
+        "hypothesis": (
+            "Funding transition components may test whether shifts in funding state are more robust than static "
+            "level."
+        ),
     },
 ]
 
@@ -419,7 +430,9 @@ def _csv_frame(records: list[dict[str, Any]]) -> pd.DataFrame:
         row = dict(record)
         row["component_formulas"] = json.dumps(record.get("component_formulas", []), ensure_ascii=True)
         row["component_candidate_ids"] = json.dumps(record.get("component_candidate_ids", []), ensure_ascii=True)
-        row["portfolio_interface_contract"] = json.dumps(record.get("portfolio_interface_contract", {}), ensure_ascii=True)
+        row["portfolio_interface_contract"] = json.dumps(
+            record.get("portfolio_interface_contract", {}), ensure_ascii=True
+        )
         row["required_features"] = json.dumps(record.get("required_features", []), ensure_ascii=True)
         row["excluded_research10_survivor"] = json.dumps(
             record.get("excluded_research10_survivor", {}), ensure_ascii=True
