@@ -6,6 +6,7 @@ from typing import Any
 import pandas as pd
 
 from .failure_memory import write_failure_memory
+from .io_utils import safe_write_csv
 
 V13_FUNDING_ADJACENT_RESPEC_DESCRIPTION = "Research v1.3 funding-adjacent scoped re-spec robustness variant."
 V13_FUNDING_ADJACENT_RESPEC_FAILURE_MODE = (
@@ -13,6 +14,19 @@ V13_FUNDING_ADJACENT_RESPEC_FAILURE_MODE = (
     "blind-window weakness, fee or funding stress fragility, BTC scope weakness, crash-period drawdown, "
     "or diagnostic out-of-scope concentration."
 )
+V13_FAILURE_MEMORY_EXTRA_COLUMNS = [
+    "funding_adjacent_status",
+    "independence_claim",
+    "source_robustness_dir",
+    "stress_survival",
+    "stress_survival_score",
+    "blind_sharpe",
+    "worst_max_dd",
+]
+V13_BOOKKEEPING_LABELS = {
+    "funding_adjacent_respec",
+    "funding_adjacent_family",
+}
 
 
 def build_v1_3_funding_adjacent_respec_memory_rows(
@@ -42,7 +56,7 @@ def build_v1_3_funding_adjacent_respec_memory_rows(
                 "out_of_scope_policy": "diagnostic_only",
                 "conservative_verdict": verdict,
                 "passed": passed,
-                "kill_reasons": [] if passed else _kill_reasons(raw, labels),
+                "kill_reasons": [] if passed else _kill_reasons(raw),
                 "failure_labels": "|".join(labels),
                 "source_review_dir": source_robustness_dir,
                 "source_robustness_dir": source_robustness_dir,
@@ -68,7 +82,9 @@ def write_v1_3_funding_adjacent_respec_failure_memory(
         ranking_csv,
         source_robustness_dir=source_robustness_dir,
     )
-    return write_failure_memory(rows, out_dir)
+    manifest = write_failure_memory(rows, out_dir)
+    _enrich_failure_memory_csv(rows, out_dir)
+    return manifest
 
 
 def _labels(row: dict[str, Any]) -> list[str]:
@@ -83,11 +99,43 @@ def _labels(row: dict[str, Any]) -> list[str]:
     return sorted(label for label in labels if label)
 
 
-def _kill_reasons(row: dict[str, Any], labels: list[str]) -> list[str]:
-    reasons = _split_labels(row.get("failure_reasons", ""))
+def _kill_reasons(row: dict[str, Any]) -> list[str]:
+    reasons = _without_bookkeeping(_split_labels(row.get("failure_reasons", "")))
     if reasons:
         return reasons
-    return labels
+    reasons = _without_bookkeeping(_split_labels(row.get("diagnostic_failure_reasons", "")))
+    reasons.extend(_without_bookkeeping(_split_labels(row.get("robustness_labels", "")), existing=reasons))
+    if reasons:
+        return reasons
+    verdict = str(row.get("conservative_verdict", "")).strip()
+    if verdict:
+        return [verdict]
+    return ["blocked_pending_new_hypotheses"]
+
+
+def _enrich_failure_memory_csv(rows: list[dict[str, Any]], out_dir: str | Path) -> None:
+    failed_rows = {str(row.get("candidate_id", "")): row for row in rows if row.get("passed") is False}
+    if not failed_rows:
+        return
+    out = Path(out_dir)
+    failure_path = out / "failure_memory.csv"
+    failure_memory = pd.read_csv(failure_path)
+    for column in V13_FAILURE_MEMORY_EXTRA_COLUMNS:
+        failure_memory[column] = failure_memory["candidate_id"].map(
+            lambda candidate_id, column=column: failed_rows.get(str(candidate_id), {}).get(column, "")
+        )
+    safe_write_csv(failure_path, failure_memory, out / "events.jsonl")
+
+
+def _without_bookkeeping(labels: list[str], *, existing: list[str] | None = None) -> list[str]:
+    seen = set(existing or [])
+    real_labels = []
+    for label in labels:
+        if label in V13_BOOKKEEPING_LABELS or label in seen:
+            continue
+        real_labels.append(label)
+        seen.add(label)
+    return real_labels
 
 
 def _stress_survival(row: dict[str, Any]) -> str:

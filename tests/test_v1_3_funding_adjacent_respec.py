@@ -364,4 +364,75 @@ def test_v1_3_failure_memory_records_only_failed_rankings(tmp_path) -> None:
     failed = failure_memory.iloc[0]
     assert failed["candidate_id"] == "qr_v13_funding_return_short_corr_001::thr_0p0_long_flat_cap_0p5_calm_vol_lte_1p5"
     assert failed["candidate_family"] == "research_v1_3_funding_adjacent_respec_variant"
+    assert failed["funding_adjacent_status"] == "funding_adjacent_not_independent_non_funding"
+    assert failed["independence_claim"] == "none_funding_adjacent_locality_probe"
+    assert failed["source_robustness_dir"] == source_robustness_dir
+    assert failed["stress_survival"] == "12/15"
+    assert failed["stress_survival_score"] == 0.8
+    assert failed["blind_sharpe"] == 0.1
+    assert failed["worst_max_dd"] == 0.45
     assert failed["failed_gates"] == "weak_blind_window"
+
+
+def test_v1_3_failure_memory_handles_missing_stress_scores_and_real_gate_fallbacks(tmp_path) -> None:
+    from quantumrandy.v13_funding_adjacent_respec_memory import (
+        build_v1_3_funding_adjacent_respec_memory_rows,
+        write_v1_3_funding_adjacent_respec_failure_memory,
+    )
+
+    source_robustness_dir = "reports/factor_candidate_robustness/research_v1_3_funding_adjacent_respec"
+    ranking_csv = tmp_path / "watchlist_robustness_variant_ranking.csv"
+    pd.DataFrame(
+        [
+            {
+                "candidate_id": "qr_v13_blank_score_001",
+                "variant_id": "blank_score",
+                "formula": "zscore(delta(funding_rate,12),96)",
+                "conservative_verdict": "blocked_pending_new_hypotheses",
+                "failure_reasons": "",
+                "diagnostic_failure_reasons": "",
+                "robustness_labels": "",
+                "stress_survival_score": "",
+                "stress_survival_count": 10,
+                "stress_count": 15,
+            },
+            {
+                "candidate_id": "qr_v13_invalid_score_001",
+                "variant_id": "invalid_score",
+                "formula": "zscore(ema(funding_rate,24),96)",
+                "conservative_verdict": "blocked_pending_new_hypotheses",
+                "failure_reasons": "",
+                "diagnostic_failure_reasons": "sol_avax_concentration",
+                "robustness_labels": "funding_adjacent_respec|funding_adjacent_family|fee_fragility",
+                "stress_survival_score": "not_a_number",
+                "stress_survival_count": 11,
+                "stress_count": 15,
+            },
+        ]
+    ).to_csv(ranking_csv, index=False)
+
+    rows = build_v1_3_funding_adjacent_respec_memory_rows(
+        ranking_csv,
+        source_robustness_dir=source_robustness_dir,
+    )
+    manifest = write_v1_3_funding_adjacent_respec_failure_memory(
+        ranking_csv,
+        tmp_path / "failure_memory",
+        source_robustness_dir=source_robustness_dir,
+    )
+
+    assert manifest["failure_count"] == 2
+    for row in rows:
+        labels = set(str(row["failure_labels"]).split("|"))
+        assert "replication_stress_fragility" not in labels
+
+    failure_memory = pd.read_csv(tmp_path / "failure_memory" / "failure_memory.csv").fillna("")
+    blank_failed = failure_memory[failure_memory["candidate_id"] == "qr_v13_blank_score_001::blank_score"].iloc[0]
+    invalid_failed = failure_memory[failure_memory["candidate_id"] == "qr_v13_invalid_score_001::invalid_score"].iloc[0]
+
+    assert blank_failed["failed_gates"] == "blocked_pending_new_hypotheses"
+    assert invalid_failed["failed_gates"] == "sol_avax_concentration,fee_fragility"
+    assert "funding_adjacent_respec" not in invalid_failed["failed_gates"]
+    assert "funding_adjacent_family" not in invalid_failed["failed_gates"]
+    assert blank_failed["stress_survival_score"] == ""
+    assert invalid_failed["stress_survival_score"] == ""
