@@ -1,5 +1,19 @@
 # QuantumRandy Project Log
 
+## 2026-07-04 Research v1.3 Server Observation Runbook
+
+Added a server-agent handoff runbook for the v1.3 paper-only observation.
+
+- Runbook: `docs/RESEARCH_V1_3_SERVER_OBSERVATION_RUNBOOK.md`.
+- Current verdict: `research_v1_3_server_observation_runbook_ready_paper_only`.
+- Handoff path: prepare the QuantumRandy starter packet, verify the manifest, then use RandysLab's strict paper sweep
+  with the frozen v1.3 formula, two reviewed survivor variants, `BTCUSDT_4h` scope, `0.5` exposure cap, and
+  `calm_vol_lte_1p5` volatility cap.
+
+Boundary preserved: no RandyPortfolio implementation, no new repository, no live trading, no exchange private keys, no
+runtime factor publishing, no runtime server startup, no automatic factor admission, no production regime labels, no new
+formula base fields, and no selector evidence61.
+
 ## 2026-07-04 Pre-Third-Project Readiness Package
 
 Completed the pre-third-project documentation package after the v1.3 funding-adjacent survivor review.

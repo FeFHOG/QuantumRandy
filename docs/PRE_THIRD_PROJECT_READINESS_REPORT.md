@@ -26,6 +26,7 @@ gate for the manually reviewed v1.3 survivor family, followed by one final launc
 | Funding-adjacent locality probe | Complete with survivor | `docs/RESEARCH_V1_3_FUNDING_ADJACENT_SCOPED_RESPEC_REPORT.md` |
 | v1.3 manual review | Complete | `docs/RESEARCH_V1_3_MANUAL_REVIEW_REPORT.md` |
 | Paper observation protocol | Ready, not started | `docs/RESEARCH_V1_3_PAPER_OBSERVATION_PROTOCOL.md` |
+| Server paper-observation runbook | Ready, not started | `docs/RESEARCH_V1_3_SERVER_OBSERVATION_RUNBOOK.md` |
 | Paper observation starter packet | Scripted, not started | `scripts/prepare_v1_3_paper_observation.py` |
 | Stack boundary | Current | `docs/RANDY_STACK_TARGET_ARCHITECTURE.md` |
 
@@ -84,7 +85,8 @@ The initial third-project scope should not include:
 
 Only these gates remain:
 
-1. Run `python scripts/prepare_v1_3_paper_observation.py` to create the ignored starter packet.
+1. Follow `docs/RESEARCH_V1_3_SERVER_OBSERVATION_RUNBOOK.md` to create the ignored starter packet and server-side
+   paper-only observation outputs.
 2. Execute the v1.3 paper-observation protocol for the required minimum window.
 3. Write `docs/RESEARCH_V1_3_PAPER_OBSERVATION_REPORT.md`.
 4. Run a final boundary and repository audit.

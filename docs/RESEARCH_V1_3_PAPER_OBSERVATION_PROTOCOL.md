@@ -143,6 +143,11 @@ This writes ignored files under `reports/paper_observation/research_v1_3_funding
 The starter packet is still `ready_not_started`; it does not update runtime manifests, call a runtime server, submit a
 publish payload, or start live execution.
 
+## Server Handoff
+
+For server-agent execution, use `docs/RESEARCH_V1_3_SERVER_OBSERVATION_RUNBOOK.md`. That runbook is the current
+paper-only handoff path and supersedes archived runtime-beta server runbooks for this observation.
+
 ## Boundary Confirmation
 
 - No RandyPortfolio implementation.
