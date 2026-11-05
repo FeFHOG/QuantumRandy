@@ -13,6 +13,8 @@ materials are archived under `docs/archive/legacy_runtime_beta/`.
 - `PHASE2A_CROSS_SECTIONAL_RESULTS.md`: results; no holdout candidate, taker flow is the one robust lead.
 - `PHASE2A_TAKER_FORWARD_PREREGISTRATION.md`: forward paper observation of `taker_7d` from 2026-11-06 under an
   anytime-valid betting test; machine-readable copy in `../preregistrations/`.
+- `PHASE2B_CROSS_SECTIONAL_PROTOCOL.md`: refined family (taker horizons, low volatility against the universe basket,
+  buffered basis, open-interest positioning), fixed before results; the Deflated Sharpe convention awaits the owner.
 - `RESEARCH_V1_3_PAPER_OBSERVATION_REPORT.md`: final v1.3 paper-observation verdict
   (`fail_return_to_research`, edge not demonstrated).
 
