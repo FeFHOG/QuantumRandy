@@ -28,6 +28,19 @@ many assets against each other gives far more independent observations per day, 
 - Only data up to the close of day t is used.
 - Development window: from the first day with at least 50 eligible contracts until 2026-09-05.
 
+### Amendment 2026-11-05 (before any result was computed)
+
+The archive turned out to include perpetuals on non-crypto underlyings: US, Korean and Hong Kong stocks, ETFs and
+leveraged ETFs, commodities (gold, silver, copper, natural gas, oil), FX (USDBRL) and pre-IPO contracts. Binance's
+`exchangeInfo` endpoint, which reports the underlying type, is geo-blocked from this machine (HTTP 451). Therefore:
+
+- The universe contains crypto underlyings only. Excluded: equities, ETFs and equity indices, commodities and
+  commodity-backed tokens (PAXG, XAUT), FX, pre-IPO contracts, and composite crypto indices (BTCDOM, DEFI, FOOTBALL,
+  BLUEBIRD). The list is `NON_CRYPTO` in `quantumrandy/xsection/universe.py`, compiled from symbol names and listing
+  dates before any factor was evaluated.
+- Robustness check: every result is also reported with the universe restricted to contracts listed before
+  2025-09-01, before Binance's non-crypto listings, so the exact exclusion list cannot drive a conclusion.
+
 ## Execution and Costs
 
 - Scores computed at the close of day t set positions held during day t+1.
