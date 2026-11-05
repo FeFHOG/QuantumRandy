@@ -2,9 +2,9 @@
 
 Date: 2026-11-05
 
-Status: fixed before any Phase 2b result was computed, except one open choice: the variance convention for Deflated
-Sharpe (criterion 5), which the owner selects before the runner is executed. Any change made before execution is
-recorded below with its date. Changing a rule after results are seen voids the corresponding conclusion.
+Status: fixed before any Phase 2b result was computed. The owner chose convention B for criterion 5 on 2026-11-05,
+before the evaluation code was written. Any change made before execution is recorded below with its date. Changing a
+rule after results are seen voids the corresponding conclusion.
 
 ## Question
 
@@ -79,10 +79,10 @@ if all of these hold in its development window:
 3. Net Sharpe of at least 0.5 at 1x costs and at least 0 at 2x costs.
 4. Positive mean IC in at least 4 of the 5 full years 2021-2025. Open-interest trials need at least 3 of the 4 full
    years 2022-2025.
-5. Deflated Sharpe of at least 0.95 with N = 18, under the variance convention the owner selects (A or B below). The
-   runner reports both.
+5. Deflated Sharpe of at least 0.95 with N = 18, under convention B below (null sampling variance), chosen by the
+   owner. The runner also reports convention A.
 
-**Open choice for criterion 5.** Deflated Sharpe compares a trial's Sharpe ratio with the best of N trials that have
+**Criterion 5 convention (owner's choice: B).** Deflated Sharpe compares a trial's Sharpe ratio with the best of N trials that have
 no edge. Its spread comes from a variance, and two conventions exist. Figures are daily Sharpe ratios without the 3%
 risk-free rate, with the annual equivalents in brackets, over Phase 2a's 2,133 development days.
 
@@ -117,3 +117,4 @@ the holdout stays sealed.
 
 | Date | Change | Reason |
 |---|---|---|
+| 2026-11-05 | Criterion 5 uses convention B (null sampling variance, N = 18). | Owner's choice, made before the evaluation code was written. |
