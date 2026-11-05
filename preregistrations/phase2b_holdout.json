@@ -1,0 +1,33 @@
+{
+  "id": "phase2b_holdout_v1",
+  "protocol": "docs/PHASE2B_CROSS_SECTIONAL_PROTOCOL.md",
+  "created": "2026-11-05",
+  "hypothesis": "Each candidate's book has a positive mean daily net return at 1x costs over the holdout.",
+  "candidates": [
+    {
+      "name": "taker_14d",
+      "definition": "14-day mean taker-buy share of quote volume minus 0.5",
+      "book": "quantile_weights"
+    },
+    {
+      "name": "taker_30d",
+      "definition": "30-day mean taker-buy share of quote volume minus 0.5",
+      "book": "quantile_weights"
+    },
+    {
+      "name": "composite",
+      "members": [
+        "taker_14d",
+        "taker_30d"
+      ],
+      "book": "quantile_weights",
+      "definition": "equal-weight average of the members' cross-sectional rank scores"
+    }
+  ],
+  "holdout": [
+    "2026-09-06",
+    "2026-10-31"
+  ],
+  "decision_rule": "A candidate passes if its mean daily net return over the holdout days is above zero at 1x costs. Passing candidates move to forward paper observation under their own pre-registration with the same betting test; failing candidates are retired.",
+  "development_summary_sha256": "627b556ac53d614cdff19b00d67db169b350ea16f7b14beb76d844170e41d841"
+}
