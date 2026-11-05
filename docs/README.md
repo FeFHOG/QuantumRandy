@@ -9,6 +9,8 @@ materials are archived under `docs/archive/legacy_runtime_beta/`.
   2026-09-06), and work-item status. Start here.
 - `PHASE1_EVIDENCE_RESCORE.md`: what survives the fixed engine, multiple-testing statistics and an equal-budget random
   baseline (nothing does).
+- `PHASE2A_CROSS_SECTIONAL_PROTOCOL.md`: cross-sectional protocol for Binance perpetuals, fixed before results.
+- `PHASE2A_CROSS_SECTIONAL_RESULTS.md`: results; no holdout candidate, taker flow is the one robust lead.
 - `RESEARCH_V1_3_PAPER_OBSERVATION_REPORT.md`: final v1.3 paper-observation verdict
   (`fail_return_to_research`, edge not demonstrated).
 

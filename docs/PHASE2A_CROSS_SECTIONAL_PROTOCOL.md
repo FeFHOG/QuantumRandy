@@ -3,7 +3,8 @@
 Date: 2026-11-05
 
 Status: fixed before any cross-sectional result was computed. Changing a rule below after seeing results voids the
-corresponding conclusion; record any change as a dated amendment with its reason.
+corresponding conclusion; record any change as a dated amendment with its reason. Executed on 2026-11-05: no holdout
+candidates; see `docs/PHASE2A_CROSS_SECTIONAL_RESULTS.md`.
 
 ## Question
 
