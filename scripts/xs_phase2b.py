@@ -11,8 +11,8 @@ reports/phase2b/. Refuses to run while the metrics download is incomplete. Holdo
 qualifies, it also writes the holdout pre-registration ``preregistrations/phase2b_holdout.json`` mechanically.
 
 Step 3, ``--open-holdout PATH``: once that pre-registration is committed, open the holdout through the guard (recorded
-in the trial ledger; only one pre-registration can ever open it) and apply the sign check to every candidate. Contracts
-first eligible inside the holdout are classified with the forward registration's new-listing rule.
+in the trial ledger; only one pre-registration can ever open it) and apply the sign check to every candidate. Listings
+that were never reviewed are classified with the forward registration's new-listing rule.
 """
 
 from __future__ import annotations
@@ -253,10 +253,10 @@ def open_holdout_step(path: Path, args: argparse.Namespace) -> None:
 def holdout_universe(panel: Panel) -> tuple[pd.DataFrame, dict[str, str]]:
     """The top-50 universe through the holdout, with every contract classified as the forward observation classifies it.
 
-    NON_CRYPTO was checked with the weekend test on contracts that entered the development universe. Contracts first
-    eligible inside the holdout get the forward registration's new-listing rule: an unreviewed contract first listed on
-    or after 2025-09-01 needs a weekend ratio of at least 0.45 over its first 60 bars, which are complete on the day it
-    becomes eligible. Development-window days are unchanged. Returns the mask and {symbol: exclusion rule}.
+    NON_CRYPTO was checked with the weekend test on contracts that entered the development universe. Every other
+    contract gets the forward registration's new-listing rule: an unreviewed contract first listed on or after
+    2025-09-01 needs a weekend ratio of at least 0.45 over its first 60 bars, which are complete on the day it becomes
+    eligible. Development-window days are unchanged. Returns the mask and {symbol: exclusion rule}.
     """
     rules = json.loads(FORWARD_REGISTRATION.read_text(encoding="utf-8"))["universe"]
     history = int(rules["min_history_bars"])

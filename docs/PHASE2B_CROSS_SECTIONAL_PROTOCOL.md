@@ -112,11 +112,12 @@ once. A candidate passes if its mean daily net return over the 56 holdout days i
 omits 2026-10-28, so the 56 days are 55 bars, the 2026-10-29 bar spanning both days; the sign of the mean is the same
 either way. That is a sign check, not proof.
 
-The holdout universe classifies contracts that first become eligible inside the holdout as the forward observation
-does (`preregistrations/phase2a_taker_7d_forward.json`, `new_listing_rule`): a contract outside its reviewed list that
-was first listed on or after 2025-09-01 needs a weekend ratio of at least 0.45 over its first 60 bars, which are
-complete on the day it becomes eligible. Development-window days are unchanged. `holdout.json` lists the contracts
-this excludes. A passing candidate moves to forward paper observation under its own pre-registration with the
+The holdout universe classifies contracts as the forward observation does
+(`preregistrations/phase2a_taker_7d_forward.json`, `new_listing_rule`): a contract outside its reviewed list that was
+first listed on or after 2025-09-01 needs a weekend ratio of at least 0.45 over its first 60 bars, which are complete
+on the day it becomes eligible. No such contract was ever in the development universe, so development-window days are
+unchanged. The rule can also exclude a crypto token that trades quietly at weekends. `holdout.json` lists the
+contracts it excludes. A passing candidate moves to forward paper observation under its own pre-registration with the
 same betting test and constants from its development window. A failing candidate is retired. If no trial qualifies,
 the holdout stays sealed.
 
@@ -125,4 +126,4 @@ the holdout stays sealed.
 | Date | Change | Reason |
 |---|---|---|
 | 2026-11-05 | Criterion 5 uses convention B (null sampling variance, N = 18). | Owner's choice, made before the evaluation code was written. |
-| 2026-11-05 | The holdout universe applies the forward registration's new-listing rule to contracts first eligible inside the holdout. | `NON_CRYPTO` was checked with the weekend test only on contracts that entered the development universe. 28 contracts listed in July and August 2026 first become eligible inside the holdout, and 16 newer contracts that never entered the development universe already fail the weekend test on development data. Checked on the sealed panel: the development-window universe is identical, and none of the 28 ever entered it. Made before any Phase 2b result was computed. |
+| 2026-11-05 | The holdout universe applies the forward registration's new-listing rule to unreviewed contracts listed since 2025-09-01. | `NON_CRYPTO` was checked with the weekend test only on contracts that entered the development universe. On development data, 16 contracts listed since 2025-09-01 that never entered it already fail the weekend test, and 20 more, listed from 2026-07-09 to 2026-09-01, first reach the 60-bar minimum inside the holdout. Checked on the sealed panel: the development-window universe is identical. Made before any Phase 2b result was computed. (Counts corrected after the run; the rule is unchanged.) |

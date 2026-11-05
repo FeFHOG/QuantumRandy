@@ -14,7 +14,9 @@ materials are archived under `docs/archive/legacy_runtime_beta/`.
 - `PHASE2A_TAKER_FORWARD_PREREGISTRATION.md`: forward paper observation of `taker_7d` from 2026-11-06 under an
   anytime-valid betting test; machine-readable copy in `../preregistrations/`.
 - `PHASE2B_CROSS_SECTIONAL_PROTOCOL.md`: refined family (taker horizons, low volatility against the universe basket,
-  buffered basis, open-interest positioning), fixed before results; the Deflated Sharpe convention awaits the owner.
+  buffered basis, open-interest positioning), fixed before results; Deflated Sharpe convention B (owner's choice).
+- `PHASE2B_CROSS_SECTIONAL_RESULTS.md`: results; `taker_14d`, `taker_30d` and their composite are holdout candidates
+  (`../preregistrations/phase2b_holdout.json`), and the holdout awaits the owner's go-ahead.
 - `RESEARCH_V1_3_PAPER_OBSERVATION_REPORT.md`: final v1.3 paper-observation verdict
   (`fail_return_to_research`, edge not demonstrated).
 
