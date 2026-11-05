@@ -19,6 +19,11 @@ class ExecutionConfig:
     delay_bars: int = 1
     max_exposure_abs: float = 1.0
     exposure_threshold: float = 0.15
+    # How factor values become positions (see backtest.factor_score). "rolling_zscore" standardizes each factor over
+    # its own trailing window, so a formula's offset or trend cannot become a permanent position. "legacy_tanh"
+    # reproduces results produced before 2026-11-05.
+    signal_mode: str = "rolling_zscore"
+    signal_zscore_window: int = 180
 
 
 @dataclass(frozen=True)

@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 
-from .backtest import run_formula_backtest, summarize_ledger
+from .backtest import factor_score, run_formula_backtest, summarize_ledger
 from .config import CostConfig, ExecutionConfig, FilterConfig
 from .evaluator import AlphaResult
 from .expression import evaluate_formula
@@ -45,22 +45,30 @@ def run_brutal_filter(
     bar_hours: int,
     accepted_formulas: list[str],
     thresholds: FilterThresholds | None = None,
+    *,
+    history: pd.DataFrame | None = None,
 ) -> dict:
+    """Four-gate filter. ``history`` (a longer frame containing both windows) warms factors up before each window;
+    without it, contiguous train/validation frames are joined so validation at least inherits the training bars."""
     thresholds = thresholds or FilterThresholds()
-    train_ledger = run_formula_backtest(train_data, formula, costs, execution)
-    validation_ledger = run_formula_backtest(validation_data, formula, costs, execution)
+    if history is None:
+        history = _contiguous_history(train_data, validation_data)
+    train_ledger = run_formula_backtest(train_data, formula, costs, execution, history=history)
+    validation_ledger = run_formula_backtest(validation_data, formula, costs, execution, history=history)
     train_metrics = summarize_ledger(train_ledger, bar_hours)
     validation_metrics = summarize_ledger(validation_ledger, bar_hours)
-    factor = train_ledger["factor"].replace([np.inf, -np.inf], np.nan)
+    score = train_ledger["score"].replace([np.inf, -np.inf], np.nan)
 
     pred_pass = (
         train_metrics["rank_ic"] >= thresholds.min_rank_ic
         and train_metrics["directional_win_rate"] >= thresholds.min_directional_win_rate
     )
-    max_corr = max_factor_corr(factor, train_data, accepted_formulas, self_formula=formula)
+    max_corr = max_factor_corr(
+        score, train_data, accepted_formulas, self_formula=formula, execution=execution, history=history
+    )
     homo_pass = max_corr < thresholds.max_corr
     audit_pass = train_metrics["sharpe"] >= thresholds.min_cost_sharpe
-    halflife = estimate_halflife_bars(factor, train_data["close"].pct_change().fillna(0.0), max_horizon=42)
+    halflife = estimate_halflife_bars(score, train_data["close"].pct_change().fillna(0.0), max_horizon=42)
     life_pass = validation_metrics["sharpe"] >= thresholds.min_validation_sharpe and halflife >= thresholds.min_halflife_bars
 
     gates = {
@@ -108,13 +116,29 @@ def brutal_rank_score(gates: dict, train_metrics: dict, validation_metrics: dict
     return float(100.0 * (0.35 * gate_score + 0.25 * rank_ic_score + 0.20 * sharpe_score + 0.15 * validation_score + 0.05 * dd_score))
 
 
-def max_factor_corr(factor: pd.Series, data: pd.DataFrame, accepted_formulas: list[str], *, self_formula: str = "") -> float:
+def max_factor_corr(
+    factor: pd.Series,
+    data: pd.DataFrame,
+    accepted_formulas: list[str],
+    *,
+    self_formula: str = "",
+    execution: ExecutionConfig | None = None,
+    history: pd.DataFrame | None = None,
+) -> float:
+    """Largest absolute correlation with the library. With ``execution`` the other factors are normalized the same way
+    as positions are, so ``factor`` should be a score; without it raw factor values are compared."""
     values = []
+    source = data if history is None or data.empty else history.loc[: data.index[-1]]
     for other in mature_factor_formulas() + accepted_formulas:
         if other == self_formula:
             continue
         try:
-            other_factor = evaluate_formula(other, data).reindex(factor.index)
+            other_factor = evaluate_formula(other, source)
+            if execution is not None:
+                other_factor = factor_score(
+                    other_factor, mode=execution.signal_mode, window=execution.signal_zscore_window
+                )
+            other_factor = other_factor.reindex(factor.index)
         except Exception:
             continue
         corr = factor.corr(other_factor)
@@ -134,14 +158,36 @@ def mature_factor_formulas() -> list[str]:
 
 
 def estimate_halflife_bars(factor: pd.Series, returns: pd.Series, max_horizon: int = 42) -> int:
-    base = abs(spearman_corr(factor, returns.shift(-1)))
-    if base <= 1e-9:
+    """First forward horizon at which the factor's signed rank correlation falls to half its one-bar value.
+
+    Correlations keep their sign: comparing absolute values counted a flip to the opposite sign as persistence.
+    Any factor with a non-zero one-bar correlation scores at least 2, so ``min_halflife_bars`` must exceed 2 to bind.
+    """
+    base = spearman_corr(factor, returns.shift(-1))
+    if abs(base) <= 1e-9:
         return 0
+    direction = 1.0 if base > 0 else -1.0
     for horizon in range(2, max_horizon + 1):
-        corr = abs(spearman_corr(factor, returns.shift(-horizon)))
-        if corr <= base * 0.5:
+        if direction * spearman_corr(factor, returns.shift(-horizon)) <= abs(base) * 0.5:
             return horizon
     return max_horizon
+
+
+def passes_basic(metrics: dict[str, float], filters: FilterConfig, *, in_sample: bool) -> bool:
+    """Shared per-window pass rule: predictive gate plus the cost-Sharpe threshold in-sample, or the validation-Sharpe
+    threshold out of sample. Walk-forward and multi-asset evaluation used different Sharpe thresholds before."""
+    min_sharpe = filters.min_cost_sharpe if in_sample else filters.min_validation_sharpe
+    return (
+        metrics.get("rank_ic", 0.0) >= filters.min_rank_ic
+        and metrics.get("directional_win_rate", 0.0) >= filters.min_directional_win_rate
+        and metrics.get("sharpe", 0.0) >= min_sharpe
+    )
+
+
+def _contiguous_history(train_data: pd.DataFrame, validation_data: pd.DataFrame) -> pd.DataFrame | None:
+    if train_data.empty or validation_data.empty or validation_data.index[0] <= train_data.index[-1]:
+        return None
+    return pd.concat([train_data, validation_data])
 
 
 def kill_reasons(gates: dict) -> list[str]:

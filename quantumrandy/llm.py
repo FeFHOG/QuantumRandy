@@ -58,8 +58,10 @@ class FormulaGenerator:
         max_formula_operators: int = 8,
         prompt_config: "PromptConfig | None" = None,
         llm_config: "LLMConfig | None" = None,
+        symbol: str = "BTCUSDT",
     ) -> None:
         _load_env_file()
+        self.symbol = symbol
         if llm_config is not None and llm_config.use_proxy:
             os.environ.setdefault("LLM_PROXY", f"http://{llm_config.proxy_host}:{llm_config.proxy_port}")
         self.use_llm = use_llm
@@ -352,7 +354,7 @@ class FormulaGenerator:
             "overfit_risk": "keep it simple — prefer single-field transforms with one or two operators, avoid stacking many nested functions",
         }
         prompt = {
-            "task": "Design novel crypto alpha factors for BTCUSDT 4h perpetual futures backtesting.",
+            "task": f"Design novel crypto alpha factors for {self.symbol} 4h perpetual futures backtesting.",
             "base_formula": base_formula,
             "target_dimension": dimension,
             "dimension_hint": dim_hints.get(dimension, "improve this dimension"),
@@ -470,7 +472,7 @@ class FormulaGenerator:
             formula = item.get("formula") if isinstance(item, dict) else str(item)
             description = item.get("description", "") if isinstance(item, dict) else ""
             metadata = _proposal_metadata_from_item(item if isinstance(item, dict) else {})
-            metadata["generation_source"] = "llm_rewrite"
+            metadata["generation_source"] = "llm_proposal"
             try:
                 canonical = validate_formula_shape(str(formula), self.max_formula_depth, self.max_formula_operators).canonical()
             except ValueError as exc:
@@ -551,7 +553,9 @@ class FormulaGenerator:
             else "You are a quant alpha research assistant. Output valid JSON with detailed economic explanations for each formula."
         )
         prompt = {
-            "task": "Rewrite a failed crypto alpha factor into better candidates for BTCUSDT 4h perpetual futures.",
+            "task": (
+                f"Rewrite a failed crypto alpha factor into better candidates for {self.symbol} 4h perpetual futures."
+            ),
             "failed_formula": formula,
             "failed_gates": failed_gates,
             "failure_detail": _compact_failure_detail(failure_detail),

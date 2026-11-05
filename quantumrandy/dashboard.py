@@ -12,7 +12,7 @@ import pandas as pd
 
 from .backtest import run_formula_backtest, summarize_ledger, equity_curve, max_drawdown
 from .config import CostConfig, ExecutionConfig
-from .data import align_funding_to_ohlcv, read_ohlcv, read_funding
+from .data import load_market_frame
 from .research import ResearchSession
 
 C_RESET = "\033[0m"
@@ -878,26 +878,28 @@ HTML = r"""<!doctype html>
 
 
 _blind_cache: dict | None = None
+# Jan-Apr 2026 has been scored repeatedly by earlier passes; see docs/PHASE1_EVALUATION_SPINE.md (data policy).
+BLIND_2026_STATUS = "burned: reused by earlier research passes, not confirmation evidence"
 
 
-def _load_blind_data():
-    """Load 2026 blind validation data. Cached at module level for speed."""
+def _load_blind_data(base_dir: Path | None = None):
+    """Load 2026 blind validation data. The default location is cached at module level for speed."""
     global _blind_cache
-    if _blind_cache is not None:
+    if base_dir is None and _blind_cache is not None:
         return _blind_cache["data"], _blind_cache["bar_hours"], _blind_cache["costs"], _blind_cache["execution"]
-    base = Path(__file__).resolve().parents[2] / "RandysLab-STRICT4H" / "data"
+    base = base_dir or Path(__file__).resolve().parents[2] / "RandysLab-STRICT4H" / "data"
     ohlcv_path = base / "BTCUSDT_2026_4h.csv"
     funding_path = base / "BTCUSDT_2026_funding.csv"
-    if not ohlcv_path.exists():
-        ohlcv_path = base / "BTCUSDT_4h.csv"
-        funding_path = base / "BTCUSDT_funding.csv"
-    ohlcv = read_ohlcv(str(ohlcv_path))
-    funding = align_funding_to_ohlcv(ohlcv, read_funding(str(funding_path)))
-    data = ohlcv.copy()
-    data["funding_rate"] = funding
+    # No fallback: the full-history file contains the training and validation windows, so "blind" results computed
+    # on it would silently be in-sample.
+    for path in (ohlcv_path, funding_path):
+        if not path.exists():
+            raise FileNotFoundError(f"2026 blind data not found: {path}")
+    data = load_market_frame(ohlcv_path, funding_path)
     costs = CostConfig(taker_bps=4.0, slippage_bps=1.0, funding_multiplier=1.0)
     execution = ExecutionConfig(delay_bars=1, max_exposure_abs=1.0, exposure_threshold=0.15)
-    _blind_cache = {"data": data, "bar_hours": 4, "costs": costs, "execution": execution}
+    if base_dir is None:
+        _blind_cache = {"data": data, "bar_hours": 4, "costs": costs, "execution": execution}
     return data, 4, costs, execution
 
 
@@ -950,6 +952,7 @@ def _run_blind_validate(formula: str) -> dict:
         return {
             "formula": formula,
             "error": None,
+            "holdout_status": BLIND_2026_STATUS,
             "blind": {
                 "bars": metrics["bars"],
                 "sharpe": round(metrics["sharpe"], 4),

@@ -9,8 +9,9 @@ from pathlib import Path
 import pandas as pd
 
 from .backtest import run_formula_backtest, summarize_ledger
-from .config import FilterConfig, ProjectConfig
+from .config import ProjectConfig
 from .data import slice_window
+from .lab import passes_basic
 
 
 @dataclass(frozen=True)
@@ -141,9 +142,17 @@ def run_walk_forward(
     entries: list[dict[str, object]],
     cfg: ProjectConfig,
     windows: list[WalkForwardWindow],
+    *,
+    selection_end: str | pd.Timestamp | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Score fixed formulas on rolling windows; nothing is re-fit per window.
+
+    ``selection_end`` is the end of the data the formulas were selected on. Test segments starting before it are
+    in-sample for selection purposes, so survival is also reported over the test segments starting after it.
+    """
     rows: list[dict[str, object]] = []
     summary_rows: list[dict[str, object]] = []
+    cutoff = _utc(selection_end) if selection_end is not None else None
 
     for entry_index, entry in enumerate(entries, start=1):
         formula = str(entry["formula"])
@@ -164,12 +173,13 @@ def run_walk_forward(
                     "segment": segment,
                     "start": _iso(start),
                     "end": _iso(end),
+                    "after_selection": bool(cutoff is not None and start >= cutoff),
                 }
                 try:
-                    ledger = run_formula_backtest(segment_data, formula, cfg.costs, cfg.execution)
+                    ledger = run_formula_backtest(segment_data, formula, cfg.costs, cfg.execution, history=data)
                     metrics = summarize_ledger(ledger, cfg.bar_hours)
                     row.update(_prefixed_metrics("", metrics))
-                    row["pass_basic"] = _passes_basic(metrics, cfg.filter)
+                    row["pass_basic"] = passes_basic(metrics, cfg.filter, in_sample=segment == "train")
                 except Exception as exc:
                     row["error"] = str(exc)
                     row["pass_basic"] = False
@@ -192,6 +202,8 @@ def _summarize_formula(entry_index: int, entry: dict[str, object], rows: list[di
     validation_passes = 0
     test_passes = 0
     complete_windows = 0
+    oos_windows = 0
+    oos_survived = 0
     test_sharpes: list[float] = []
     test_rank_ics: list[float] = []
     test_max_dds: list[float] = []
@@ -208,6 +220,9 @@ def _summarize_formula(entry_index: int, entry: dict[str, object], rows: list[di
         validation_passes += int(validation_pass)
         test_passes += int(test_pass)
         survived += int(validation_pass and test_pass)
+        if test.get("after_selection"):
+            oos_windows += 1
+            oos_survived += int(validation_pass and test_pass)
         if "sharpe" in test:
             test_sharpes.append(float(test["sharpe"]))
         if "rank_ic" in test:
@@ -228,6 +243,9 @@ def _summarize_formula(entry_index: int, entry: dict[str, object], rows: list[di
         "windows": complete_windows,
         "survived_windows": survived,
         "survival_rate": _ratio(survived, complete_windows),
+        "oos_windows": oos_windows,
+        "oos_survived_windows": oos_survived,
+        "oos_survival_rate": _ratio(oos_survived, oos_windows),
         "validation_pass_rate": _ratio(validation_passes, complete_windows),
         "test_pass_rate": _ratio(test_passes, complete_windows),
         "test_sharpe_mean": _mean(test_sharpes),
@@ -240,20 +258,17 @@ def _summarize_formula(entry_index: int, entry: dict[str, object], rows: list[di
     }
 
 
-def _passes_basic(metrics: dict[str, float], filters: FilterConfig) -> bool:
-    return (
-        metrics.get("rank_ic", 0.0) >= filters.min_rank_ic
-        and metrics.get("directional_win_rate", 0.0) >= filters.min_directional_win_rate
-        and metrics.get("sharpe", 0.0) >= filters.min_validation_sharpe
-    )
-
-
 def _prefixed_metrics(prefix: str, metrics: dict[str, float]) -> dict[str, float]:
     return {f"{prefix}{key}": round(float(value), 8) for key, value in metrics.items()}
 
 
 def _iso(ts: pd.Timestamp) -> str:
     return ts.isoformat()
+
+
+def _utc(value: str | pd.Timestamp) -> pd.Timestamp:
+    ts = pd.Timestamp(value)
+    return ts.tz_localize("UTC") if ts.tzinfo is None else ts.tz_convert("UTC")
 
 
 def _ratio(num: int, den: int) -> float:

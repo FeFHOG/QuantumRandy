@@ -8,6 +8,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from randyslab.accounting import build_ledger, legacy_funding_settled
 
 from .backtest import sharpe, signal_from_factor, summarize_ledger
 from .config import CostConfig, ExecutionConfig, FilterConfig, ProjectConfig
@@ -143,31 +144,21 @@ def simulate_weighted_signal_portfolio(
     target[target.abs() < execution.exposure_threshold] = 0.0
     target = target.clip(-abs(execution.max_exposure_abs), abs(execution.max_exposure_abs))
     exposure = target.shift(execution.delay_bars).fillna(0.0)
-    delta = exposure.diff().fillna(0.0)
-    turnover = delta.abs()
-    close = data["close"].astype(float)
-    r_mkt = close.pct_change().fillna(0.0)
-    r_raw = exposure * r_mkt
-    c_fee = turnover * costs.taker_bps / 10_000.0
-    c_slip = turnover * costs.slippage_bps / 10_000.0
-    c_fund = exposure * data["funding_rate"].fillna(0.0) * 0.5 * costs.funding_multiplier
-    r_net = (r_raw - c_fee - c_slip - c_fund).replace([np.inf, -np.inf], 0.0).fillna(0.0)
+    if "funding_settled" in data.columns:
+        settled = data["funding_settled"]
+    else:
+        settled = legacy_funding_settled(data["funding_rate"], bar_hours)
+    ledger = build_ledger(data["close"], exposure, settled, costs)
+    r_net = ledger["r_net"]
     bars_per_year = 365.0 * 24.0 / bar_hours
     equity = (1.0 + r_net).cumprod()
 
     return pd.DataFrame(
         {
-            "close": close,
+            "close": data["close"].astype(float),
             "factor": combined,
             "target_exposure": target,
-            "exposure": exposure,
-            "delta_exposure": delta,
-            "r_mkt": r_mkt,
-            "r_raw": r_raw,
-            "c_fee": c_fee,
-            "c_slip": c_slip,
-            "c_fund": c_fund,
-            "r_net": r_net,
+            **{column: ledger[column] for column in ledger.columns},
             "equity": equity,
             "rolling_sharpe_90d": r_net.rolling(max(int(90 * 24 / bar_hours), 2)).apply(
                 lambda x: sharpe(pd.Series(x), bars_per_year), raw=False

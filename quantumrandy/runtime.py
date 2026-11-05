@@ -19,6 +19,8 @@ from .expression import evaluate_formula, parse_formula
 FACTOR_ID_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,63}$")
 MARKET_COLUMNS = ["open", "high", "low", "close", "volume", "funding_rate"]
 MAX_INITIAL_CAPITAL_USD = 1_000.0
+# The paper runtime is retired and frozen; it keeps the position semantics its manifest strategies were defined with.
+RUNTIME_SIGNAL_MODE = "legacy_tanh"
 
 
 class RuntimeConflictError(ValueError):
@@ -336,9 +338,10 @@ class FactorRuntime:
             delay_bars=self.execution.delay_bars,
             max_exposure_abs=self.execution.max_exposure_abs,
             exposure_threshold=threshold,
+            signal_mode=RUNTIME_SIGNAL_MODE,
         )
         values = evaluate_formula(factor.formula, data)
-        signals = signal_from_factor(values, threshold)
+        signals = signal_from_factor(values, threshold, mode=RUNTIME_SIGNAL_MODE)
         ledger = run_formula_backtest(data, factor.formula, self.costs, execution)
         latest_value = values.iloc[-1]
         return {
@@ -407,7 +410,7 @@ def _simulate_strategy(
         threshold = factor.exposure_threshold if factor.exposure_threshold is not None else default_threshold
         values = evaluate_formula(factor.formula, data)
         has_valid_factor |= values.notna()
-        combined += component.weight * signal_from_factor(values, threshold)
+        combined += component.weight * signal_from_factor(values, threshold, mode=RUNTIME_SIGNAL_MODE)
     combined /= weight_total
     combined[~has_valid_factor] = np.nan
     noisy_score = combined + pd.Series(rng.normal(0.0, model.signal_noise_std, len(data)), index=data.index)

@@ -61,6 +61,8 @@ class ResearchSession:
         self.cfg: ProjectConfig | None = None
         self.train_data: pd.DataFrame | None = None
         self.validation_data: pd.DataFrame | None = None
+        # Full market frame; gate backtests warm factors up on it before each window.
+        self.history_data: pd.DataFrame | None = None
         self.brutal_results: dict[str, dict] = {}
         self.rewrite_attempted: set[str] = set()
 
@@ -259,10 +261,12 @@ class ResearchSession:
             max_formula_operators=cfg.mcts.max_formula_operators,
             prompt_config=cfg.prompt,
             llm_config=cfg.llm,
+            symbol=cfg.symbol,
         )
         self.cfg = cfg
         self.train_data = train
         self.validation_data = validation
+        self.history_data = data
         self.mcts = AlphaMCTS(train, cfg.costs, cfg.execution, cfg.bar_hours, cfg.mcts, generator)
         with self.lock:
             self.state.phase = "initializing"
@@ -298,27 +302,13 @@ class ResearchSession:
             except Exception as exc:
                 _log(f"Failed to load zoo, starting fresh: {exc}", C_YELLOW)
 
-        # Restore brutal_results from leaderboard
+        # Every zoo formula is re-audited below under the current code and data; only killed history is restored.
         if leaderboard_path.exists() and resumed:
             try:
                 prev_lb = json.loads(leaderboard_path.read_text(encoding="utf-8"))
-                for row in prev_lb:
-                    formula = row.get("formula", "")
-                    if "passed" in row:
-                        self.brutal_results[formula] = {
-                            "formula": formula,
-                            "passed": row.get("passed", False),
-                            "brutal_score": row.get("brutal_score", 0),
-                            "gates": {
-                                "predictive_power": {"pass": row.get("gate_predictive_power", False), "rank_ic": row.get("rank_ic", 0), "directional_win_rate": row.get("directional_win_rate", 0)},
-                                "homogeneity": {"pass": row.get("gate_homogeneity", False), "max_corr_to_library": row.get("max_corr_to_library", 0)},
-                                "friction_audit": {"pass": row.get("gate_friction_audit", False), "cost_sharpe": row.get("sharpe", 0)},
-                                "lifetime": {"pass": row.get("gate_lifetime", False), "halflife_bars": row.get("halflife_bars", 0), "validation_sharpe": row.get("validation_sharpe", 0)},
-                            },
-                            "train": {"rank_ic": row.get("rank_ic", 0), "sharpe": row.get("sharpe", 0), "cagr": row.get("cagr", 0), "max_dd": row.get("max_dd", 0)},
-                            "validation": {"sharpe": row.get("validation_sharpe", 0), "rank_ic": row.get("validation_rank_ic", 0)},
-                        }
-                _log(f"Restored {len(self.brutal_results)} brutal filter results.", C_GREEN)
+                zoo_formulas = {alpha.formula for alpha in self.mcts.zoo}
+                self.brutal_results.update(restore_killed_history(prev_lb, zoo_formulas))
+                _log(f"Restored {len(self.brutal_results)} killed results; re-auditing the zoo.", C_GREEN)
             except Exception as exc:
                 _log(f"Failed to load brutal results: {exc}", C_YELLOW)
 
@@ -331,8 +321,9 @@ class ResearchSession:
             self._audit_new_alphas()
         else:
             with self.lock:
-                self.state.message = "Resumed from previous session."
-                accepted = sum(1 for v in self.brutal_results.values() if v.get("passed"))
+                self.state.message = "Resumed from previous session; re-auditing zoo under current code and data."
+                self._write_state_locked()
+            self._audit_new_alphas()
 
         with self.lock:
             self.state.symbol = cfg.symbol
@@ -367,6 +358,7 @@ class ResearchSession:
                 self.cfg.bar_hours,
                 accepted,
                 thresholds=thresholds,
+                history=self.history_data,
             )
             if self.brutal_results[alpha.formula]["passed"]:
                 accepted.append(alpha.formula)
@@ -421,6 +413,7 @@ class ResearchSession:
                     self.cfg.bar_hours,
                     accepted,
                     thresholds=thresholds,
+                    history=self.history_data,
                 )
                 if self.brutal_results[alpha.formula]["passed"]:
                     accepted.append(alpha.formula)
@@ -462,12 +455,16 @@ class ResearchSession:
             if self.cfg is not None and self.train_data is not None and self.validation_data is not None:
                 safe_write_csv(
                     self.output_dir / "best_ledger_train.csv",
-                    run_formula_backtest(self.train_data, best_formula, self.cfg.costs, self.cfg.execution).reset_index(names="timestamp"),
+                    run_formula_backtest(
+                        self.train_data, best_formula, self.cfg.costs, self.cfg.execution, history=self.history_data
+                    ).reset_index(names="timestamp"),
                     self.output_dir / "events.jsonl",
                 )
                 safe_write_csv(
                     self.output_dir / "best_ledger_validation.csv",
-                    run_formula_backtest(self.validation_data, best_formula, self.cfg.costs, self.cfg.execution).reset_index(names="timestamp"),
+                    run_formula_backtest(
+                        self.validation_data, best_formula, self.cfg.costs, self.cfg.execution, history=self.history_data
+                    ).reset_index(names="timestamp"),
                     self.output_dir / "events.jsonl",
                 )
         self._write_state_locked()
@@ -590,3 +587,47 @@ def _log(msg: str, color: str = C_RESET) -> None:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def restore_killed_history(leaderboard_rows: list[dict], zoo_formulas: set[str]) -> dict[str, dict]:
+    """Brutal-filter records worth restoring on resume: killed formulas that are no longer in the zoo.
+
+    Pass verdicts are never restored. Earlier versions reloaded them and skipped re-auditing, so PASS flags computed
+    with old code or data survived indefinitely and leaked into ``--passed-only`` consumers.
+    """
+    restored: dict[str, dict] = {}
+    for row in leaderboard_rows:
+        formula = row.get("formula", "")
+        if "passed" not in row or row.get("passed") or formula in zoo_formulas:
+            continue
+        restored[formula] = {
+            "formula": formula,
+            "passed": False,
+            "restored_from_leaderboard": True,
+            "brutal_score": row.get("brutal_score", 0),
+            "gates": {
+                "predictive_power": {
+                    "pass": row.get("gate_predictive_power", False),
+                    "rank_ic": row.get("rank_ic", 0),
+                    "directional_win_rate": row.get("directional_win_rate", 0),
+                },
+                "homogeneity": {
+                    "pass": row.get("gate_homogeneity", False),
+                    "max_corr_to_library": row.get("max_corr_to_library", 0),
+                },
+                "friction_audit": {"pass": row.get("gate_friction_audit", False), "cost_sharpe": row.get("sharpe", 0)},
+                "lifetime": {
+                    "pass": row.get("gate_lifetime", False),
+                    "halflife_bars": row.get("halflife_bars", 0),
+                    "validation_sharpe": row.get("validation_sharpe", 0),
+                },
+            },
+            "train": {
+                "rank_ic": row.get("rank_ic", 0),
+                "sharpe": row.get("sharpe", 0),
+                "cagr": row.get("cagr", 0),
+                "max_dd": row.get("max_dd", 0),
+            },
+            "validation": {"sharpe": row.get("validation_sharpe", 0), "rank_ic": row.get("validation_rank_ic", 0)},
+        }
+    return restored

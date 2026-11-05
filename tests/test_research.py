@@ -60,6 +60,7 @@ def test_rewrite_failed_alphas_adds_and_audits_candidate(monkeypatch) -> None:
     )
     session.train_data = SimpleNamespace()
     session.validation_data = SimpleNamespace()
+    session.history_data = None
     session.mcts = mcts
     session.brutal_results = {}
     session.rewrite_attempted = set()

@@ -28,6 +28,11 @@ def main() -> None:
     ap.add_argument("--start", help="Optional UTC start date, e.g. 2019-09-08")
     ap.add_argument("--end", help="Optional UTC exclusive end date, e.g. 2025-11-24")
     ap.add_argument("--min-bars", type=int, default=120, help="Minimum bars required per segment")
+    ap.add_argument(
+        "--selection-end",
+        help="End of the data the formulas were selected on (default: config validation_end); test segments starting "
+        "after it are reported separately as oos_* columns",
+    )
     args = ap.parse_args()
 
     cfg = load_config(args.config)
@@ -50,7 +55,10 @@ def main() -> None:
         raise SystemExit("No walk-forward windows produced. Try reducing --min-bars or using a wider date range.")
 
     print(f"Loaded {len(entries)} formulas and built {len(windows)} walk-forward windows")
-    details, summary = run_walk_forward(data, entries, cfg, windows)
+    selection_end = args.selection_end or cfg.windows.validation_end
+    details, summary = run_walk_forward(data, entries, cfg, windows, selection_end=selection_end)
+    if selection_end and not int(summary["oos_windows"].max() if len(summary) else 0):
+        print(f"Note: every test segment starts before the selection end ({selection_end}); survival is in-sample.")
     summary = summary.sort_values(
         ["survival_rate", "test_sharpe_median", "test_rank_ic_median"],
         ascending=[False, False, False],

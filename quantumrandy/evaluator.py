@@ -76,8 +76,10 @@ def evaluate_alpha(
 
 
 def _percentile(value: float, prior: list[float], higher_is_better: bool) -> float:
+    # Signed, like the percentile branch below: a negative rank IC must not score as well as a positive one.
     if not prior:
-        return 0.5 + 0.5 * np.tanh(abs(value) * 30.0)
+        signed = value if higher_is_better else -value
+        return 0.5 + 0.5 * np.tanh(signed * 30.0)
     wins = sum(value >= x if higher_is_better else value <= x for x in prior)
     return wins / len(prior)
 

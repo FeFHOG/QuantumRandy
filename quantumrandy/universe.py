@@ -8,6 +8,7 @@ import pandas as pd
 from .backtest import run_formula_backtest, summarize_ledger
 from .config import ProjectConfig
 from .data import load_market_frame, slice_window
+from .lab import passes_basic
 from .walk_forward import _median, _prefixed_metrics
 
 
@@ -17,15 +18,20 @@ class AssetDataset:
     cfg: ProjectConfig
     data: pd.DataFrame
     config_path: str = ""
+    # Full frame that contains ``data``; factors warm up on it so the evaluation window does not start cold.
+    history: pd.DataFrame | None = None
+    window: str = "validation"
 
 
 def load_asset_dataset(config_path: str | Path, *, window: str = "validation") -> AssetDataset:
     from .config import load_config
 
     cfg = load_config(config_path)
-    data = load_market_frame(cfg.ohlcv_csv, cfg.funding_csv)
-    data = slice_asset_window(data, cfg, window)
-    return AssetDataset(name=cfg.symbol, cfg=cfg, data=data, config_path=str(config_path))
+    full = load_market_frame(cfg.ohlcv_csv, cfg.funding_csv)
+    data = slice_asset_window(full, cfg, window)
+    return AssetDataset(
+        name=cfg.symbol, cfg=cfg, data=data, config_path=str(config_path), history=full, window=window
+    )
 
 
 def slice_asset_window(data: pd.DataFrame, cfg: ProjectConfig, window: str) -> pd.DataFrame:
@@ -61,10 +67,12 @@ def run_universe_evaluation(
                 "bars": float(len(asset.data)),
             }
             try:
-                ledger = run_formula_backtest(asset.data, formula, asset.cfg.costs, asset.cfg.execution)
+                ledger = run_formula_backtest(
+                    asset.data, formula, asset.cfg.costs, asset.cfg.execution, history=asset.history
+                )
                 metrics = summarize_ledger(ledger, asset.cfg.bar_hours)
                 row.update(_prefixed_metrics("", metrics))
-                row["pass_basic"] = _passes_asset(metrics, asset.cfg)
+                row["pass_basic"] = passes_basic(metrics, asset.cfg.filter, in_sample=asset.window == "training")
             except Exception as exc:
                 row["error"] = str(exc)
                 row["pass_basic"] = False
@@ -76,14 +84,6 @@ def run_universe_evaluation(
     details = pd.DataFrame(detail_rows)
     summary = pd.DataFrame(summary_rows)
     return details, summary
-
-
-def _passes_asset(metrics: dict[str, float], cfg: ProjectConfig) -> bool:
-    return (
-        metrics.get("rank_ic", 0.0) >= cfg.filter.min_rank_ic
-        and metrics.get("directional_win_rate", 0.0) >= cfg.filter.min_directional_win_rate
-        and metrics.get("sharpe", 0.0) >= cfg.filter.min_cost_sharpe
-    )
 
 
 def _summarize_formula(entry_index: int, entry: dict[str, object], rows: list[dict[str, object]]) -> dict[str, object]:
