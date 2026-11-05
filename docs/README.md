@@ -7,6 +7,8 @@ materials are archived under `docs/archive/legacy_runtime_beta/`.
 
 - `PHASE1_EVALUATION_SPINE.md`: Phase 0–1 plan, freeze notice, data policy (burned data, sealed holdout from
   2026-09-06), and work-item status. Start here.
+- `PHASE1_EVIDENCE_RESCORE.md`: what survives the fixed engine, multiple-testing statistics and an equal-budget random
+  baseline (nothing does).
 - `RESEARCH_V1_3_PAPER_OBSERVATION_REPORT.md`: final v1.3 paper-observation verdict
   (`fail_return_to_research`, edge not demonstrated).
 

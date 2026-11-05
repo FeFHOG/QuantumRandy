@@ -11,26 +11,13 @@ import argparse
 import csv
 import json
 import sys
-from collections.abc import Iterator
 from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from quantumrandy.expression import parse_formula
-
-FORMULA_KEYS = {
-    "formula",
-    "best_formula",
-    "parent_formula",
-    "rewrite_formula",
-    "candidate_formula",
-    "selected_formula",
-    "best_candidate_formula",
-}
-MAX_FILE_BYTES = 20_000_000
-CSV_FIELD_LIMIT = 10_000_000
+from quantumrandy.trial_backfill import canonical, formulas_in, scannable
 
 # Cohorts whose raw outputs stayed on the research server; sizes from their reports in docs/.
 DOCUMENTED_NOT_LOCAL = [
@@ -54,18 +41,17 @@ def main() -> None:
     ap.add_argument("--out", default=str(ROOT / "reports" / "trial_ledger"))
     args = ap.parse_args()
 
-    csv.field_size_limit(CSV_FIELD_LIMIT)
     roots = {"QuantumRandy": ROOT / "reports", "RandysLab": Path(args.randyslab) / "reports"}
     by_campaign: dict[str, set[str]] = {}
     for repo, reports in roots.items():
         for path in sorted(reports.rglob("*")):
-            if not _scannable(path) or "trial_ledger" in path.parts:
+            if not scannable(path) or "trial_ledger" in path.parts:
                 continue
             campaign = f"{repo}/{path.relative_to(reports).parts[0]}"
-            for raw in _formulas_in(path):
-                canonical = _canonical(raw)
-                if canonical:
-                    by_campaign.setdefault(campaign, set()).add(canonical)
+            for raw in formulas_in(path):
+                formula = canonical(raw)
+                if formula:
+                    by_campaign.setdefault(campaign, set()).add(formula)
 
     distinct = set().union(*by_campaign.values()) if by_campaign else set()
     stage1 = _stage1_parameter_sets(Path(args.randyslab) / "reports")
@@ -92,55 +78,6 @@ def main() -> None:
     (out / "historical_backfill.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     (out / "historical_formulas.txt").write_text("\n".join(sorted(distinct)) + "\n", encoding="utf-8")
     print(json.dumps({key: payload[key] for key in payload if key != "local_distinct_formulas_by_campaign"}, indent=2))
-
-
-def _scannable(path: Path) -> bool:
-    if not path.is_file() or path.suffix not in {".json", ".jsonl", ".csv"}:
-        return False
-    if "ledger" in path.name and path.suffix == ".csv":
-        return False  # bar-level ledgers carry no formulas
-    return path.stat().st_size <= MAX_FILE_BYTES
-
-
-def _formulas_in(path: Path) -> Iterator[str]:
-    try:
-        if path.suffix == ".csv":
-            with path.open(encoding="utf-8", newline="") as handle:
-                reader = csv.DictReader(handle)
-                keys = [key for key in reader.fieldnames or [] if key in FORMULA_KEYS]
-                if not keys:
-                    return
-                for row in reader:
-                    for key in keys:
-                        if row.get(key):
-                            yield row[key]
-        elif path.suffix == ".jsonl":
-            for line in path.read_text(encoding="utf-8").splitlines():
-                if line.strip():
-                    yield from _walk(json.loads(line))
-        else:
-            yield from _walk(json.loads(path.read_text(encoding="utf-8")))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError, csv.Error):
-        return
-
-
-def _walk(node: object) -> Iterator[str]:
-    if isinstance(node, dict):
-        for key, value in node.items():
-            if key in FORMULA_KEYS and isinstance(value, str):
-                yield value
-            else:
-                yield from _walk(value)
-    elif isinstance(node, list):
-        for item in node:
-            yield from _walk(item)
-
-
-def _canonical(raw: str) -> str | None:
-    try:
-        return parse_formula(raw.strip()).canonical()
-    except (SyntaxError, ValueError, TypeError):
-        return None
 
 
 def _stage1_parameter_sets(reports: Path) -> int:

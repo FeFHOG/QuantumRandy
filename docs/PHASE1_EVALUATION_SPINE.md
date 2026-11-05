@@ -2,7 +2,7 @@
 
 Date: 2026-11-05
 
-Status: in progress on branch `phase1/evaluation-spine` (QuantumRandy and RandysLab).
+Status: Phase 1 complete on branch `phase1/evaluation-spine` (QuantumRandy and RandysLab), not pushed.
 
 ## Why
 
@@ -52,9 +52,36 @@ The Sep–Oct 2026 selector logging work is preserved on the local branch `archi
 | 0.2 | uv lockfiles on Python 3.13, pinned majors, regenerated `requirements.txt` | Done |
 | 0.3 | v1.3 verdict; retire the paper runtime manifest | Done |
 | 0.4 | Freeze notice (this document) | Done |
-| 1.1 | Fix confirmed bugs, each with a regression test | Pending |
-| 1.2 | One shared accounting core in RandysLab with event-based funding, checked against an independent reference engine | Pending |
-| 1.3 | Append-only trial ledger covering every evaluated candidate | Pending |
-| 1.4 | Selection statistics (PSR/DSR, PBO via CSCV, HAC IC t-stat), equal-budget random-search baseline, benchmarks | Pending |
-| 1.5 | Sealed holdout guard, regime labels, data refresh into a versioned directory | Pending |
-| 1.6 | Re-score the existing leaderboard and survivors through the new spine | Pending |
+| 1.1 | Fix confirmed bugs, each with a regression test | Done: QuantumRandy `7ce05a4`; RandysLab `13a6955`, `e2ace17` |
+| 1.2 | One shared accounting core in RandysLab with event-based funding, checked against an independent reference engine | Done: RandysLab `ef79621`; QuantumRandy `7ce05a4`; DSL parity `7f9a827` |
+| 1.3 | Append-only trial ledger covering every evaluated candidate | Done: RandysLab `3536ef2`; QuantumRandy `8cb3345` (history: at least 694 formula trials) |
+| 1.4 | Selection statistics (PSR/DSR, PBO via CSCV, HAC IC t-stat), equal-budget random-search baseline, benchmarks | Done: RandysLab `22316c2`; QuantumRandy `scripts/rescore_phase1.py` |
+| 1.5 | Sealed holdout guard, regime labels, data refresh into a versioned directory | Done: RandysLab `a3c4e78`, `e2ace17`; QuantumRandy `26a8152` |
+| 1.6 | Re-score the existing leaderboard and survivors through the new spine | Done: `docs/PHASE1_EVIDENCE_RESCORE.md` |
+
+Result: no candidate shows evidence of an edge, and mined formulas match random formulas at equal budget. See
+`docs/PHASE1_EVIDENCE_RESCORE.md`.
+
+## Using The Sealed Holdout
+
+- Data: `../RandysLab-STRICT4H/data/archive_20261105/` (Binance archive through 2026-10-31, SHA-256 manifests). It
+  matches the old files exactly on the overlap and holds about 330 holdout bars per symbol. All five symbols lack
+  2026-10-28 because Binance's archive omits that day.
+- Configs still point at `data/<SYMBOL>_4h.csv`, which ends 2025-11-23. Point them at the archive directory to
+  develop on 2025-11-24 → 2026-09-05; holdout bars stay sealed automatically.
+- To confirm a candidate set, write a pre-registration JSON (`hypothesis`, `candidates` with formulas and variant
+  rules, and the decision rule you will apply), configure the trial ledger, then load with
+  `load_market_frame(..., preregistration=path)` or `load_market(..., preregistration=path)`. Only one
+  pre-registration can ever open the holdout.
+
+## Still Open
+
+- The RandysLab judge evaluates factors without warm-up and lacks 9 miner operators (clip, winsorize, decay_linear,
+  ts_argmax, ts_argmin, skew, kurtosis, rank, delay); `tests/test_dsl_parity.py` pins the gap.
+- Cross-checking against a third-party engine (NautilusTrader or vectorbt) is not done. An independently written
+  bar-by-bar reference engine (`RandysLab tests/test_accounting.py`) and the DSL parity test cover the same risk.
+- No genetic-programming baseline yet; random search is the only equal-budget baseline.
+- The LLM loop was not re-run. The equal-budget comparison uses the candidates the May run recorded.
+- The portfolio scaffolds are frozen and still estimate and evaluate weights on the same slice.
+- QuantumRandy configs assume 1 bps slippage and RandysLab 2 bps; harmonizing them is a research decision.
+- The paper runtime is retired and pinned to legacy positions.
