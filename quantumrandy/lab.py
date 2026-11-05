@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
+from randyslab import trial_ledger
 
 from .backtest import factor_score, run_formula_backtest, summarize_ledger
 from .config import CostConfig, ExecutionConfig, FilterConfig
@@ -97,6 +98,19 @@ def run_brutal_filter(
     }
     passed = all(item["pass"] for item in gates.values())
     brutal_score = brutal_rank_score(gates, train_metrics, validation_metrics)
+    trial_ledger.record(
+        source="qr_brutal_filter",
+        candidate=formula,
+        window={"train": _span(train_data), "validation": _span(validation_data)},
+        metrics={
+            "train_rank_ic": train_metrics["rank_ic"],
+            "train_sharpe": train_metrics["sharpe"],
+            "validation_rank_ic": validation_metrics["rank_ic"],
+            "validation_sharpe": validation_metrics["sharpe"],
+        },
+        passed=passed,
+        extra={"kill_reasons": kill_reasons(gates)},
+    )
     return {
         "formula": formula,
         "passed": passed,
@@ -182,6 +196,10 @@ def passes_basic(metrics: dict[str, float], filters: FilterConfig, *, in_sample:
         and metrics.get("directional_win_rate", 0.0) >= filters.min_directional_win_rate
         and metrics.get("sharpe", 0.0) >= min_sharpe
     )
+
+
+def _span(frame: pd.DataFrame) -> list[str]:
+    return [str(frame.index[0]), str(frame.index[-1])] if len(frame) else []
 
 
 def _contiguous_history(train_data: pd.DataFrame, validation_data: pd.DataFrame) -> pd.DataFrame | None:

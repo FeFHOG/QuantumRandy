@@ -8,6 +8,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 import pandas as pd
+from randyslab import trial_ledger
 
 from .config import CostConfig, ExecutionConfig, MCTSConfig
 from .evaluator import AlphaResult, evaluate_alpha
@@ -18,6 +19,7 @@ from .pareto import build_pareto_archive
 
 
 DIMENSIONS = ["effectiveness", "stability", "turnover", "diversity", "overfit_risk"]
+TRIAL_METRICS = ("rank_ic", "sharpe", "max_dd", "turnover", "predictive_observations")
 
 
 @dataclass
@@ -148,7 +150,7 @@ class AlphaMCTS:
 
     def _evaluate_one(self, formula: str) -> AlphaResult:
         metadata = self.generator.proposal_metadata.get(formula, {})
-        return evaluate_alpha(
+        result = evaluate_alpha(
             formula,
             self.data,
             self.costs,
@@ -162,6 +164,14 @@ class AlphaMCTS:
             rewrite_plan_if_killed=metadata.get("rewrite_plan_if_killed", ""),
             complexity_penalty=self.config.complexity_penalty,
         )
+        # Every candidate the search scores is a trial, including ones later purged from the zoo.
+        trial_ledger.record(
+            source=f"qr_mcts:{metadata.get('generation_source') or 'local_or_seed'}",
+            candidate=result.formula,
+            window={"start": str(self.data.index[0]), "end": str(self.data.index[-1])} if len(self.data) else {},
+            metrics={"score": result.score, **{key: result.metrics.get(key) for key in TRIAL_METRICS}},
+        )
+        return result
 
     def _sample_weak_dimension(self, dimensions: dict[str, float]) -> str:
         weights = []

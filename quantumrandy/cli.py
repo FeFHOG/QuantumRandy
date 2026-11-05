@@ -6,6 +6,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 import pandas as pd
+from randyslab import trial_ledger
 
 from .backtest import run_formula_backtest, summarize_ledger
 from .config import load_config
@@ -15,6 +16,7 @@ from .io_utils import safe_write_csv, safe_write_json, safe_write_text
 from .llm import FormulaGenerator
 from .mcts import AlphaMCTS
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 def mine_main() -> None:
     ap = argparse.ArgumentParser()
@@ -27,6 +29,7 @@ def mine_main() -> None:
     args = ap.parse_args()
 
     cfg = load_config(args.config)
+    trial_ledger.configure_default(REPO_ROOT, context={"entry_point": "mine", "symbol": cfg.symbol})
     data = load_market_frame(cfg.ohlcv_csv, cfg.funding_csv)
     if args.window == "training":
         data = slice_window(data, cfg.windows.training_start, cfg.windows.training_end)
@@ -141,6 +144,14 @@ def eval_formula_main() -> None:
 
     result = evaluate_alpha(args.formula, data, cfg.costs, cfg.execution, cfg.bar_hours)
     ledger = run_formula_backtest(data, result.formula, cfg.costs, cfg.execution)
+    # Hand-tried formulas are trials too.
+    trial_ledger.configure_default(REPO_ROOT, context={"entry_point": "eval_formula", "symbol": cfg.symbol})
+    trial_ledger.record(
+        source="qr_eval_formula",
+        candidate=result.formula,
+        window={"name": args.window, "start": str(data.index[0]), "end": str(data.index[-1])} if len(data) else {},
+        metrics={key: result.metrics.get(key) for key in ("rank_ic", "sharpe", "max_dd", "turnover")},
+    )
     print(json.dumps({"formula": result.formula, "score": result.score, **result.dimensions, **result.metrics}, indent=2))
     print(json.dumps(summarize_ledger(ledger, cfg.bar_hours), indent=2))
 

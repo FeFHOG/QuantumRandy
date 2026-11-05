@@ -9,6 +9,7 @@ from urllib.parse import parse_qs, urlparse
 
 import numpy as np
 import pandas as pd
+from randyslab import trial_ledger
 
 from .backtest import run_formula_backtest, summarize_ledger, equity_curve, max_drawdown
 from .config import CostConfig, ExecutionConfig
@@ -909,6 +910,13 @@ def _run_blind_validate(formula: str) -> dict:
         data, bar_hours, costs, execution = _load_blind_data()
         ledger = run_formula_backtest(data, formula, costs, execution)
         metrics = summarize_ledger(ledger, bar_hours)
+        trial_ledger.record(
+            source="qr_blind_2026",
+            candidate=formula,
+            window={"start": str(data.index[0]), "end": str(data.index[-1])} if len(data) else {},
+            metrics={key: metrics.get(key) for key in ("sharpe", "rank_ic", "max_dd", "trades")},
+            holdout_access=True,
+        )
 
         r = ledger["r_net"].fillna(0.0)
         eq = equity_curve(r)
@@ -1550,6 +1558,7 @@ def run_dashboard(config: str, out: str, host: str = "127.0.0.1", port: int = 87
     import socket
     import sys
 
+    trial_ledger.configure_default(Path(__file__).resolve().parents[1], context={"entry_point": "dashboard"})
     session = ResearchSession(config, out)
 
     class Handler(BaseHTTPRequestHandler):

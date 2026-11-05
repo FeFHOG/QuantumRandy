@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+from randyslab import trial_ledger
 
 from .backtest import run_formula_backtest
 from .config import ProjectConfig, load_config
@@ -248,6 +249,7 @@ class ResearchSession:
     def _initialize(self) -> None:
         import os as _os
         cfg = load_config(self.config_path)
+        trial_ledger.configure_default(self.root, context={"entry_point": "research_session", "symbol": cfg.symbol})
         data = load_market_frame(cfg.ohlcv_csv, cfg.funding_csv)
         train = slice_window(data, cfg.windows.training_start, cfg.windows.training_end)
         validation = slice_window(data, cfg.windows.validation_start, cfg.windows.validation_end)
