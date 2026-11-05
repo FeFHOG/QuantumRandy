@@ -9,7 +9,9 @@ from .panel import Panel
 # Binance USD-M perpetuals whose underlying is not a crypto asset (Phase 2a protocol amendment of 2026-11-05):
 # equities, ETFs and equity indices, commodities and commodity-backed tokens, FX, pre-IPO contracts, and composite
 # crypto indices. Compiled from symbol names and listing dates before any factor was evaluated; exchangeInfo's
-# underlyingType is geo-blocked from the research machine.
+# underlyingType is geo-blocked from the research machine. Checked with a weekend test on every contract that ever
+# entered the universe: underlyings closed on weekends give a weekend/weekday median |return| ratio of 0.13-0.43,
+# crypto 0.55-1.4. The only other contract below 0.45 is UXLINK (0.40), a crypto token, which stays.
 NON_CRYPTO = frozenset(
     {
         # US-listed equities and ADRs
@@ -31,9 +33,9 @@ NON_CRYPTO = frozenset(
         "MEITUAN", "MINIMAX", "NAVER", "POPMART", "SAMSUNG", "SAMSUNGEM", "SKHY", "SKHYNIX", "TENCENT", "UNITREE",
         "ZHIPU", "ZHONGJI",
         # Commodities, commodity-backed tokens and FX
-        "COPPER", "NATGAS", "PAXG", "USDBRL", "XAG", "XAU", "XAUT", "XPD", "XPT",
-        # Pre-IPO contracts
-        "ANTHROPIC", "OPENAI",
+        "BZ", "CL", "COPPER", "NATGAS", "PAXG", "USDBRL", "XAG", "XAU", "XAUT", "XPD", "XPT",
+        # Pre-IPO contracts, and 2026 listings identified by the weekend test below
+        "ANTHROPIC", "CBRS", "DRAM", "MVLL", "OPENAI", "SPCX",
         # Composite crypto indices (not single assets)
         "BLUEBIRD", "BTCDOM", "DEFI", "FOOTBALL",
     }
