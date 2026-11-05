@@ -4,13 +4,20 @@ LLM + MCTS formulaic alpha mining for crypto perpetual futures (BTC, ETH, SOL, e
 
 Inspired by [arXiv-2505.11122v3](https://arxiv.org/abs/2505.11122) — LLM generates and refines alpha formulas, MCTS (Monte Carlo Tree Search) guides the search, and rigorous backtesting scores each formula.
 
+> **Status (2026-11-05):** no factor in this repo has passed honest out-of-sample evaluation, and the paper runtime
+> manifest is retired. Feature work is frozen while the evaluation spine is rebuilt; see
+> [docs/PHASE1_EVALUATION_SPINE.md](docs/PHASE1_EVALUATION_SPINE.md).
+
 ## Quick Start
 
+QuantumRandy imports the shared accounting core from RandysLab, so check out
+[RandysLab-STRICT4H](https://github.com/FeFHOG/RandysLab-STRICT4H) as a sibling directory first.
+
 ```powershell
-# 1. Create virtual environment
-python -m venv .venv
+# 1. Create the environment (uv reads pyproject.toml, uv.lock and .python-version)
+uv sync
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+# Without uv: python -m venv .venv; pip install -r requirements.txt   (pinned export of uv.lock)
 
 # 2. Set your API key
 copy .env.example .env

@@ -7,7 +7,14 @@ Status: pre-third-project preparation is almost complete; third project is not s
 This report closes the documentation and evidence package needed before opening a third project such as
 RandyPortfolio. It does not create RandyPortfolio, does not publish runtime factors, and does not approve live trading.
 
-## Current Verdict
+## Update 2026-11-05
+
+The paper observation finished with
+`research_v1_3_paper_observation_fail_return_to_research` (edge not demonstrated); see
+`docs/RESEARCH_V1_3_PAPER_OBSERVATION_REPORT.md`. The launch gate below is **not met**, and no third project should be
+planned on the basis of v1.3. Work continues under `docs/PHASE1_EVALUATION_SPINE.md`.
+
+## Verdict As Of 2026-07-04
 
 ```text
 pre_third_project_ready_except_paper_observation_execution

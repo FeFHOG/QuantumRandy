@@ -1,18 +1,20 @@
 {
-  "generation": 1,
+  "generation": 2,
+  "retired_at": "2026-11-05",
+  "retired_reason": "No factor in this manifest has passed out-of-sample evaluation. funding_reversal_42 fails the current gates (validation Sharpe -0.43). All entries are disabled; see docs/RESEARCH_V1_3_PAPER_OBSERVATION_REPORT.md and docs/PHASE1_EVALUATION_SPINE.md.",
   "factors": [
     {
       "factor_id": "funding_reversal_42",
       "formula": "neg(zscore(funding_rate,42))",
       "description": "Contrarian response to unusually crowded perpetual-futures funding.",
-      "enabled": true,
+      "enabled": false,
       "exposure_threshold": 0.15
     },
     {
       "factor_id": "price_momentum_6",
       "formula": "zscore(ret(close,6),48)",
       "description": "Normalized short-horizon price momentum.",
-      "enabled": true,
+      "enabled": false,
       "exposure_threshold": 0.15
     }
   ],
@@ -21,7 +23,7 @@
       "strategy_id": "funding_reversal_single",
       "description": "Single-factor paper strategy with adverse execution simulation.",
       "initial_capital_usd": 1000.0,
-      "enabled": true,
+      "enabled": false,
       "components": [
         {"factor_id": "funding_reversal_42", "weight": 1.0}
       ],
@@ -41,7 +43,7 @@
       "strategy_id": "funding_momentum_blend",
       "description": "Two-factor paper strategy under deliberately adverse execution assumptions.",
       "initial_capital_usd": 1000.0,
-      "enabled": true,
+      "enabled": false,
       "components": [
         {"factor_id": "funding_reversal_42", "weight": 0.65},
         {"factor_id": "price_momentum_6", "weight": 0.35}

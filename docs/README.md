@@ -3,7 +3,14 @@
 This directory keeps current QuantumRandy research, architecture, and handoff documents. Older runtime-beta and audit
 materials are archived under `docs/archive/legacy_runtime_beta/`.
 
-## Current Research
+## Current Work
+
+- `PHASE1_EVALUATION_SPINE.md`: Phase 0–1 plan, freeze notice, data policy (burned data, sealed holdout from
+  2026-09-06), and work-item status. Start here.
+- `RESEARCH_V1_3_PAPER_OBSERVATION_REPORT.md`: final v1.3 paper-observation verdict
+  (`fail_return_to_research`, edge not demonstrated).
+
+## Research Record (frozen; see `PHASE1_EVALUATION_SPINE.md`)
 
 - `SELECTOR_V082_STRICT_JUDGING_VERDICT.md`: current strict RandysLab verdict for selector v0.8.2 candidates.
 - `SELECTOR_REWRITE_V0_8_2_MILESTONE_REVIEW.md`: frozen evidence60 milestone review.
