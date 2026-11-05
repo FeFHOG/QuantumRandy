@@ -16,8 +16,9 @@ Whether to act on that is an owner decision, because it would bend a pre-committ
 
 ## Setup
 
-- 922 Binance USD-M USDT perpetuals including delisted ones. 370 crypto contracts enter the daily top-50 universe at
-  some point.
+- 922 Binance USD-M USDT perpetuals including delisted ones. 367 crypto contracts enter the daily top-50 universe at
+  some point. (An earlier version said 370: that was the universe review's count before six non-crypto contracts were
+  added to the exclusion list. The results below were computed with the final list.)
 - Development window: 2020-11-03 (first day with 50 eligible contracts) to 2026-09-05, 2,133 trading days.
 - Dollar-neutral quintile books (top and bottom 20%, gross 1.0), rebalanced daily, 4 bps fee plus 5 bps slippage per
   unit of turnover, settlement-exact funding.

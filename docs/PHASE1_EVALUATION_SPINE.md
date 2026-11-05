@@ -41,6 +41,12 @@ The Sep–Oct 2026 selector logging work is preserved on the local branch `archi
 - **Sealed holdout.** Bars with open time at or after `2026-09-06T00:00Z`. Access only through the holdout guard with
   a pre-registration file listing every candidate in advance. Each access is recorded in the trial ledger, and a
   pre-registration may be used once.
+- **Holdout window and forward data (amendment 2026-11-05).** The holdout is the 56 daily bars from 2026-09-06 to
+  2026-10-31 (`HOLDOUT_START` to `HOLDOUT_END` in RandysLab `randyslab/holdout.py`), the span the Phase 2a protocol
+  describes; opening it no longer returns later bars. Bars from 2026-11-01 are forward data: an observation may
+  evaluate them only if its pre-registration was committed before its first evaluated bar. A forward observation may
+  read holdout bars as lookback inputs (bar presence, volumes) and to classify new listings, but must never compute the
+  performance of a strategy or factor on them. The first is `docs/PHASE2A_TAKER_FORWARD_PREREGISTRATION.md`.
 - **Regime labels.** `2025-10-10/11` liquidation cascade; `2026-10-29 → 2026-11-05` Binance hot-wallet incident
   (withdrawals halted, then reopened in phases). Report results with and without labelled regimes.
 

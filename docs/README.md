@@ -11,6 +11,8 @@ materials are archived under `docs/archive/legacy_runtime_beta/`.
   baseline (nothing does).
 - `PHASE2A_CROSS_SECTIONAL_PROTOCOL.md`: cross-sectional protocol for Binance perpetuals, fixed before results.
 - `PHASE2A_CROSS_SECTIONAL_RESULTS.md`: results; no holdout candidate, taker flow is the one robust lead.
+- `PHASE2A_TAKER_FORWARD_PREREGISTRATION.md`: forward paper observation of `taker_7d` from 2026-11-06 under an
+  anytime-valid betting test; machine-readable copy in `../preregistrations/`.
 - `RESEARCH_V1_3_PAPER_OBSERVATION_REPORT.md`: final v1.3 paper-observation verdict
   (`fail_return_to_research`, edge not demonstrated).
 

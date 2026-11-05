@@ -1,0 +1,4 @@
+{
+  "description": "Append-only name-based exclusions for forward observations (docs/PHASE2A_TAKER_FORWARD_PREREGISTRATION.md): contracts whose underlying is not a crypto asset but which the weekend test cannot catch, such as pre-IPO companies. An entry counts only if it was committed before the contract's first eligible day; the runner compares 'added' with that day. Never edit or remove an entry.",
+  "entries": []
+}
