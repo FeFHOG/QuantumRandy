@@ -154,3 +154,16 @@ def test_blind_validation_refuses_to_fall_back_to_full_history(tmp_path: Path):
     (tmp_path / "BTCUSDT_funding.csv").write_text("timestamp,funding_rate\n", encoding="utf-8")
     with pytest.raises(FileNotFoundError, match="2026 blind data not found"):
         dashboard._load_blind_data(tmp_path)
+
+
+def test_load_market_frame_seals_the_holdout(tmp_path: Path):
+    from randyslab.holdout import HOLDOUT_START
+
+    index = pd.date_range(HOLDOUT_START - pd.Timedelta(hours=8), periods=4, freq="4h", tz="UTC")
+    pd.DataFrame(
+        {"timestamp": index, "open": 1.0, "high": 1.0, "low": 1.0, "close": 1.0, "volume": 1.0}
+    ).to_csv(tmp_path / "ohlcv.csv", index=False)
+    pd.DataFrame({"timestamp": index[:1], "funding_rate": [1e-4]}).to_csv(tmp_path / "funding.csv", index=False)
+    frame = load_market_frame(tmp_path / "ohlcv.csv", tmp_path / "funding.csv")
+    assert len(frame) == 2
+    assert frame.index.max() < HOLDOUT_START

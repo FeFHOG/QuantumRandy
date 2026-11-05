@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 from randyslab.accounting import funding_feature, funding_settled_per_bar, normalize_funding_events
+from randyslab.holdout import open_holdout, seal
 
 REQUIRED_OHLCV = {"timestamp", "open", "high", "low", "close", "volume"}
 
@@ -34,12 +35,20 @@ def align_funding_to_ohlcv(ohlcv: pd.DataFrame, funding: pd.DataFrame) -> pd.Ser
     return funding_feature(ohlcv.index, normalize_funding_events(funding))
 
 
-def load_market_frame(ohlcv_path: str | Path, funding_path: str | Path, bar_hours: float = 4.0) -> pd.DataFrame:
+def load_market_frame(
+    ohlcv_path: str | Path,
+    funding_path: str | Path,
+    bar_hours: float = 4.0,
+    *,
+    preregistration: str | Path | None = None,
+) -> pd.DataFrame:
     """OHLCV plus the funding feature (``funding_rate``) and the per-bar settled funding cost (``funding_settled``).
 
-    Formulas can only read ``funding_rate``; the backtest charges funding from ``funding_settled``.
+    Formulas can only read ``funding_rate``; the backtest charges funding from ``funding_settled``. Bars in the sealed
+    holdout are dropped unless ``preregistration`` opens it (see ``randyslab.holdout``).
     """
     ohlcv = read_ohlcv(ohlcv_path)
+    ohlcv = seal(ohlcv) if preregistration is None else open_holdout(ohlcv, preregistration)
     events = normalize_funding_events(read_funding(funding_path))
     out = ohlcv.copy()
     out["funding_rate"] = funding_feature(ohlcv.index, events)
