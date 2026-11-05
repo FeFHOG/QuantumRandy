@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from typing import Any
 
 import numpy as np
@@ -48,6 +49,57 @@ def quantile_weights(scores: pd.DataFrame, mask: pd.DataFrame, quantile: float =
     return long.astype(float).mul(size, axis=0) - short.astype(float).mul(size, axis=0)
 
 
+def basket_weights(scores: pd.DataFrame, mask: pd.DataFrame, quantile: float = 0.2) -> pd.DataFrame:
+    """Long the top ``quantile`` equally against an equal-weight short of every scored universe member.
+
+    Weights are netted per name and scaled to gross exposure 1, so no single coin carries a concentrated short.
+    """
+    ranked = scores.where(mask & scores.notna())
+    count = ranked.notna().sum(axis=1)
+    legs = np.floor(count * quantile).clip(lower=1)
+    order = ranked.rank(axis=1, method="first")
+    long = (order.gt(count - legs, axis=0) & ranked.notna()).astype(float).div(legs, axis=0)
+    basket = ranked.notna().astype(float).div(count.replace(0, np.nan), axis=0)
+    netted = (long - basket).fillna(0.0)
+    gross = netted.abs().sum(axis=1)
+    scale = (1.0 / gross.replace(0.0, np.nan)).where(count >= MIN_NAMES, 0.0).fillna(0.0)
+    return netted.mul(scale, axis=0)
+
+
+def buffered_weights(
+    scores: pd.DataFrame, mask: pd.DataFrame, quantile: float = 0.2, buffer: float = 2.0
+) -> pd.DataFrame:
+    """Quantile long-short book that keeps a held name while it stays within ``buffer`` times its leg's size.
+
+    Each leg holds k = floor(quantile x scored names) at weight 0.5 / k. A held long stays while its rank is within the
+    top ``buffer`` x k (shorts mirror at the bottom); vacancies go to the best-ranked names not held.
+    """
+    ranked = scores.where(mask & scores.notna())
+    out = np.zeros(ranked.shape)
+    longs: set[str] = set()
+    shorts: set[str] = set()
+    for row, (_, day) in enumerate(ranked.iterrows()):
+        day = day.dropna()
+        if len(day) < MIN_NAMES:
+            longs, shorts = set(), set()
+            continue
+        k = max(int(np.floor(len(day) * quantile)), 1)
+        reach = int(np.floor(buffer * k))
+        best = list(day.sort_values(ascending=False, kind="stable").index)
+        longs = _refill(longs, best, k, reach)
+        shorts = _refill(shorts, best[::-1], k, reach)
+        for names, sign in ((longs, 1.0), (shorts, -1.0)):
+            out[row, ranked.columns.get_indexer(sorted(names))] = sign * 0.5 / k
+    return pd.DataFrame(out, index=ranked.index, columns=ranked.columns)
+
+
+def _refill(held: set[str], order: list[str], k: int, reach: int) -> set[str]:
+    """Keep held names ranked within ``reach`` (best k of them at most), then fill to k from the top of ``order``."""
+    kept = [name for name in order[:reach] if name in held][:k]
+    fill = [name for name in order if name not in kept][: k - len(kept)]
+    return set(kept + fill)
+
+
 def held_weights(target: pd.DataFrame, panel: Panel) -> pd.DataFrame:
     """Weights set at each close and held during the next day; a contract without a price that day is flat."""
     return target.shift(1).fillna(0.0).where(panel["close"].notna(), 0.0)
@@ -73,11 +125,12 @@ def evaluate_factor(
     mask: pd.DataFrame,
     costs: CostRates,
     start: pd.Timestamp,
+    weights: Callable[[pd.DataFrame, pd.DataFrame], pd.DataFrame] = quantile_weights,
 ) -> dict[str, Any]:
-    """IC statistics and net long-short book metrics at 1x and 2x costs from ``start`` onwards."""
+    """IC statistics and net metrics of the ``weights`` book at 1x and 2x costs from ``start`` onwards."""
     ic = cross_sectional_ic(scores, forward_returns(panel), mask).loc[start:].dropna()
     by_year = ic.groupby(ic.index.year).mean()
-    book = held_weights(quantile_weights(scores, mask), panel)
+    book = held_weights(weights(scores, mask), panel)
     base = evaluate_book(book, panel, costs, start)
     stressed = evaluate_book(
         book,
