@@ -16,12 +16,12 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from randyslab.accounting import CostRates, build_portfolio_ledger, funding_settled_per_bar, normalize_funding_events
+from randyslab.accounting import CostRates, build_portfolio_ledger, normalize_funding_events
 from randyslab.holdout import HOLDOUT_END
 
 from .evaluate import held_weights, quantile_weights
 from .factors import FACTORS
-from .panel import Panel, _read
+from .panel import Panel, _read, funding_on_calendar
 from .sequential import BettingSpec
 from .universe import NON_CRYPTO, base_asset
 
@@ -103,7 +103,7 @@ def load_forward_panel(
     close = pd.DataFrame(columns["close"]).sort_index()
     fields = {name: pd.DataFrame(series).reindex(index=close.index, columns=close.columns) for name, series in
               columns.items()}
-    fields["funding_settled"] = _funding_on_calendar(close.index, events, close.columns)
+    fields["funding_settled"] = funding_on_calendar(close.index, events, close.columns)
     before = fields["close"].index < start - DAY
     fields["close"].loc[before] = fields["close"].loc[before].notna().astype(float).replace(0.0, np.nan)
     first = pd.Series(first_bar)
@@ -194,14 +194,3 @@ def _combined(*paths: Path) -> pd.DataFrame:
         return pd.DataFrame()
     frame = pd.concat(frames)
     return frame[~frame.index.duplicated(keep="last")].sort_index()
-
-
-def _funding_on_calendar(calendar: pd.DatetimeIndex, events: dict[str, pd.DataFrame], symbols: pd.Index) -> pd.DataFrame:
-    """Settled funding per trading day; a day missing for every contract hands its settlements to the next bar."""
-    if not len(calendar):
-        return pd.DataFrame(index=calendar, columns=symbols, dtype=float)
-    days = pd.date_range(calendar[0], calendar[-1], freq="1D")
-    owner = calendar[calendar.searchsorted(days, side="left")]
-    settled = {symbol: funding_settled_per_bar(days, frame, 24.0).groupby(owner).sum() for symbol, frame in
-               events.items()}
-    return pd.DataFrame(settled).reindex(index=calendar, columns=symbols).fillna(0.0)
