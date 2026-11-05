@@ -2,8 +2,8 @@
 
 Date: 2026-11-05
 
-Status: final verdict for the v1.3 paper observation. Drafted by the coding agent at the owner's request during the
-Phase 0 close-out (see `docs/PHASE1_EVALUATION_SPINE.md`); requires owner sign-off.
+Status: final verdict for the v1.3 paper observation, signed off by the owner on 2026-11-05. Drafted by the coding
+agent at the owner's request during the Phase 0 close-out (see `docs/PHASE1_EVALUATION_SPINE.md`).
 
 This report is research-only. It is not factor admission, runtime publishing, portfolio construction, RandyPortfolio
 implementation, or live execution approval.
