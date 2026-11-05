@@ -4,15 +4,20 @@ Date: 2026-11-05
 
 Executed exactly as fixed in `docs/PHASE2B_CROSS_SECTIONAL_PROTOCOL.md`. The protocol, the owner's choice of Deflated
 Sharpe convention B, the runner and the holdout step were committed and pushed before the run (QuantumRandy `c0feeef`,
-RandysLab `4977fe4`). Produced by `scripts/xs_phase2b.py`; artifacts in ignored `reports/phase2b/`. The holdout
-(2026-09-06 to 2026-10-31) was not read.
+RandysLab `4977fe4`). Produced by `scripts/xs_phase2b.py`; artifacts in ignored `reports/phase2b/`. The development
+results below were computed with the holdout (2026-09-06 to 2026-10-31) sealed. It was opened afterwards, once; see
+"Holdout Result".
 
 ## Verdict
 
 **Two trials meet the pre-committed holdout-candidate rule: `taker_14d` and `taker_30d`.** With their composite they
 are the three candidates in `preregistrations/phase2b_holdout.json`, which the runner wrote mechanically from the rule's
-output. It is committed and pushed before the holdout is opened. Opening the holdout is the next step; it can be done
-once, so it waits for the owner.
+output and which was committed and pushed (`f2ad500`, `76535f9`) before the holdout was opened.
+
+**The holdout was then opened once, on 2026-11-05, and all three candidates pass the sign check** (mean daily net
+return above zero at 1x costs over 55 bars). The evidence is weak, and the mean rank IC over the holdout is negative for
+all three. Each passing candidate now moves to forward paper observation under its own pre-registration, which is not
+yet written.
 
 Both candidates qualify only because criterion 5 uses convention B. Under convention A, Phase 2a's rule, neither would
 qualify (Deflated Sharpe 0.45 and 0.62).
@@ -87,7 +92,7 @@ from −0.80, but is −0.86 at 2x costs.
   Reversing it now would be a forking path, and the reversed book would lose money. The book as committed earns a
   Sharpe of 0.39 despite its negative IC, the right-skew pattern Phase 2a described.
 
-## Holdout
+## Holdout Procedure
 
 `preregistrations/phase2b_holdout.json` lists the three candidates, the hypothesis and the decision rule, and records
 the development summary's sha256.
@@ -116,6 +121,50 @@ like crypto tokens (HOLO, FLUID, FF, EUL), so the rule is conservative.
 
 A pass moves a candidate on to forward observation; it does not confirm it.
 
+## Holdout Result
+
+Opened once, on the owner's go-ahead to apply the new-listing rule, at 2026-11-05 23:45 UTC with
+`preregistrations/phase2b_holdout.json` (sha256 `cf95722d590a1fff986885da1eb1705c47695bf200e8287e9280f79df96611f2`).
+The trial ledger holds one `holdout_open` row with `repeat_access` false. Outside that run, only bar and funding
+timestamps in the window were read, to count bars and to check funding coverage; no price, volume or return. Artifacts
+are in ignored `reports/phase2b/holdout.json` and `holdout_run.log`.
+
+| Candidate | Bars | Mean net, bps/day | Cumulative net | Net Sharpe | Turnover/day | Rank IC | Development Sharpe / IC | Sign check |
+|---|---:|---:|---:|---:|---:|---:|---:|:-:|
+| `taker_14d` | 55 | +16.9 | +7.30% | 1.06 | 0.27 | −0.016 | 1.60 / +0.019 | pass |
+| `taker_30d` | 55 | +18.1 | +7.35% | 1.01 | 0.13 | −0.038 | 1.77 / +0.019 | pass |
+| `composite` | 55 | +11.8 | +3.94% | 0.67 | 0.21 | −0.030 | 1.72 / +0.019 | pass |
+
+**All three candidates pass the sign check:** the mean daily net return over the 55 bars is above zero at 1x costs.
+That is the pre-registered decision, and nothing below changes it. The composite is its own book, so its mean does not
+have to lie between its members' means.
+
+**A pass is weak evidence.** In 55-bar windows of the development returns, a candidate with the backtested edge passes
+about 75-79% of the time and one with no edge 40-50% of the time, so a pass is only 1.5 to 2 times as likely if the
+backtested edge is real as if there is none. The holdout Sharpe ratios (0.7 to 1.1) are below their development values (1.6 to 1.8) but within sampling error of both
+those and zero: the standard error of an annualized Sharpe over 55 days is about 2.6.
+
+**The rank IC disagrees with the book.** The mean daily rank IC over the holdout is negative for all three (−0.016,
+−0.038, −0.030), against +0.019 in development. IC is not part of the decision rule. Scaling the development
+Newey-West standard errors to 55 days gives roughly 0.025, so the holdout values are about 0.7 to 1.5 standard errors
+below zero and 1.4 to 2.3 below the development mean. That is compatible with noise, but it is not a confirmation. A
+positive book mean next to a negative mean IC is the pattern right-skewed returns produce, and Phase 2a showed it for
+several factors. This was not investigated further: every additional look at the holdout is a forking path.
+
+**Funding on the last day.** The universe download's funding ends at 2026-10-31 16:00 (8-hourly contracts) or 20:00
+(4-hourly), so the 2026-11-01 00:00 settlement that the last bar would pay is missing. That is at most a third of one
+day's funding on one of 55 days, far too small to move a mean of +12 to +18 bps/day across zero.
+
+**Universe.** The new-listing rule excluded 45 contracts that were never reviewed: 11 by the forward registration's
+name list, 30 by the weekend test, and 4 with fewer than 60 bars on 2026-10-31, which the test cannot classify. The
+names are in `holdout.json`. Whether the rule changed any result was not tested; that would need a second, differently
+defined look at the holdout.
+
+**Status.** The holdout is spent: the guard refuses any other pre-registration, and reading it again for these
+candidates would be a repeat access. Per the protocol, each passing candidate moves to forward paper observation under
+its own pre-registration, with the same betting test and constants from its development window. Those registrations are
+not written yet. Bars from 2026-11-01 are forward data and count only for observations registered before them.
+
 ## Reproduce
 
 ```bash
@@ -123,5 +172,5 @@ python ../RandysLab-STRICT4H/scripts/fetch_universe.py        # once; resumable 
 python scripts/xs_phase2b.py --metrics-spans ../RandysLab-STRICT4H/data/metrics_1d_20261105/spans.json
 python ../RandysLab-STRICT4H/scripts/fetch_metrics.py --spans ../RandysLab-STRICT4H/data/metrics_1d_20261105/spans.json
 python scripts/xs_phase2b.py                                  # evaluation; writes the pre-registration if any trial qualifies
-python scripts/xs_phase2b.py --open-holdout preregistrations/phase2b_holdout.json   # once, after the owner's go-ahead
+python scripts/xs_phase2b.py --open-holdout preregistrations/phase2b_holdout.json   # run once, on 2026-11-05
 ```
