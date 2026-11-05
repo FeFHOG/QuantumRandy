@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "quantumrandy"
 version = "0.1.0"
@@ -5,18 +9,26 @@ description = "LLM + MCTS formulaic alpha mining for mainstream crypto perpetual
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-  "numpy>=1.26",
-  "pandas>=2.2",
-  "PyYAML>=6.0",
-  "requests>=2.31",
-  "scipy>=1.12",
+  "numpy>=1.26,<3",
+  "pandas>=2.2,<4",
+  "PyYAML>=6.0,<7",
+  "requests>=2.31,<3",
+  "scipy>=1.12,<2",
+  # Shared strict accounting core (ledger, fees, funding, metrics); see docs/RANDY_STACK_TARGET_ARCHITECTURE.md.
+  "randyslab-strict4h",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
-  "pytest>=8.0",
+  "pytest>=8.0,<10",
   "ruff>=0.8",
 ]
+
+[tool.uv.sources]
+randyslab-strict4h = { path = "../RandysLab-STRICT4H", editable = true }
+
+[tool.setuptools]
+packages = ["quantumrandy"]
 
 [tool.ruff]
 line-length = 120
