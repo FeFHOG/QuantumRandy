@@ -1,4 +1,16 @@
 {
-  "description": "Append-only name-based exclusions for forward observations (docs/PHASE2A_TAKER_FORWARD_PREREGISTRATION.md): contracts whose underlying is not a crypto asset but which the weekend test cannot catch, such as pre-IPO companies. An entry counts only if it was committed before the contract's first eligible day; the runner compares 'added' with that day. Never edit or remove an entry.",
-  "entries": []
+  "description": "Append-only name-based exclusions for forward observations (docs/PHASE2A_TAKER_FORWARD_PREREGISTRATION.md): contracts whose underlying is not a crypto asset, including pre-IPO companies that the weekend test cannot catch. An entry counts only if it was committed before the contract's first eligible day (its 60th daily bar); the runner compares 'added' with that day. Never edit or remove an entry. Source of record: the 'Underlying Asset' / 'Underlying Equity' field of Binance's launch announcement, readable through https://www.binance.com/bapi/composite/v1/public/cms/article/detail/query?articleCode=<code> even where fapi.binance.com is geo-blocked.",
+  "entries": [
+    {"base": "AGPU", "added": "2026-11-05", "kind": "stock", "evidence": "Binance 2026-09-18 launch: underlying Axe Compute Inc. Common Stock (articleCode 3c2b63c9c3e44d40b8cec99961166fe8)"},
+    {"base": "CYPH", "added": "2026-11-05", "kind": "stock", "evidence": "Binance 2026-09-18 launch: underlying Cypherpunk Technologies Inc. Common Stock (articleCode 3c2b63c9c3e44d40b8cec99961166fe8)"},
+    {"base": "PATH", "added": "2026-11-05", "kind": "stock", "evidence": "Binance 2026-09-18 launch: underlying UiPath, Inc. Class A Common Stock (articleCode 3c2b63c9c3e44d40b8cec99961166fe8)"},
+    {"base": "MOONSHOT", "added": "2026-11-05", "kind": "pre-IPO", "evidence": "Binance 2026-09-22 Pre-IPO launch: underlying Beijing Moonshot AI Technology Co., Ltd. (articleCode 7379b99aa0f349a49c3b3feca1b4bbd6)"},
+    {"base": "OURA", "added": "2026-11-05", "kind": "pre-IPO", "evidence": "Binance 2026-09-23 Pre-IPO launch: underlying Oura Inc. (articleCode 8bd2b3a7684749bba472e71fc3ad8043)"},
+    {"base": "RUM", "added": "2026-11-05", "kind": "stock", "evidence": "Binance 2026-09-28 launch: underlying RUM Group Inc. Class A Common Stock, Nasdaq: RUM (articleCode d4c5a66cdce246cc952d13bab215b688)"},
+    {"base": "MP", "added": "2026-11-05", "kind": "stock", "evidence": "Binance 2026-09-29 launch: underlying MP Materials Corp. Common Stock, NYSE: MP (articleCode 0c6ea14ba89b451db6ec9ec364045d22)"},
+    {"base": "SECZ", "added": "2026-11-05", "kind": "stock", "evidence": "Binance 2026-09-29 launch: underlying Securitize Corp. Common Stock, NYSE: SECZ (articleCode 0c6ea14ba89b451db6ec9ec364045d22)"},
+    {"base": "USDEX", "added": "2026-11-05", "kind": "stock", "evidence": "Binance 2026-10-06 launch: underlying StablecoinX Inc. Class A Common Stock, Nasdaq: USDE (articleCode ea19450f515843098a5d5e55fc6e3589)"},
+    {"base": "ZCSH", "added": "2026-11-05", "kind": "ETF", "evidence": "Binance 2026-10-12 launch: underlying The Zcash ETF Shares, NYSE Arca: ZCSH (articleCode 394e61b6f81e4a349272dcb9d78876d6)"},
+    {"base": "STM", "added": "2026-11-05", "kind": "stock", "evidence": "Binance 2026-10-26 launch: underlying STMicroelectronics N.V. Common Stock, NYSE: STM (articleCode 02d204fc963f4f8687599fc22a13d538)"}
+  ]
 }

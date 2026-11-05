@@ -128,6 +128,8 @@ this document are allowed: each is listed below with its date and reason, and th
 
 | Date | Change | Reason |
 |---|---|---|
+| 2026-11-05, before the first position | A bar of a held contract still missing 7 days after its day counts as never published: that contract is flat that day, as in the backtest, and the day can become final. | Binance omits some days for good (2026-10-28); without a cutoff such a day could never become final. |
+| 2026-11-05, before the first position | First 11 entries on the exclusion list: stocks AGPU, CYPH, PATH, RUM, MP, SECZ, USDEX, STM; ETF ZCSH; pre-IPO MOONSHOT, OURA. | Binance launch announcements name their underlyings. All were listed after the development window, and none can be eligible before mid-November. |
 
 ## Run
 
