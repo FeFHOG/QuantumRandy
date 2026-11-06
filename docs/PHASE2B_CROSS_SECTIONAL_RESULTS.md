@@ -16,8 +16,9 @@ output and which was committed and pushed (`f2ad500`, `76535f9`) before the hold
 
 **The holdout was then opened once, on 2026-11-05, and all three candidates pass the sign check** (mean daily net
 return above zero at 1x costs over 55 bars). The evidence is weak, and the mean rank IC over the holdout is negative for
-all three. Each passing candidate now moves to forward paper observation under its own pre-registration, which is not
-yet written.
+all three. The protocol sends each passing candidate to forward paper observation; the owner chose `taker_30d` only
+(`docs/PHASE2B_TAKER_30D_FORWARD_PREREGISTRATION.md`). `taker_14d` and the composite are parked without a test, not
+retired.
 
 Both candidates qualify only because criterion 5 uses convention B. Under convention A, Phase 2a's rule, neither would
 qualify (Deflated Sharpe 0.45 and 0.62).
@@ -161,9 +162,13 @@ names are in `holdout.json`. Whether the rule changed any result was not tested;
 defined look at the holdout.
 
 **Status.** The holdout is spent: the guard refuses any other pre-registration, and reading it again for these
-candidates would be a repeat access. Per the protocol, each passing candidate moves to forward paper observation under
-its own pre-registration, with the same betting test and constants from its development window. Those registrations are
-not written yet. Bars from 2026-11-01 are forward data and count only for observations registered before them.
+candidates would be a repeat access. Per the protocol, a passing candidate moves to forward paper observation under its
+own pre-registration, with the same betting test and constants from its development window. The owner chose to observe
+`taker_30d` only, at the single-test threshold of 20, on development statistics rather than holdout results: its
+registration is `docs/PHASE2B_TAKER_30D_FORWARD_PREREGISTRATION.md`, with the first P&L day 2026-11-07. `taker_14d` and
+the composite are parked, not retired: they passed the sign check and have no test, and observing them later needs their
+own pre-registration and start date. Bars from 2026-11-01 are forward data and count only for observations registered
+before them.
 
 ## Reproduce
 
