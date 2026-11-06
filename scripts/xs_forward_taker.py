@@ -1,8 +1,10 @@
-"""Forward paper observation of taker_7d (docs/PHASE2A_TAKER_FORWARD_PREREGISTRATION.md).
+"""Forward paper observation of the registered taker-flow books (docs/PHASE2A_TAKER_FORWARD_PREREGISTRATION.md for
+taker_7d, docs/PHASE2B_TAKER_30D_FORWARD_PREREGISTRATION.md for taker_30d).
 
-Rebuilds the daily record from the first P&L day on every run, applies the betting test to final days, and writes
-reports/forward_taker_7d/: record.csv (one row per observed day), next_book.csv (positions for the day after the latest
-close), summary.json and STATUS.md. Run ../RandysLab-STRICT4H/scripts/fetch_daily.py first.
+For every preregistrations/*_forward.json (or the --registration given), rebuilds the daily record from the first P&L
+day on every run, applies the betting test to final days, and writes reports/forward_<factor>/: record.csv (one row per
+observed day), next_book.csv (positions for the day after the latest close), summary.json and STATUS.md. Run
+../RandysLab-STRICT4H/scripts/fetch_daily.py first.
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ from randyslab import trial_ledger
 
 from quantumrandy.xsection.forward import (
     Registration,
+    discover_registrations,
     excluded_contracts,
     forward_record,
     funding_final_through,
@@ -38,14 +41,24 @@ BASE_LAST_MONTH = "2026-10"
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--registration", default=str(ROOT / "preregistrations" / "phase2a_taker_7d_forward.json"))
+    ap.add_argument("--registration", action="append", help="a forward registration (repeatable); default: all of them")
     ap.add_argument("--exclusions", default=str(ROOT / "preregistrations" / "forward_exclusions.json"))
     ap.add_argument("--base", default=str(DATA / "universe_1d_20261105"))
     ap.add_argument("--daily", default=str(DATA / "forward_1d"))
-    ap.add_argument("--out", default=str(ROOT / "reports" / "forward_taker_7d"))
+    ap.add_argument("--out", help="report directory for a single registration (default: reports/forward_<factor>)")
     args = ap.parse_args()
 
-    reg = Registration.load(args.registration)
+    paths = [Path(path) for path in args.registration or []] or discover_registrations(ROOT / "preregistrations")
+    if not paths:
+        ap.error("no forward registrations found")
+    if args.out and len(paths) > 1:
+        ap.error("--out needs exactly one --registration")
+    for path in paths:
+        observe(path, args)
+
+
+def observe(path: Path, args: argparse.Namespace) -> None:
+    reg = Registration.load(path)
     spec, rules = reg.betting, reg.spec["universe"]
     daily_manifest = json.loads((Path(args.daily) / "manifest.json").read_text(encoding="utf-8"))
     data = load_forward_panel(args.base, args.daily, reg.start)
@@ -64,15 +77,17 @@ def main() -> None:
         excluded=frozenset(base_asset(symbol) for symbol in excluded),
     )
     final_through = funding_final_through(BASE_LAST_MONTH, daily_manifest.get("funding_months", []))
-    record, target, scores = forward_record(data.panel, mask, reg.start, reg.costs, final_through)
+    record, target, scores = forward_record(
+        data.panel, mask, reg.start, reg.costs, final_through, factor=reg.factor
+    )
 
     final = eprocesses(record.loc[record["final"], "r_net"], spec)
     preview = eprocesses(record["r_net"], spec)
     verdict = decision(final, spec)
     latest_close = data.panel.index[-1]
-    book = _next_book(target, scores, latest_close)
+    book = _next_book(target, scores, latest_close, reg.factor)
 
-    out = Path(args.out)
+    out = Path(args.out) if args.out else ROOT / "reports" / f"forward_{reg.factor}"
     out.mkdir(parents=True, exist_ok=True)
     record.join(preview[["stake", "e_edge", "e_futility"]].add_prefix("preview_")).join(
         final[["stake", "e_edge", "e_futility", "bound_ok"]]
@@ -92,7 +107,7 @@ def main() -> None:
         "final_stats": _stats(record.loc[record["final"]]),
         "all_days_stats": _stats(record),
         "flags": {
-            "drawdown_beyond_backtest": _stats(record).get("max_dd", 0.0) > 0.344,
+            "drawdown_beyond_backtest": _stats(record).get("max_dd", 0.0) > reg.drawdown_flag,
             "bound_violation": not verdict["bound_ok"],
             "days_with_missing_bars": int((record["missing_bars"] > 0).sum()),
         },
@@ -110,11 +125,11 @@ def main() -> None:
     print(_status(summary, book, reg))
 
 
-def _next_book(target: pd.DataFrame, scores: pd.DataFrame, close: pd.Timestamp) -> pd.DataFrame:
+def _next_book(target: pd.DataFrame, scores: pd.DataFrame, close: pd.Timestamp, factor: str) -> pd.DataFrame:
     weights = target.loc[close]
     held = weights[weights != 0.0]
     return pd.DataFrame(
-        {"weight": held, "taker_7d_score": scores.loc[close, held.index]}
+        {"weight": held, f"{factor}_score": scores.loc[close, held.index]}
     ).sort_values("weight", ascending=False).rename_axis("symbol")
 
 
@@ -136,14 +151,15 @@ def _stats(record: pd.DataFrame) -> dict:
 def _status(summary: dict, book: pd.DataFrame, reg: Registration) -> str:
     d, s = summary["decision"], summary["all_days_stats"]
     lines = [
-        f"# taker_7d forward observation ({summary['latest_close']} close)",
+        f"# {reg.factor} forward observation ({summary['latest_close']} close)",
         "",
         f"Registration `{reg.spec['id']}` sha256 `{reg.sha256[:12]}`; "
         f"first P&L day {summary['registration']['first_pnl_day']}.",
         "",
         f"- Verdict: **{d['verdict']}** (final days {summary['days_final']} of {summary['days_observed']} observed; "
         f"funding final through {summary['funding_final_through'][:10]})",
-        f"- e_edge {d['e_edge']:.3g} / e_futility {d['e_futility']:.3g} on final days (threshold 20); "
+        f"- e_edge {d['e_edge']:.3g} / e_futility {d['e_futility']:.3g} on final days "
+        f"(threshold {reg.betting.threshold:g}); "
         f"preview with all days {summary['preview']['e_edge']:.3g} / {summary['preview']['e_futility']:.3g}",
     ]
     if s.get("days", 0) >= 2:
@@ -176,7 +192,7 @@ def _record_trial(reg: Registration, summary: dict) -> None:
         return
     trial_ledger.record(
         source="forward_observation",
-        candidate={"factor": "taker_7d", "registration": reg.spec["id"]},
+        candidate={"factor": reg.factor, "registration": reg.spec["id"]},
         window={"start": summary["registration"]["first_pnl_day"], "end": summary["latest_close"]},
         metrics={"days_final": summary["days_final"], "e_edge": summary["decision"]["e_edge"],
                  "e_futility": summary["decision"]["e_futility"]},

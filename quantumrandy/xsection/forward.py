@@ -1,4 +1,5 @@
-"""Forward paper observation (docs/PHASE2A_TAKER_FORWARD_PREREGISTRATION.md): point-in-time panel and daily record.
+"""Forward paper observation (docs/PHASE2A_TAKER_FORWARD_PREREGISTRATION.md and the registrations that follow it):
+point-in-time panel and daily record.
 
 The panel joins the monthly universe download (through 2026-10) with the daily archive kept by RandysLab
 ``scripts/fetch_daily.py``. Holdout bars are read only as lookback inputs: once new listings are classified, every price
@@ -10,6 +11,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -21,6 +24,7 @@ from randyslab.holdout import HOLDOUT_END
 
 from .evaluate import held_weights, quantile_weights
 from .factors import FACTORS
+from .family_2b import TRIALS
 from .panel import Panel, _read, funding_on_calendar
 from .sequential import BettingSpec
 from .universe import NON_CRYPTO, base_asset
@@ -29,6 +33,12 @@ DAY = pd.Timedelta(days=1)
 FIELDS = ("close", "quote_volume", "taker_buy_quote_volume")
 LOOKBACK_DAYS = 120
 GAP_GRACE_DAYS = 7  # a bar still missing this long after its day is treated as never published
+
+# The factors a forward registration may name: each needs only FIELDS, and is the definition its protocol fixed.
+FORWARD_FACTORS: dict[str, Callable[[Panel], pd.DataFrame]] = {
+    "taker_7d": FACTORS["taker_7d"].compute,
+    "taker_30d": TRIALS["taker_30d"].compute,
+}
 
 
 @dataclass(frozen=True)
@@ -40,6 +50,23 @@ class Registration:
     def load(cls, path: str | Path) -> Registration:
         raw = Path(path).read_bytes().replace(b"\r\n", b"\n")
         return cls(spec=json.loads(raw.decode("utf-8")), sha256=hashlib.sha256(raw).hexdigest())
+
+    @property
+    def factor(self) -> str:
+        """The registered factor: one the forward panel can compute, and the registration's only candidate."""
+        name = self.spec["factor"]["name"]
+        if name not in FORWARD_FACTORS or self.spec["candidates"] != [name]:
+            raise ValueError(f"{self.spec['id']} names {name!r}; forward factors are {sorted(FORWARD_FACTORS)}")
+        return name
+
+    @property
+    def drawdown_flag(self) -> float:
+        """The paper drawdown that triggers an owner review, as the registered monitoring flag states it."""
+        for flag in self.spec["decision_rules"]["monitoring_flags"]:
+            found = re.search(r"drawdown deeper than ([0-9.]+)", flag)
+            if found:
+                return float(found.group(1))
+        raise ValueError(f"{self.spec['id']} has no drawdown monitoring flag")
 
     @property
     def start(self) -> pd.Timestamp:
@@ -155,13 +182,18 @@ def forward_record(
     start: pd.Timestamp,
     costs: CostRates,
     funding_final_through: pd.Timestamp,
+    *,
+    factor: str,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Daily record from ``start`` (net returns at 1x and 2x costs, components, finality), target weights and scores.
+    """Daily record from ``start`` (net returns at 1x and 2x costs, components, finality), target weights and scores
+    of the quintile long-short book of ``factor`` (one of ``FORWARD_FACTORS``).
 
     A day is final when its funding is published (its bar ends on or before ``funding_final_through``) and no contract
     meant to be held lacks a bar that may still be published.
     """
-    scores = FACTORS["taker_7d"].compute(panel)
+    if factor not in FORWARD_FACTORS:
+        raise ValueError(f"{factor!r} is not a forward factor; forward factors are {sorted(FORWARD_FACTORS)}")
+    scores = FORWARD_FACTORS[factor](panel)
     target = quantile_weights(scores, mask)
     weights = held_weights(target, panel)
     weights.loc[weights.index < start] = 0.0
@@ -177,6 +209,11 @@ def forward_record(
     record["missing_bars"] = intended.loc[start:].sum(axis=1).astype(int)
     record["final"] = (record.index + DAY <= funding_final_through) & ~pending.loc[start:].any(axis=1)
     return record, target, scores
+
+
+def discover_registrations(directory: str | Path) -> list[Path]:
+    """Every forward registration (``*_forward.json``) in ``directory``, in name order."""
+    return sorted(Path(directory).glob("*_forward.json"))
 
 
 def funding_final_through(base_last_month: str, published_months: list[str]) -> pd.Timestamp:
