@@ -49,21 +49,22 @@ registered remote host, so the registration's own connection path was not exerci
 
 ## Outbound Reachability From The Server
 
-Each probe is one request or one WebSocket handshake; nothing was recorded or downloaded.
+Each probe is one request or one short WebSocket connection; nothing was recorded or downloaded.
 
 | Endpoint | Needed for | Result |
 |---|---|---|
 | `fapi.binance.com` REST | nothing (geo-blocked from the research machine) | HTTP 451, blocked here too |
 | `data.binance.vision` and its S3 listing | `fetch_daily.py` | HTTP 200, about 0.1 s |
 | Binance CMS announcement API | `preregistrations/forward_exclusions.json` | HTTP 200 |
-| `fstream.binance.com` liquidations | a future recorder (none yet) | handshake 101, same as the research machine |
-| Deribit public API | a future recorder | HTTP 200 |
-| Hyperliquid info API | a future recorder | HTTP 200 |
+| `fstream.binance.com` liquidations | a data recorder | `/ws`: handshake only, no data; `/market/ws`: delivers |
+| Deribit public API | a data recorder | HTTP 200 |
+| Hyperliquid info API | a data recorder | HTTP 200 |
 | GitHub over HTTPS | `git clone`, `git pull` | HTTP 200; `git ls-remote` reads this repository |
 | PyPI | `pip install` | HTTP 200 on the index; HTTP 200 on a HEAD of a real numpy wheel (cp312, manylinux) |
 
-The first WebSocket probe printed nothing because curl negotiated HTTP/2, which has no Upgrade; with HTTP/1.1 the
-handshake succeeds. That was a flaw in the probe, not a block.
+A completed handshake proves nothing for Binance's futures streams: the legacy `/ws` and `/stream` paths answer 101 and
+then never send a byte, even for `aggTrade`, from this server and from the research machine alike. Only the `/market`
+routes deliver. The streams were therefore checked by counting messages, not by the handshake.
 
 ## Setup
 
