@@ -21,6 +21,8 @@ materials are archived under `docs/archive/legacy_runtime_beta/`.
 - `PHASE2B_TAKER_30D_FORWARD_PREREGISTRATION.md`: forward paper observation of `taker_30d` from 2026-11-07 (the owner's
   choice among the three holdout candidates) under the same betting test as `taker_7d`; machine-readable copy in
   `../preregistrations/`. `scripts/xs_forward_taker.py` runs every forward registration.
+- `SERVER_CONNECTION_RECORD_2026-11-06.md`: connection test of the owner's server, which is to run the daily forward
+  commands: what works, what is missing. Host details are left out because this repository is public.
 - `RESEARCH_V1_3_PAPER_OBSERVATION_REPORT.md`: final v1.3 paper-observation verdict
   (`fail_return_to_research`, edge not demonstrated).
 
